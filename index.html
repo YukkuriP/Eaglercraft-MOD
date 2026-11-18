@@ -29,8 +29,8 @@
 <button id="build" disabled>変換パッケージ＋解析済みHTMLをZIP出力</button>
 </section>
 <section class="card"><h2>このツールが行うこと</h2>
-<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>Eaglercraft HTMLのバージョン候補、Zeus関連文字列、MODローダー候補を検出</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>解析結果を埋め込んだコピーHTMLをZIPに格納</li></ul>
-<p class="warn">重要：JAR内のJavaコードを完全なLua/WASMへ自動変換したり、Zeus未搭載のHTMLへZeus本体を新規実装して全MOD機能を動かすことは、この版ではできません。出力HTMLへの解析情報の埋め込みは、MOD機能の実装・動作を意味しません。武器・砲撃などの実戦用機能は変換対象にしません。</p>
+<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Eaglercraft HTMLのバージョン候補、Zeus関連文字列、MODローダー候補を検出</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>解析結果を埋め込んだコピーHTMLをZIPに格納</li></ul>
+<p class="warn">重要：JAR内のJavaコードを完全なLua/WASMへ自動変換したり、Zeus未搭載のHTMLへZeus本体を新規実装して全MOD機能を動かすことは、この版ではできません。Javaクラス参照は移植計画のために分類しますが、実際のゲームロジックは個別の実装が必要です。出力HTMLへの解析情報の埋め込みは、MOD機能の実装・動作を意味しません。武器・砲撃などの実戦用機能は変換対象にしません。</p>
 </section>
 <p class="muted">ファイルはブラウザ内で処理し、サーバーへ送信しません。JSZip読み込み時のみインターネット接続が必要です。</p>
 </main>
@@ -109,6 +109,8 @@ $("build").onclick=async function(){
  addPackageFile("conversion-report.json",JSON.stringify(converted.report,null,2),true);
  addPackageFile("definition-report.json",JSON.stringify(definitions.report,null,2),true);
  addPackageFile("generic-analysis.json",JSON.stringify(jarReport.generic_analysis,null,2),true);
+ addPackageFile("conversion-assessment.json",JSON.stringify(jarReport.generic_analysis.migrationAssessment,null,2),true);
+ addPackageFile("source-mod.json",JSON.stringify({source:jarReport.jar.mod,jar:jarReport.jar.filename,dependencies:jarReport.jar.mod.dependencies,minecraftVersions:jarReport.jar.mod.minecraft_versions},null,2),true);
  addPackageFile("adapter-report.json",JSON.stringify(pipelineResult.report,null,2),true);
  addPackageFile("resource-index.json",JSON.stringify(resourceIndex,null,2),true);
  var successfulMappings=[],availableTextures=[];
