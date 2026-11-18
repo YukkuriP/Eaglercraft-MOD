@@ -15,7 +15,7 @@
 
   function safePath(path) {
     return typeof path === "string" && path.length > 0 &&
-      !path.startsWith("/") && !path.includes("\\\\") &&
+      !path.startsWith("/") && !path.includes("\\") &&
       !path.split("/").some(part => part === "." || part === "..");
   }
 
@@ -105,7 +105,7 @@
       if (/\.cfg$|\.toml$|\.properties$|\/config\//i.test(path)) report.resources.configs++;
       if (/\.class$/i.test(path)) {
         report.classes.count++;
-        if (entry.bytes) {
+        if (entry.bytes || entry.classInfo) {
           const c = entry.classInfo || parseClass(entry.bytes);
           if (!c.valid) report.classes.invalid++;
           else {
