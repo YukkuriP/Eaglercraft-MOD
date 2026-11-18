@@ -77,7 +77,7 @@ $("build").onclick=async function(){
  out.file("migration-package/report.json",JSON.stringify(jarReport,null,2));
  out.file("migration-package/MIGRATION_NOTES.md","# Migration notes\n\nThis package is an analysis and resource extraction result. Java bytecode, Forge/Fabric/NeoForge APIs and Mixin behavior are not translated. Implement supported features against the exact Zeus API and test in the target client. Weapon and artillery behavior is excluded.\n");
  var copied=0;
- if(!restrictedMod){for(var n in jarZip.files){var obj=jarZip.files[n];if(!obj.dir&&(n.startsWith("assets/")||n.startsWith("data/"))&&!n.split("/").includes("..")&&!restricted.test(n)&&!(/^data\\/[^/]+\\/recipes?\\//i.test(n))){out.file("migration-package/"+n,await obj.async("uint8array"));copied++}}}
+ if(!restrictedMod){for(var n in jarZip.files){var obj=jarZip.files[n];if(!obj.dir&&(n.startsWith("assets/")||n.startsWith("data/"))&&!n.split("/").includes("..")&&!restricted.test(n)&&!(/^data\/[^/]+\/recipes?\//i.test(n))){out.file("migration-package/"+n,await obj.async("uint8array"));copied++}}}
  out.file("migration-package/conversion-policy.json",JSON.stringify({restrictedMod:restrictedMod,policy:"Weapon-related content is excluded; only supported non-weapon recipe data is converted."},null,2));
  var marker='<script type="application/json" id="jar2zeus-migration-manifest">'+JSON.stringify({tool:"Jar2Zeus",report:jarReport,conversion:converted.report,package:id})+'</scr'+'ipt>';
  var patched=sourceHtml.replace(/<\/body\s*>/i,marker+"\n</body>");
