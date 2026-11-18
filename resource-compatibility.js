@@ -5,6 +5,7 @@
  "use strict";
  const RESTRICTED_PATH=/(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i;
  const MAX_HASH_BYTES=64*1024*1024;
+ function safePath(path){return typeof path==="string"&&!path.startsWith("/")&&!path.includes("\\")&&!path.split("/").some(x=>!x||x==="."||x==="..")}
  function namespaceOf(path){
   const m=String(path||"").match(/^(?:assets|data)\/([^/]+)\//);
   return m?m[1]:null;
@@ -37,7 +38,7 @@
   const base={
    schema:"jar2zeus.resource-compatibility.v1",
    status:"unavailable",
-   counts:{sourceResources:0,targetResources:0,exactMatches:0,conflicts:0,newPaths:0,excludedRestricted:0,unhashedLargeFiles:0,ambiguousTargetPaths:0},
+   counts:{sourceResources:0,targetResources:0,exactMatches:0,conflicts:0,newPaths:0,excludedRestricted:0,unhashedLargeFiles:0,ambiguousTargetPaths:0,unsafeSourcePaths:0},
    namespaces:{source:[],target:[],shared:[]},
    exactMatches:[],conflicts:[],newPaths:[],warnings:[]
   };
@@ -54,6 +55,7 @@
   for(const path of names){
    const entry=jarZip.files[path];
    if(!entry||entry.dir||!(/^(assets|data)\//.test(path)))continue;
+   if(!safePath(path)){base.counts.unsafeSourcePaths++;continue}
    if(RESTRICTED_PATH.test(path)){base.counts.excludedRestricted++;continue}
    if(seenSource.has(path))continue;
    seenSource.add(path);
