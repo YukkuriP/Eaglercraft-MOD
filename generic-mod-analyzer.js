@@ -67,25 +67,25 @@
   function parseLoaderToml(raw, loader) {
     const text = String(raw || "");
     const mods = [];
-    const modSections = text.split(/\\[\\[mods\\]\\]/i).slice(1);
+    const modSections = text.split(/\[\[mods\]\]/i).slice(1);
     for (const section of modSections) {
-      const id = (section.match(/\\bmodId\\s*=\\s*"([^"]+)"/i) || [])[1] || null;
-      const version = (section.match(/\\bversion\\s*=\\s*"([^"]+)"/i) || [])[1] || null;
-      const displayName = (section.match(/\\bdisplayName\\s*=\\s*"([^"]+)"/i) || [])[1] || null;
+      const id = (section.match(/\bmodId\s*=\s*"([^"]+)"/i) || [])[1] || null;
+      const version = (section.match(/\bversion\s*=\s*"([^"]+)"/i) || [])[1] || null;
+      const displayName = (section.match(/\bdisplayName\s*=\s*"([^"]+)"/i) || [])[1] || null;
       if (id) mods.push({ id, version, displayName });
     }
     const dependencies = [];
-    const depSections = text.split(/\\[\\[dependencies\\.[^\\]]+\\]\\]/i).slice(1);
+    const depSections = text.split(/\[\[dependencies\.[^\]]+\]\]/i).slice(1);
     for (const section of depSections) {
-      const modId = (section.match(/\\bmodId\\s*=\\s*"([^"]+)"/i) || [])[1] || null;
-      const versionRange = (section.match(/\\bversionRange\\s*=\\s*"([^"]+)"/i) || [])[1] || null;
-      const mandatory = (section.match(/\\bmandatory\\s*=\\s*(true|false)/i) || [])[1];
+      const modId = (section.match(/\bmodId\s*=\s*"([^"]+)"/i) || [])[1] || null;
+      const versionRange = (section.match(/\bversionRange\s*=\s*"([^"]+)"/i) || [])[1] || null;
+      const mandatory = (section.match(/\bmandatory\s*=\s*(true|false)/i) || [])[1];
       if (modId) dependencies.push({ modId, versionRange, mandatory: mandatory == null ? null : mandatory.toLowerCase() === "true" });
     }
     return {
       loader,
-      modLoader: (text.match(/\\bmodLoader\\s*=\\s*"([^"]+)"/i) || [])[1] || null,
-      loaderVersion: (text.match(/\\bloaderVersion\\s*=\\s*"([^"]+)"/i) || [])[1] || null,
+      modLoader: (text.match(/\bmodLoader\s*=\s*"([^"]+)"/i) || [])[1] || null,
+      loaderVersion: (text.match(/\bloaderVersion\s*=\s*"([^"]+)"/i) || [])[1] || null,
       mods,
       dependencies
     };
