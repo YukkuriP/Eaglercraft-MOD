@@ -13,8 +13,10 @@
   const available=new Set(input.availableTextures||[]);
   for(const m of mappings){
    if(!m||typeof m.source!=="string"||typeof m.target!=="string")errors.push("invalid texture mapping");
-   else if(!available.has(m.source))errors.push("missing source texture: "+m.source);
-   else if(m.target.startsWith("/")||m.target.includes("\\")||m.target.split("/").some(p=>p===".."||p==="."))errors.push("unsafe texture target: "+m.target);
+   else {
+    if(!available.has(m.source))errors.push("missing source texture: "+m.source);
+    if(m.target.startsWith("/")||m.target.includes("\\\\")||m.target.split("/").some(p=>p===".."||p==="."))errors.push("unsafe texture target: "+m.target);
+   }
   }
   if(input.analysis&&input.analysis.classes&&input.analysis.classes.count>0)warnings.push("Java bytecode was analyzed, not ported into Zeus Lua");
   if(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length)warnings.push("MOD contains unsupported runtime features: "+input.analysis.unsupportedIndicators.join(", "));
