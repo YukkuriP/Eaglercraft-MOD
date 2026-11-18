@@ -7,12 +7,15 @@
 :root{color-scheme:dark}body{margin:0;background:#0b1020;color:#eef3ff;font:15px system-ui;padding:22px}main{max-width:920px;margin:auto}.card{background:#151f35;border:1px solid #30415f;border-radius:14px;padding:19px;margin:14px 0}button{background:#829cff;color:#081126;border:0;border-radius:9px;padding:11px 16px;font-weight:bold;cursor:pointer}button:disabled{opacity:.4}input{display:block;margin:12px 0;max-width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#091120;padding:14px;border-radius:9px;max-height:420px;overflow:auto}.muted{color:#a9b7d0}.warn{color:#ffd78a}.good{color:#9fe4b5}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.step{border:1px solid #30415f;border-radius:10px;padding:13px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xzwasm@0.1.2/dist/package/xzwasm.js"></script>
 <script src="converter.js"></script>
 <script src="resource-converter.js"></script>
 <script src="definition-converter.js"></script>
 <script src="generic-mod-analyzer.js"></script>
 <script src="migration-pipeline.js"></script>
 <script src="package-validator.js"></script>
+<script src="target-client-inspector.js"></script>
 </head>
 <body><main>
 <h1>Jar2Zeus</h1>
@@ -22,6 +25,7 @@
 <div class="grid">
 <div class="step"><b>MODのJAR</b><input id="jar" type="file" accept=".jar,.zip"></div>
 <div class="step"><b>移植先のEaglercraft HTML</b><input id="html" type="file" accept=".html,.htm"></div>
+<div class="step"><b>構造比較用のMOD入りHTML（任意）</b><input id="referenceHtml" type="file" accept=".html,.htm"><p class="muted">Create版・IE版などの参考HTMLを選ぶと、EPK内ファイル構成を比較します。</p></div>
 </div>
 <button id="analyze">両方を解析</button>
 </section>
@@ -30,27 +34,24 @@
 <button id="build" disabled>インポート用Zeus MOD ZIP＋診断レポートを出力</button>
 </section>
 <section class="card"><h2>このツールが行うこと</h2>
-<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Eaglercraft HTMLのバージョン候補、Zeus関連文字列、MODローダー候補を検出</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>Zeusが直接読み込める、metadata.jsonがZIP直下にある単体MOD ZIPを生成</li></ul>
+<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Eaglercraft HTMLのEPWヘッダー、ローダーJS/WASM、XZ圧縮領域を解析</li><li>EPK v2を二段階で展開し、ファイル一覧・カテゴリ・CRC32・名前空間を検証</li><li>WASMセクションとTeaVM／MOD識別子候補を抽出。Base64本文を単純文字列検索する誤判定を回避</li><li>参考HTMLを指定した場合、2つのEPK内ファイルの追加・削除・変更を比較</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>Zeusが直接読み込める、metadata.jsonがZIP直下にある単体MOD ZIPを生成</li></ul>
 <p class="warn">重要：JAR内のJavaコードを完全なLua/WASMへ自動変換したり、Zeus未搭載のHTMLへZeus本体を新規実装して全MOD機能を動かすことは、この版ではできません。Javaクラス参照は移植計画のために分類しますが、実際のゲームロジックは個別の実装が必要です。出力HTMLへの解析情報の埋め込みは、MOD機能の実装・動作を意味しません。武器・砲撃などの実戦用機能は変換対象にしません。</p>
 </section>
 <p class="muted">ファイルはブラウザ内で処理し、サーバーへ送信しません。JSZip読み込み時のみインターネット接続が必要です。</p>
 </main>
 <script>
-var jarZip=null,jarReport=null,targetInfo=null,sourceHtml="",jarFile=null,htmlFile=null;
+var jarZip=null,jarReport=null,targetInfo=null,referenceInfo=null,sourceHtml="",jarFile=null,htmlFile=null;
 function $(id){return document.getElementById(id)}
 function slug(s){return (s||"imported_mod").toLowerCase().replace(/[^a-z0-9_.-]/g,"_").replace(/^\.+/,"").slice(0,55).replace(/_+$/,"")||"imported_mod"}
 function unique(a){return Array.from(new Set(a))}
-function scanHtml(s){
- var low=s.toLowerCase(),versions=[];
- var pats=[/eaglercraftx?[^\n<]{0,30}?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/ig,/minecraft[^\n<]{0,30}?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/ig];
- pats.forEach(function(p){var m;while((m=p.exec(s))!==null)versions.push(m[1])});
- var hits=["zeus","modloader","eaglercraft","wasm","webassembly","fabric","forge"].filter(function(x){return low.indexOf(x)>=0});
- return {bytes:new Blob([s]).size,versions:unique(versions).slice(0,12),signals:hits,zeusDetected:low.indexOf("zeus")>=0,hasEaglercraft:low.indexOf("eaglercraft")>=0,scriptTags:(s.match(/<script\b/ig)||[]).length};
+async function scanHtml(s){
+ if(!window.Jar2ZeusTargetInspector)throw Error("対象HTML解析エンジンが読み込まれていません。");
+ return await window.Jar2ZeusTargetInspector.inspect(s);
 }
 $("analyze").onclick=async function(){
  try{
  if(!window.JSZip)throw Error("JSZipを読み込めません。インターネット接続を確認してください。");
- jarFile=$("jar").files[0];htmlFile=$("html").files[0];
+ jarFile=$("jar").files[0];htmlFile=$("html").files[0];var referenceFile=$("referenceHtml").files[0];
  if(!jarFile||!htmlFile)throw Error("JARとHTMLの両方を選択してください。");
  jarZip=await JSZip.loadAsync(jarFile);sourceHtml=await htmlFile.text();
  var names=Object.keys(jarZip.files),loader="不明",id=null,name=null,version="不明",mc=[],deps=[];
@@ -63,11 +64,20 @@ $("analyze").onclick=async function(){
  var genericEntries=[];
  for(var gi=0;gi<names.length;gi++){var gn=names[gi],go=jarZip.files[gn];if(go.dir)continue;var ge={path:gn,size:go._data&&go._data.uncompressedSize||0};if(/\.class$/i.test(gn)){ge.classInfo=window.Jar2ZeusGenericAnalyzer.parseClass(await go.async("uint8array"))}else if(gn==="fabric.mod.json"||gn==="quilt.mod.json"||/^META-INF\/(mods\.toml|neoforge\.mods\.toml|MANIFEST\.MF|jarjar\/metadata\.json)$/i.test(gn)||/mixin.*\.json$/i.test(gn)||/^META-INF\/services\//i.test(gn)){try{ge.content=await go.async("string")}catch(err){}}genericEntries.push(ge)}
  var genericAnalysis=window.Jar2ZeusGenericAnalyzer.analyze(genericEntries);
- targetInfo=scanHtml(sourceHtml);
+ targetInfo=await scanHtml(sourceHtml);
+ if(referenceFile){referenceInfo=await scanHtml(await referenceFile.text());targetInfo.referenceComparison=window.Jar2ZeusTargetInspector.compare(targetInfo,referenceInfo);targetInfo.referenceComparison.referenceFilename=referenceFile.name;referenceInfo=null;}
  var mod={id:id||slug(jarFile.name),name:name||jarFile.name.replace(/\.jar$/i,""),version:version,loader:loader,minecraft_versions:unique(mc),dependencies:deps};
- jarReport={jar:{filename:jarFile.name,bytes:jarFile.size,mod:mod,counts:{files:names.length,java_classes:classes,assets:assets,data:data}},generic_analysis:genericAnalysis,target_html:{filename:htmlFile.name,analysis:targetInfo},compatibility:{zeus_runtime:targetInfo.zeusDetected?"Zeus関連文字列を検出（実際のAPI互換性は未確認）":"Zeus関連文字列を検出できず",status:"要検証",notes:["HTMLの内部構造を文字列ベースで調査した結果です。完全な互換性判定ではありません。","Javaクラス・Mixin・Forge/Fabric APIの処理は自動移植されません。","ゲーム内で動作するようにするには、Zeus APIに合わせた機能別実装と実機テストが必要です。"]},conversion:{metadata:"解析済み",resources:"抽出対象",java_logic:"未変換",html_integration:"HTMLは互換性解析のみ。ゲーム本体への注入は行わない"}};
+ jarReport={jar:{filename:jarFile.name,bytes:jarFile.size,mod:mod,counts:{files:names.length,java_classes:classes,assets:assets,data:data}},generic_analysis:genericAnalysis,target_html:{filename:htmlFile.name,analysis:targetInfo},compatibility:{
+ container_format:targetInfo.format,
+ runtime:targetInfo.runtime,
+ epw_header_valid:targetInfo.epw?targetInfo.epw.valid:null,
+ deep_analysis:targetInfo.deepAnalysis?targetInfo.deepAnalysis.status:"unknown",
+ zeus_runtime:targetInfo.runtime&&targetInfo.runtime.zeusEvidence?"Zeus識別子を検出（API互換性は未検証）":"Zeus識別子を確認できず（不存在の証明ではない）",
+ status:targetInfo.deepAnalysis&&targetInfo.deepAnalysis.status==="complete"?"EPW/EPK構造検証済み。MOD機能の互換性は未検証":"HTMLコンテナは一部解析。MOD機能の互換性は未検証",
+ notes:["Base64 assetsURI、EPWヘッダー、XZ領域、EPK v2、CRC32、WASM情報を解析します。","解析対象HTMLを実行せず、埋め込みJavaScriptも実行しません。","EPW/EPK構造の一致はJava MODロジックの移植やゲーム内動作を意味しません。","Javaクラス、Mixin、Forge/Fabric API、機械処理などはZeus向けの個別実装と実機テストが必要です。"]
+},conversion:{metadata:"解析済み",resources:"抽出対象",java_logic:"未変換",html_integration:"HTMLは互換性解析のみ。ゲーム本体への注入は行わない"}};
  $("out").textContent=JSON.stringify(jarReport,null,2);
- $("warning").textContent=targetInfo.zeusDetected?"Zeus関連文字列は見つかりました。API互換性と実際のMOD動作は別途検証が必要です。":"Zeus関連文字列が見つかりません。Zeus未搭載HTMLの可能性があり、出力HTMLだけでMOD機能は動作しません。";
+ $("warning").textContent=targetInfo.deepAnalysis&&targetInfo.deepAnalysis.status==="complete"?"EPW/XZ/EPK構造の解析が完了しました。これはMOD機能の移植完了を意味しません。":(targetInfo.deepAnalysis&&targetInfo.deepAnalysis.note)||"HTML構造を一部解析しました。詳細は診断レポートを確認してください。";
  $("build").disabled=false;
  }catch(e){alert("解析失敗: "+e.message)}
 };
