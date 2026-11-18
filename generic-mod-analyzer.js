@@ -106,7 +106,7 @@
       if (/\.class$/i.test(path)) {
         report.classes.count++;
         if (entry.bytes) {
-          const c = parseClass(entry.bytes);
+          const c = entry.classInfo || parseClass(entry.bytes);
           if (!c.valid) report.classes.invalid++;
           else {
             report.javaClassVersions[c.major] = (report.javaClassVersions[c.major] || 0) + 1;
