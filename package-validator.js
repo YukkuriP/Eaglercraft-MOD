@@ -15,7 +15,7 @@
    if(!m||typeof m.source!=="string"||typeof m.target!=="string")errors.push("invalid texture mapping");
    else {
     if(!available.has(m.source))errors.push("missing source texture: "+m.source);
-    if(m.target.startsWith("/")||m.target.includes("\\\\")||m.target.split("/").some(p=>p===".."||p==="."))errors.push("unsafe texture target: "+m.target);
+    if(m.target.startsWith("/")||m.target.includes("\\")||m.target.split("/").some(p=>p===".."||p==="."))errors.push("unsafe texture target: "+m.target);
    }
   }
   if(input.analysis&&input.analysis.classes&&input.analysis.classes.count>0)warnings.push("Java bytecode was analyzed, not ported into Zeus Lua");
