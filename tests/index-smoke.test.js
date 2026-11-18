@@ -15,6 +15,7 @@ test("browser entry point has syntactically valid inline scripts and loads the i
     assert.doesNotThrow(() => new vm.Script(source, { filename: "index.html:inline-" + index }));
   });
   assert.match(html, /target-client-inspector\.js/);
+  assert.match(html, /resource-compatibility\.js/);
   assert.match(html, /id="referenceHtml"/);
   assert.match(html, /pako@2\.1\.0/);
   assert.match(html, /xzwasm@0\.1\.2/);
