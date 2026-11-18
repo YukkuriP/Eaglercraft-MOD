@@ -149,7 +149,7 @@
   const len=bytes[pos++];if(pos+len>bytes.length)throw new Error("EPK entry name is truncated");
   return {value:text(bytes,pos,pos+len),next:pos+len};
  }
- function parseEPK(bytes,options){
+ async function parseEPK(bytes,options){
   const b=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes||0);
   const report={valid:false,format:null,version:null,fileCount:0,parsedFiles:0,compression:null,expandedBytes:0,crcFailures:0,unsafePaths:0,duplicatePaths:0,counts:{},namespaces:[],preview:[],files:[],errors:[],warnings:[]};
   const maxFiles=(options&&options.maxEPKFiles)||MAX_EPK_FILES;
