@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jar2Zeus</title>
+<style>
+body{margin:0;background:#0b1020;color:#eef3ff;font:15px system-ui;padding:24px}main{max-width:850px;margin:auto}.card{background:#151f35;border:1px solid #30415f;border-radius:14px;padding:20px;margin:14px 0}button{background:#829cff;color:#081126;border:0;border-radius:9px;padding:11px 16px;font-weight:bold}input{margin:12px 0}pre{white-space:pre-wrap;background:#091120;padding:14px;border-radius:9px;overflow:auto}.muted{color:#a9b7d0}.warn{color:#ffd78a}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<main><h1>Jar2Zeus</h1><p class="muted">Minecraft JAR inspector · Zeus migration scaffold generator</p>
+<section class="card"><h2>① MODを選択</h2><input id="jar" type="file" accept=".jar"><br><button id="go">解析する</button></section>
+<section class="card"><h2>② 解析結果</h2><pre id="out">JARを選択してください。</pre><p class="warn">注意：Javaのゲーム処理をLua/WASMへ自動変換する機能はありません。メタデータ解析とリソース抽出を行い、移植用のひな型を作ります。</p><button id="save" disabled>Zeus用ZIPを生成</button></section>
+<p class="muted">処理はブラウザ内で行います。JARファイルはアップロードされません。インターネット接続が必要です（JSZipライブラリ読み込み）。</p></main>
+<script>
+let zip=null,report=null,mod={};
+const $=id=>document.getElementById(id);
+function slug(s){return (s||"imported_mod").toLowerCase().replace(/[^a-z0-9_.-]/g,"_").replace(/^\.+/,"").slice(0,55)||"imported_mod"}
+$("go").onclick=async()=>{try{const f=$("jar").files[0];if(!f)throw Error("JARを選択してください");zip=await JSZip.loadAsync(f);const names=Object.keys(zip.files);let loader="不明",id=null,name=null,version="不明",mc=[],deps=[];
+if(zip.file("fabric.mod.json")){const x=JSON.parse(await zip.file("fabric.mod.json").async("string"));loader="Fabric";id=x.id;name=x.name||id;version=String(x.version||"不明");deps=Object.keys(x.depends||{});const v=(x.depends||{}).minecraft;if(typeof v==="string")mc.push(v);else if(Array.isArray(v))mc.push(...v)}
+for(const [path,l] of [["META-INF/mods.toml","Forge"],["META-INF/neoforge.mods.toml","NeoForge"]])if(zip.file(path)){const t=await zip.file(path).async("string");loader=l;id=(t.match(/\bmodId\s*=\s*"([^"]+)"/)||[])[1]||id;version=(t.match(/\bversion\s*=\s*"([^"]+)"/)||[])[1]||version;deps=[...new Set([...t.matchAll(/modId\s*=\s*"([^"]+)"/g)].map(x=>x[1]).filter(x=>x!==id))]}
+const classes=names.filter(n=>n.endsWith(".class")).length,assets=names.filter(n=>n.startsWith("assets/")).length,data=names.filter(n=>n.startsWith("data/")).length;
+mod={loader,id:id||slug(f.name),name:name||f.name.replace(/\.jar$/i,""),version,minecraft_versions:[...new Set(mc)],dependencies:deps};
+report={source:f.name,detected_mod:mod,counts:{files:names.length,java_classes:classes,assets,data},conversion:{metadata:"解析済み",resources:"抽出可能",java_gameplay_logic:"未変換"},next_steps:["依存関係を確認","Java/Mixin処理を機能単位で解析","Zeus API向けに個別再実装","Eaglercraft 26.2/26.3で検証"]};
+$("out").textContent=JSON.stringify(report,null,2);$("save").disabled=false}catch(e){alert("解析失敗: "+e.message)}};
+$("save").onclick=async()=>{try{const out=new JSZip(),id="jar2zeus_"+slug(mod.id),meta={id:id.slice(0,64),name:"Imported: "+mod.name,version:"0.1.0-port",description:"Migration scaffold; Java gameplay code is not converted.",authors:["Jar2Zeus"],main:"main.lua",api:1,minecraft:["26.2","26.3"]};out.file("metadata.json",JSON.stringify(meta,null,2));out.file("main.lua",'-- Jar2Zeus migration scaffold\n-- Java gameplay logic has NOT been converted.\nlog("Jar2Zeus scaffold loaded.")\n');out.file("report.json",JSON.stringify(report,null,2));out.file("MIGRATION_NOTES.md","Java/Forge/Fabric/NeoForge code and Mixin logic require feature-by-feature reimplementation against the Zeus API.");let copied=0;for(const [n,obj] of Object.entries(zip.files)){if(!obj.dir&&(n.startsWith("assets/")||n.startsWith("data/"))&&!n.split("/").includes("..")){out.file(n,await obj.async("uint8array"));copied++}}
+const blob=await out.generateAsync({type:"blob",compression:"DEFLATE"});if(blob.size>64*1024*1024)throw Error("ZIPが64MBを超えています");const a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download=id+".zip";a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);alert(copied+"個のリソースを格納しました。Javaロジックは未変換です。")}catch(e){alert("ZIP生成失敗: "+e.message)}};
+</script></html>
