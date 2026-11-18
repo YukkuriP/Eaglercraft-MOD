@@ -30,7 +30,7 @@ test("resolves inherited custom block and item models with texture variables",()
  const entries=[
   {path:"assets/demo/blockstates/blue_panel.json",content:JSON.stringify({variants:{"facing=north":{model:"demo:block/base_panel"},"facing=south":{model:"demo:block/base_panel"}}})},
   {path:"assets/demo/models/block/base_panel.json",content:JSON.stringify({parent:"demo:block/panel_parent",textures:{side:"#layer",up:"demo:block/panel_top",down:"demo:block/panel_bottom"}})},
-  {path:"assets/demo/models/block/panel_parent.json",content:JSON.stringify({textures:{layer:"demo:block/panel_side"}})},
+  {path:"assets/demo/models/block/panel_parent.json",content:JSON.stringify({parent:"minecraft:block/cube",textures:{layer:"demo:block/panel_side"}})},
   {path:"assets/demo/textures/block/panel_side.png",content:"png"},
   {path:"assets/demo/textures/block/panel_top.png",content:"png"},
   {path:"assets/demo/textures/block/panel_bottom.png",content:"png"},
