@@ -69,3 +69,20 @@ test("rejects Windows-style traversal paths",()=>{
  assert.equal(A.safePath("assets/demo/..\\\\outside.txt"),false);
  assert.equal(A.safePath("assets/demo/stone.png"),true);
 });
+
+
+test("builds feature-family inventory for migration planning",()=>{
+ const r=A.analyze([
+  {path:"demo/Mod.class",bytes:new Uint8Array(fakeClass("demo/Mod",[
+   "net/minecraft/world/level/block/Blocks",
+   "net/minecraft/client/renderer/RenderType",
+   "net/minecraft/network/protocol/Packet",
+   "net/minecraft/world/level/levelgen/feature/Feature"
+  ]))}
+ ]);
+ assert.ok(r.featureFamilies.blocksItems.length);
+ assert.ok(r.featureFamilies.rendering.length);
+ assert.ok(r.featureFamilies.networking.length);
+ assert.ok(r.featureFamilies.worldGeneration.length);
+ assert.ok(r.migrationAssessment.detectedFamilies.includes("rendering"));
+});
