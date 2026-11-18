@@ -20,7 +20,8 @@ test("JAR resource comparison separates exact matches, conflicts and new paths",
   const jarZip = { files: {
     "assets/demo/textures/exact.png": sourceEntry(exactBytes),
     "assets/demo/models/block/changed.json": sourceEntry(conflictBytes),
-    "data/demo/recipes/new.json": sourceEntry(new Uint8Array([7]))
+    "data/demo/recipes/new.json": sourceEntry(new Uint8Array([7])),
+    "assets/demo/../unsafe.png": sourceEntry(new Uint8Array([8]))
   }};
   const targetAnalysis = {
     deepAnalysis: { status: "complete" },
@@ -35,6 +36,7 @@ test("JAR resource comparison separates exact matches, conflicts and new paths",
   assert.equal(report.counts.exactMatches, 1);
   assert.equal(report.counts.conflicts, 1);
   assert.equal(report.counts.newPaths, 1);
+  assert.equal(report.counts.unsafeSourcePaths, 1);
   assert.deepEqual(report.namespaces.shared, ["demo"]);
   assert.equal(report.exactMatches[0].path, "assets/demo/textures/exact.png");
   assert.equal(report.conflicts[0].path, "assets/demo/models/block/changed.json");
