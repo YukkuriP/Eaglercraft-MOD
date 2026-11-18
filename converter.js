@@ -3,7 +3,21 @@
   "use strict";
   const BLOCKED = /(?:cannon|artillery|projectile|munition|firearm|gunpowder_weapon|weapon|rifle|pistol|musket)/i;
   const ID = /^[a-z0-9_.-]+:[a-z0-9_./-]+$/;
-  function quote(s) { return JSON.stringify(String(s)); }
+  function quote(s) {
+    const text = String(s);
+    let out = '"';
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i), ch = text[i];
+      if (ch === "\\") out += "\\\\";
+      else if (ch === '"') out += '\\"';
+      else if (ch === "\n") out += "\\n";
+      else if (ch === "\r") out += "\\r";
+      else if (ch === "\t") out += "\\t";
+      else if (code < 32 || code === 127) out += "\\" + String(code).padStart(3, "0");
+      else out += ch;
+    }
+    return out + '"';
+  }
   function lua(v) {
     if (v === null) return "nil";
     if (typeof v === "boolean" || typeof v === "number") return String(v);
@@ -26,9 +40,16 @@
     return null;
   }
   function safeRecipeId(path) {
-    const m = path.match(/^data\/([a-z0-9_.-]+)\/recipes?\/(.+)\.json$/);
+    const m = path.match(/^data\/([a-z0-9_.-]+)\/recipes?\/([a-z0-9_./-]+)\.json$/);
     if (!m) return null;
+    const parts = m[2].split("/");
+    if (parts.some(p => !p || p === "." || p === "..")) return null;
     return m[1] + ":" + m[2];
+  }
+  function validId(value) {
+    if (typeof value !== "string" || !ID.test(value)) return false;
+    const parts = value.split(":")[1].split("/");
+    return parts.every(p => p && p !== "." && p !== "..");
   }
   function isBlocked(path, parsed) {
     const s = path + " " + JSON.stringify(parsed);
@@ -43,14 +64,14 @@
     const type = String(r.type || "");
     const result = r.result && (r.result.item || r.result.id) || r.result;
     const resultId = idOf(result, false);
-    if (!resultId || !ID.test(resultId)) return { status: "skipped", reason: "unsupported result format" };
+    if (!validId(resultId)) return { status: "skipped", reason: "unsupported result format" };
     const count = Number((r.result && r.result.count) || r.count || 1);
     const safeCount = Number.isFinite(count) && count > 0 ? Math.floor(count) : 1;
     const base = { result: resultId };
     if (safeCount !== 1) base.count = safeCount;
     let call, opts;
     if (type.endsWith(":crafting_shaped") || type === "minecraft:crafting_shaped" || type === "crafting_shaped") {
-      if (!Array.isArray(r.pattern) || !r.key || typeof r.key !== "object") return { status: "skipped", reason: "invalid shaped recipe" };
+      if (!Array.isArray(r.pattern) || r.pattern.length < 1 || r.pattern.length > 3 || r.pattern.some(row => typeof row !== "string" || row.length < 1 || row.length > 3) || !r.key || typeof r.key !== "object") return { status: "skipped", reason: "invalid shaped recipe" };
       const key = {};
       for (const [symbol, ingredient] of Object.entries(r.key)) {
         const item = idOf(ingredient, true);
@@ -60,7 +81,7 @@
       opts = Object.assign({ pattern: r.pattern, key }, base);
       call = "recipes.shaped";
     } else if (type.endsWith(":crafting_shapeless") || type === "minecraft:crafting_shapeless" || type === "crafting_shapeless") {
-      if (!Array.isArray(r.ingredients)) return { status: "skipped", reason: "invalid shapeless recipe" };
+      if (!Array.isArray(r.ingredients) || r.ingredients.length < 1 || r.ingredients.length > 9) return { status: "skipped", reason: "invalid shapeless recipe" };
       const ingredients = r.ingredients.map(x => idOf(x, true));
       if (ingredients.some(x => !x)) return { status: "skipped", reason: "unsupported shapeless ingredient" };
       opts = Object.assign({ ingredients }, base);
