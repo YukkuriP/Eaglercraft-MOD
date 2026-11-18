@@ -9,7 +9,7 @@
  function textureRef(ns,ref){
   if(typeof ref!=="string")return null;
   if(ref.startsWith("#"))return null;
-  let v=ref.replace(/^minecraft:/,"");
+  let v=ref; if(v.includes(":")){const parts=v.split(":");if(parts.length!==2||(parts[0]!==ns&&parts[0]!=="minecraft"))return null;v=parts[1];}
   if(!v.includes("/"))v="block/"+v;
   const p="assets/"+ns+"/textures/"+v+".png";
   return safe(p)?{source:p,target:"textures/"+ns+"_"+v.replace(/\//g,"_")+".png"}:null;
