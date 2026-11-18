@@ -5,8 +5,11 @@ Minecraft MODのJARと移植先Eaglercraft HTMLを解析し、対応する一部
 ## 使い方
 1. `index.html`、`converter.js`、`resource-converter.js`、`definition-converter.js` を同じフォルダに置く
 2. インターネット接続がある状態でJARとEaglercraft HTMLを選択
-3. 「両方を解析」→「ZIP出力」
-4. ZIP内の `migration-package/main.lua` と `metadata.json`、`textures/` をZeus MODとして確認・読み込み
+3. 「両方を解析」→「インポート用Zeus MOD ZIP＋診断レポートを出力」
+4. 出力された外側ZIPを展開し、`<mod-id>-zeus-mod.zip` を取り出す。このZIPは `metadata.json` と `main.lua` が直下にある単体Zeus MODパッケージ
+5. Eaglercraft 26.2 / 26.3のModsメニューから単体MOD ZIPをインポートし、有効化してページを再読み込みする
+
+**注意：** アップロードしたHTMLは互換性の手掛かりを調べるだけで、ゲーム本体にMOD機能を注入しません。Zeus非対応の1.8 / 1.12クライアントではこのMOD ZIPは動きません。
 
 ## 実際にZeus Luaへ変換する範囲
 - shaped / shapeless crafting
@@ -32,6 +35,6 @@ Zeus公式のパッケージ制限に合わせ、移植先パッケージは展�
 ## 制限
 任意のJavaバイトコード、Forge/Fabric API、Mixin、独自機械処理、複雑なモデル・状態・アニメーションを自動移植するものではありません。単純モデル以外は未対応としてレポートします。生成したMODはZeus対応Eaglercraft 26.2 / 26.3で実機確認が必要です。Zeusの公式パッケージ形式（metadata.json / main.lua / assets / data）に沿って出力します。Zeusのブロック・アイテム追加機能は自分のワールド向けで、サーバー側にMOD機能が追加されるわけではありません。
 
-HTMLに解析マニフェストを追加したコピーも出力しますが、ゲーム本体を改造するものではありません。Javaコードの完全自動変換は保証しません。武器・砲撃機能は変換対象外です。
+出力物は、Zeusが直接インポートできる単体MOD ZIPと診断レポートZIPです。アップロードしたHTMLは解析のみで、ゲーム本体を改造しません。Javaコードの完全自動変換は保証しません。安全上の理由から武器・砲撃機能は変換対象外です。
 
 JSZipをCDNから読み込むためインターネット接続が必要です。JARとHTMLの内容はブラウザ内で処理され、サーバーへ送信しません。
