@@ -3,7 +3,7 @@
 Minecraft MODのJARと移植先Eaglercraft HTMLを解析し、対応する一部機能を実際のZeus Lua MODとして出力するブラウザツールです。
 
 ## 使い方
-1. `index.html`、`converter.js`、`resource-converter.js`、`definition-converter.js` を同じフォルダに置く
+1. `index.html` と、参照されるJavaScriptファイル（`converter.js`、`resource-converter.js`、`definition-converter.js`、`generic-mod-analyzer.js`、`migration-pipeline.js`、`package-validator.js`、`target-client-inspector.js`、`resource-compatibility.js`）を同じフォルダに置く
 2. インターネット接続がある状態でJARとEaglercraft HTMLを選択
 3. 「両方を解析」→「インポート用Zeus MOD ZIP＋診断レポートを出力」
 4. 出力された外側ZIPを展開し、`<mod-id>-zeus-mod.zip` を取り出す。このZIPは `metadata.json` と `main.lua` が直下にある単体Zeus MODパッケージ
@@ -28,7 +28,7 @@ MOD入りEaglercraft HTMLを参考資料として指定すると、対象HTMLを
 - EPW内のXZ圧縮領域を展開し、WASM領域とEPK資産パッケージを識別
 - EPK v2の `Z`（deflate）、`G`（gzip）、`0`（非圧縮）を読み、レコード件数・CRC32・パス・重複を検査
 - テクスチャ、モデル（JSON/OBJ/MTL/IE）、ブロックステート、レシピ、音声、言語などの資産を分類
-- 任意の参考HTMLを追加し、EPK内のファイル追加・削除・変更を比較
+- JARの `assets/`・`data/` と対象EPKをCRC32で照合し、内容一致・同名競合・新規パスを分類\n- 任意の参考HTMLを追加し、EPK内のファイル追加・削除・変更を比較
 - WASMセクションやTeaVM関連文字列を調査。ただし文字列の存在は特定MODの動作実装を証明しない
 
 XZ展開にはブラウザ用 `xzwasm`、EPKの圧縮展開には `pako` をCDNから読み込みます。学校・職場などでCDNが制限される場合は、ライブラリをローカル配置する必要があります。
@@ -53,7 +53,8 @@ EPW/EPKの構造、CRC32、複数圧縮方式、比較機能のテストを含�
 - assets / data内のテクスチャ、モデル、blockstates、レシピ、タグ、言語、音声、シェーダー、設定を分類
 - 大型JAR向けにclassを逐次解析し、全classバイト列を同時保持しない
 - 同じMOD内に対象外機能が含まれていても、無関係な安全なリソースは個別に解析・抽出
-- 変換処理をアダプター方式に分離し、工程ごとの追加実装・失敗隔離が可能\n- `generic-analysis.json`、`conversion-assessment.json`、`source-mod.json`、`adapter-report.json` を出力
+- 変換処理をアダプター方式に分離し、工程ごとの追加実装・失敗隔離が可能
+- `generic-analysis.json`、`conversion-assessment.json`、`source-mod.json`、`adapter-report.json` を出力
 
 ## 出力パッケージの上限
 Zeus公式のパッケージ制限に合わせ、移植先パッケージは展開後4,096ファイル・64 MiB以内に制限します。超過する素材は黙って欠落させず、出力レポートに記録し、完全な移植成功とは判定しません。JARの解析自体にもブラウザ・端末のメモリ上限があります。
@@ -61,6 +62,6 @@ Zeus公式のパッケージ制限に合わせ、移植先パッケージは展�
 ## 制限
 任意のJavaバイトコード、Forge/Fabric API、Mixin、独自機械処理、複雑なモデル・状態・アニメーションを自動移植するものではありません。単純モデル以外は未対応としてレポートします。生成したMODはZeus対応Eaglercraft 26.2 / 26.3で実機確認が必要です。Zeusの公式パッケージ形式（metadata.json / main.lua / assets / data）に沿って出力します。Zeusのブロック・アイテム追加機能は自分のワールド向けで、サーバー側にMOD機能が追加されるわけではありません。
 
-出力物は、Zeusが直接インポートできる単体MOD ZIPと診断レポートZIPです。アップロードしたHTMLは解析のみで、ゲーム本体を改造しません。Javaコードの完全自動変換は保証しません。安全上の理由から武器・砲撃機能は変換対象外です。
+出力物は、Zeusが直接インポートできる単体MOD ZIPと診断レポートZIPです。アップロードしたHTMLは解析のみで、ゲーム本体を改造しません。Javaコードの完全自動変換は保証しません。安全上の理由で一部の機能は変換対象外です。
 
 JSZipをCDNから読み込むためインターネット接続が必要です。JARとHTMLの内容はブラウザ内で処理され、サーバーへ送信しません。
