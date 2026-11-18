@@ -3,7 +3,7 @@ const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const path=require("node:path");
 const vm=require("node:vm");
-const box={TextDecoder};
+const box={TextDecoder,TextEncoder};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,"..","generic-mod-analyzer.js"),"utf8"),box);
 const A=box.Jar2ZeusGenericAnalyzer;
 
