@@ -79,7 +79,8 @@ $("build").onclick=async function(){
  out.file("migration-package/report.json",JSON.stringify(jarReport,null,2));
  out.file("migration-package/MIGRATION_NOTES.md","# Migration notes\n\nThis package is an analysis and resource extraction result. Java bytecode, Forge/Fabric/NeoForge APIs and Mixin behavior are not translated. Implement supported features against the exact Zeus API and test in the target client. Weapon and artillery behavior is excluded.\n");
  var copied=0,resourceEntries=[],textureBytes={};
- if(!restrictedMod){for(var n in jarZip.files){var obj=jarZip.files[n];if(!obj.dir&&(n.startsWith("assets/")||n.startsWith("data/"))&&!n.split("/").includes("..")&&!restricted.test(n)&&!(/^data\/[^/]+\/recipes?\//i.test(n))){var bytes=await obj.async("uint8array");out.file("migration-package/"+n,bytes);copied++;if(n.endsWith(".json")&&(/\/tags\/(blocks|items|fluids|entity_types)\//.test(n)||/\/lang\//.test(n)||/\/models\//.test(n)||/\/blockstates\//.test(n)))resourceEntries.push({path:n,content:new TextDecoder().decode(bytes)})}}}
+ if(!restrictedMod){for(var n in jarZip.files){var obj=jarZip.files[n];if(!obj.dir&&(n.startsWith("assets/")||n.startsWith("data/"))&&!n.split("/").includes("..")&&!restricted.test(n)&&!(/^data\/[^/]+\/recipes?\//i.test(n))){var bytes=await obj.async("uint8array");out.file("migration-package/"+n,bytes);copied++;if(n.endsWith(".json")&&(/\/tags\/(blocks|items|fluids|entity_types)\//.test(n)||/\/lang\//.test(n)||/\/models\//.test(n)||/\/blockstates\//.test(n)))resourceEntries.push({path:n,content:new TextDecoder().decode(bytes)});
+ if(n.endsWith(".png")){resourceEntries.push({path:n,content:"binary"});textureBytes[n]=bytes;}}}}
  var resourceIndex=window.Jar2ZeusResources.index(resourceEntries);
  var definitions=window.Jar2ZeusDefinitions.convert(resourceEntries,jarReport.jar.mod.id);
  out.file("migration-package/resource-index.json",JSON.stringify(resourceIndex,null,2));
