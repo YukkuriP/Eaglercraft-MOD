@@ -53,6 +53,7 @@ $("analyze").onclick=async function(){
  jarZip=await JSZip.loadAsync(jarFile);sourceHtml=await htmlFile.text();
  var names=Object.keys(jarZip.files),loader="不明",id=null,name=null,version="不明",mc=[],deps=[];
  if(jarZip.file("fabric.mod.json")){var f=JSON.parse(await jarZip.file("fabric.mod.json").async("string"));loader="Fabric";id=f.id;name=f.name||id;version=String(f.version||"不明");deps=Object.keys(f.depends||{});var v=(f.depends||{}).minecraft;if(typeof v==="string")mc.push(v);else if(Array.isArray(v))mc=mc.concat(v)}
+ if(jarZip.file("quilt.mod.json")){try{var q=JSON.parse(await jarZip.file("quilt.mod.json").async("string"));var ql=q.quilt_loader||{};loader="Quilt";id=ql.id||id;name=(q.metadata&&q.metadata.name)||name||id;version=String(ql.version||version);deps=unique(deps.concat(Object.keys(ql.depends||{})));}catch(e){}}
  [["META-INF/mods.toml","Forge"],["META-INF/neoforge.mods.toml","NeoForge"]].forEach(function(x){if(jarZip.file(x[0]))loader=x[1]});
  var tomlPath=loader==="Forge"?"META-INF/mods.toml":loader==="NeoForge"?"META-INF/neoforge.mods.toml":null;
  if(tomlPath&&jarZip.file(tomlPath)){var t=await jarZip.file(tomlPath).async("string");id=(t.match(/\bmodId\s*=\s*"([^"]+)"/)||[])[1]||id;version=(t.match(/\bversion\s*=\s*"([^"]+)"/)||[])[1]||version;deps=unique(deps.concat(Array.from(t.matchAll(/modId\s*=\s*"([^"]+)"/g)).map(function(m){return m[1]}).filter(function(x){return x!==id})))}
