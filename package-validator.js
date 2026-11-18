@@ -19,7 +19,7 @@
   if(input.analysis&&input.analysis.classes&&input.analysis.classes.count>0)warnings.push("Java bytecode was analyzed, not ported into Zeus Lua");
   if(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length)warnings.push("MOD contains unsupported runtime features: "+input.analysis.unsupportedIndicators.join(", "));
   if(!input.runtimeTested)warnings.push("In-game runtime test has not been performed");
-  return {valid:errors.length===0,readyToImport:errors.length===0&&(!input.adapterReport||!(input.adapterReport.adapters||[]).some(a=>a.status==="failed")),runtimeTested:!!input.runtimeTested,errors,warnings};
+  return {valid:errors.length===0,readyToImport:!!input.runtimeTested&&errors.length===0&&(!input.adapterReport||!(input.adapterReport.adapters||[]).some(a=>a.status==="failed")),runtimeTested:!!input.runtimeTested,errors,warnings};
  }
  root.Jar2ZeusPackageValidator={validate};
 })(typeof globalThis!=="undefined"?globalThis:this);
