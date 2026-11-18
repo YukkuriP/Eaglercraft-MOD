@@ -8,7 +8,7 @@ const u32be = n => Buffer.from([n>>>24&255,n>>>16&255,n>>>8&255,n&255]);
 const u16be = n => Buffer.from([n>>>8&255,n&255]);
 const u8str = s => { const b=Buffer.from(s,"utf8"); return Buffer.concat([Buffer.from([b.length]),b]); };
 
-function makeEPK(path="assets/demo/textures/amber.png", data=Buffer.from([1,2,3,4])) {
+function makeEPK(path="assets/demo/textures/amber.png", data=Buffer.from([1,2,3,4]), compression="Z") {
   const headData=Buffer.from("epk/resources");
   const head=Buffer.concat([
     Buffer.from("HEAD"),u8str("file-type"),u32be(headData.length),headData,Buffer.from(">","ascii")
@@ -19,10 +19,10 @@ function makeEPK(path="assets/demo/textures/amber.png", data=Buffer.from([1,2,3,
   ]);
   const records=Buffer.concat([head,file,Buffer.from("END$")]);
   const comment=Buffer.from("\nTest EPK fixture\n");
-  const compressed=zlib.deflateSync(records);
+  const compressed=compression==="G"?zlib.gzipSync(records):(compression==="0"?records:zlib.deflateSync(records));
   return new Uint8Array(Buffer.concat([
     Buffer.from("EAGPKG$$"),u8str("ver2.0"),u8str("assets.epk"),u16be(comment.length),
-    comment,Buffer.alloc(8),u32be(2),Buffer.from("Z"),compressed,Buffer.from(":::YEE:>")
+    comment,Buffer.alloc(8),u32be(2),Buffer.from(compression),compressed,Buffer.from(":::YEE:>")
   ]));
 }
 function makeEPWWithEPK(epk) {
@@ -55,6 +55,17 @@ test("EPK v2 parser validates file records and CRC", async () => {
   assert.equal(file.size,4);
   assert.equal(file.category,"textures");
   assert.equal(file.crcValid,true);
+});
+
+test("EPK v2 accepts the gzip and uncompressed formats used by reference clients", async () => {
+  const gzip=await api.parseEPK(makeEPK("assets/demo/sounds/example.ogg",Buffer.from([5,6,7]),"G"));
+  assert.equal(gzip.valid,true,gzip.errors.join("; "));
+  assert.equal(gzip.compression,"G");
+  assert.equal(gzip.counts.sounds,1);
+  const plain=await api.parseEPK(makeEPK("assets/demo/models/block/column.obj",Buffer.from("o column\n"),"0"));
+  assert.equal(plain.valid,true,plain.errors.join("; "));
+  assert.equal(plain.compression,"0");
+  assert.equal(plain.counts.models,1);
 });
 
 test("EPW parser reads declared size and XZ block descriptors", () => {
@@ -92,11 +103,12 @@ test("HTML scan does not mistake text hidden in base64 for a Zeus marker", async
   assert.equal(report.visible.hasEaglercraft,true);
 });
 
-test("EPK comparison reports changed and added resource paths", async () => {
+test("EPK comparison reports added, removed and changed paths", async () => {
   const first=await api.parseEPK(makeEPK("assets/demo/textures/a.png",Buffer.from([1])));
-  const second=await api.parseEPK(makeEPK("assets/demo/textures/b.png",Buffer.from([2])));
+  const second=await api.parseEPK(makeEPK("assets/demo/textures/a.png",Buffer.from([2])));
   const diff=api.compare({format:"A",epk:[first]},{format:"B",epk:[second]});
-  assert.equal(diff.addedToB,1);
-  assert.equal(diff.removedFromB,1);
-  assert.equal(diff.changed,0);
+  assert.equal(diff.sharedFiles,1);
+  assert.equal(diff.addedToB,0);
+  assert.equal(diff.removedFromB,0);
+  assert.equal(diff.changed,1);
 });
