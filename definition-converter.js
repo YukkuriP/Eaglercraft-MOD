@@ -31,7 +31,7 @@
   const copied=[],report={blocks:[],items:[],skipped:[]};
   for(const b of blockstates){
    if(b.ns!==modNamespace||BLOCKED.test(b.id))continue;
-   const model=models.get(b.ns+":"+b.model);
+   const model=models.get(b.model.includes(":")?b.model:b.ns+":"+b.model);
    if(!model||!model.textures){report.skipped.push({id:b.ns+":"+b.id,reason:"model missing or has no textures"});continue}
    const parent=String(model.parent||"");
    let tex=model.textures.all||model.textures.side||model.textures.top||model.textures.front;
