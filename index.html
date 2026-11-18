@@ -7,6 +7,7 @@
 :root{color-scheme:dark}body{margin:0;background:#0b1020;color:#eef3ff;font:15px system-ui;padding:22px}main{max-width:920px;margin:auto}.card{background:#151f35;border:1px solid #30415f;border-radius:14px;padding:19px;margin:14px 0}button{background:#829cff;color:#081126;border:0;border-radius:9px;padding:11px 16px;font-weight:bold;cursor:pointer}button:disabled{opacity:.4}input{display:block;margin:12px 0;max-width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#091120;padding:14px;border-radius:9px;max-height:420px;overflow:auto}.muted{color:#a9b7d0}.warn{color:#ffd78a}.good{color:#9fe4b5}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.step{border:1px solid #30415f;border-radius:10px;padding:13px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="converter.js"></script>
 </head>
 <body><main>
 <h1>Jar2Zeus</h1>
@@ -64,11 +65,20 @@ $("build").onclick=async function(){
  try{
  var out=new JSZip(),id="jar2zeus_"+slug(jarReport.jar.mod.id),meta={id:id.slice(0,64),name:"Imported: "+jarReport.jar.mod.name,version:"0.1.0-port",description:"Migration work package; Java gameplay code is not converted.",authors:["Jar2Zeus"],source_loader:jarReport.jar.mod.loader,target_html:htmlFile.name,main:"main.lua"};
  out.file("migration-package/metadata.json",JSON.stringify(meta,null,2));
- out.file("migration-package/main.lua",'-- Jar2Zeus migration work file\n-- This is a scaffold, not a functional port.\nlog("Migration package loaded only when installed in a compatible Zeus runtime.")\n');
+ var recipeEntries=[];
+ for(var n in jarZip.files){var obj=jarZip.files[n];if(!obj.dir&&/^data\/[a-z0-9_.-]+\/recipes?\/.+\.json$/i.test(n)){try{recipeEntries.push({path:n,content:await obj.async("string")})}catch(err){}}}
+ var converted=window.Jar2ZeusConverter.convert(recipeEntries);
+ var generatedMain='-- name: '+String(jarReport.jar.mod.name).replace(/[\r\n]/g,' ').slice(0,80)+' (Zeus port)\n-- id: '+id+'\n-- version: 0.1.0\n-- Generated supported recipes only. Java gameplay code is not translated.\n\n'+converted.mainLua;
+ out.file("migration-package/main.lua",generatedMain);
+ out.file("migration-package/conversion-report.json",JSON.stringify(converted.report,null,2));
  out.file("migration-package/report.json",JSON.stringify(jarReport,null,2));
  out.file("migration-package/MIGRATION_NOTES.md","# Migration notes\n\nThis package is an analysis and resource extraction result. Java bytecode, Forge/Fabric/NeoForge APIs and Mixin behavior are not translated. Implement supported features against the exact Zeus API and test in the target client. Weapon and artillery behavior is excluded.\n");
  var copied=0;
- for(var n in jarZip.files){var obj=jarZip.files[n];if(!obj.dir&&(n.startsWith("assets/")||n.startsWith("data/"))&&!n.split("/").includes("..")){out.file("migration-package/resources/"+n,await obj.async("uint8array"));copied++}}
+ var restricted=/cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket/i;
+ var modIdentity=jarReport.jar.mod.id+" "+jarReport.jar.mod.name;
+ var restrictedMod=restricted.test(modIdentity);
+ if(!restrictedMod){for(var n in jarZip.files){var obj=jarZip.files[n];if(!obj.dir&&(n.startsWith("assets/")||n.startsWith("data/"))&&!n.split("/").includes("..")&&!restricted.test(n)){out.file("migration-package/resources/"+n,await obj.async("uint8array"));copied++}}}
+ out.file("migration-package/conversion-policy.json",JSON.stringify({restrictedMod:restrictedMod,policy:"Weapon-related content is excluded; only supported non-weapon recipe data is converted."},null,2));
  var marker='<script type="application/json" id="jar2zeus-migration-manifest">'+JSON.stringify({tool:"Jar2Zeus",report:jarReport,package:id})+'</scr'+'ipt>';
  var patched=sourceHtml.replace(/<\/body\s*>/i,marker+"\n</body>");
  if(patched===sourceHtml)patched=sourceHtml+"\n"+marker;
