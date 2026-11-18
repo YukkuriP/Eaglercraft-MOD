@@ -16,6 +16,7 @@
 <script src="migration-pipeline.js"></script>
 <script src="package-validator.js"></script>
 <script src="target-client-inspector.js"></script>
+<script src="resource-compatibility.js"></script>
 </head>
 <body><main>
 <h1>Jar2Zeus</h1>
@@ -34,7 +35,7 @@
 <button id="build" disabled>インポート用Zeus MOD ZIP＋診断レポートを出力</button>
 </section>
 <section class="card"><h2>このツールが行うこと</h2>
-<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Eaglercraft HTMLのEPWヘッダー、ローダーJS/WASM、XZ圧縮領域を解析</li><li>EPK v2を二段階で展開し、ファイル一覧・カテゴリ・CRC32・名前空間を検証</li><li>WASMセクションとTeaVM／MOD識別子候補を抽出。Base64本文を単純文字列検索する誤判定を回避</li><li>参考HTMLを指定した場合、2つのEPK内ファイルの追加・削除・変更を比較</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>Zeusが直接読み込める、metadata.jsonがZIP直下にある単体MOD ZIPを生成</li></ul>
+<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Eaglercraft HTMLのEPWヘッダー、ローダーJS/WASM、XZ圧縮領域を解析</li><li>EPK v2を二段階で展開し、ファイル一覧・カテゴリ・CRC32・名前空間を検証</li><li>WASMセクションとTeaVM／MOD識別子候補を抽出。Base64本文を単純文字列検索する誤判定を回避</li><li>JARのassets/data資産と対象EPKをCRC32で照合し、完全一致・同名衝突・新規パスを分類</li><li>参考HTMLを指定した場合、2つのEPK内ファイルの追加・削除・変更を比較</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>Zeusが直接読み込める、metadata.jsonがZIP直下にある単体MOD ZIPを生成</li></ul>
 <p class="warn">重要：JAR内のJavaコードを完全なLua/WASMへ自動変換したり、Zeus未搭載のHTMLへZeus本体を新規実装して全MOD機能を動かすことは、この版ではできません。Javaクラス参照は移植計画のために分類しますが、実際のゲームロジックは個別の実装が必要です。出力HTMLへの解析情報の埋め込みは、MOD機能の実装・動作を意味しません。武器・砲撃などの実戦用機能は変換対象にしません。</p>
 </section>
 <p class="muted">ファイルはブラウザ内で処理し、サーバーへ送信しません。JSZip読み込み時のみインターネット接続が必要です。</p>
@@ -65,16 +66,17 @@ $("analyze").onclick=async function(){
  for(var gi=0;gi<names.length;gi++){var gn=names[gi],go=jarZip.files[gn];if(go.dir)continue;var ge={path:gn,size:go._data&&go._data.uncompressedSize||0};if(/\.class$/i.test(gn)){ge.classInfo=window.Jar2ZeusGenericAnalyzer.parseClass(await go.async("uint8array"))}else if(gn==="fabric.mod.json"||gn==="quilt.mod.json"||/^META-INF\/(mods\.toml|neoforge\.mods\.toml|MANIFEST\.MF|jarjar\/metadata\.json)$/i.test(gn)||/mixin.*\.json$/i.test(gn)||/^META-INF\/services\//i.test(gn)){try{ge.content=await go.async("string")}catch(err){}}genericEntries.push(ge)}
  var genericAnalysis=window.Jar2ZeusGenericAnalyzer.analyze(genericEntries);
  targetInfo=await scanHtml(sourceHtml);
+ var resourceCompatibility=await window.Jar2ZeusResourceCompatibility.compareJarZip(jarZip,targetInfo);
  if(referenceFile){referenceInfo=await scanHtml(await referenceFile.text());targetInfo.referenceComparison=window.Jar2ZeusTargetInspector.compare(targetInfo,referenceInfo);targetInfo.referenceComparison.referenceFilename=referenceFile.name;referenceInfo=null;}
  var mod={id:id||slug(jarFile.name),name:name||jarFile.name.replace(/\.jar$/i,""),version:version,loader:loader,minecraft_versions:unique(mc),dependencies:deps};
- jarReport={jar:{filename:jarFile.name,bytes:jarFile.size,mod:mod,counts:{files:names.length,java_classes:classes,assets:assets,data:data}},generic_analysis:genericAnalysis,target_html:{filename:htmlFile.name,analysis:targetInfo},compatibility:{
+ jarReport={jar:{filename:jarFile.name,bytes:jarFile.size,mod:mod,counts:{files:names.length,java_classes:classes,assets:assets,data:data}},generic_analysis:genericAnalysis,target_html:{filename:htmlFile.name,analysis:targetInfo,resource_compatibility:resourceCompatibility},compatibility:{
  container_format:targetInfo.format,
  runtime:targetInfo.runtime,
  epw_header_valid:targetInfo.epw?targetInfo.epw.valid:null,
  deep_analysis:targetInfo.deepAnalysis?targetInfo.deepAnalysis.status:"unknown",
  zeus_runtime:targetInfo.runtime&&targetInfo.runtime.zeusEvidence?"Zeus識別子を検出（API互換性は未検証）":"Zeus識別子を確認できず（不存在の証明ではない）",
  status:targetInfo.deepAnalysis&&targetInfo.deepAnalysis.status==="complete"?"EPW/EPK構造検証済み。MOD機能の互換性は未検証":"HTMLコンテナは一部解析。MOD機能の互換性は未検証",
- notes:["Base64 assetsURI、EPWヘッダー、XZ領域、EPK v2、CRC32、WASM情報を解析します。","解析対象HTMLを実行せず、埋め込みJavaScriptも実行しません。","EPW/EPK構造の一致はJava MODロジックの移植やゲーム内動作を意味しません。","Javaクラス、Mixin、Forge/Fabric API、機械処理などはZeus向けの個別実装と実機テストが必要です。"]
+ notes:["Base64 assetsURI、EPWヘッダー、XZ領域、EPK v2、CRC32、WASM情報を解析します。","JAR内のassets/dataをEPK内の既存パスとチェックサムで照合します。","解析対象HTMLを実行せず、埋め込みJavaScriptも実行しません。","EPW/EPK構造の一致はJava MODロジックの移植やゲーム内動作を意味しません。","Javaクラス、Mixin、Forge/Fabric API、機械処理などはZeus向けの個別実装と実機テストが必要です。"]
 },conversion:{metadata:"解析済み",resources:"抽出対象",java_logic:"未変換",html_integration:"HTMLは互換性解析のみ。ゲーム本体への注入は行わない"}};
  $("out").textContent=JSON.stringify(jarReport,null,2);
  $("warning").textContent=targetInfo.deepAnalysis&&targetInfo.deepAnalysis.status==="complete"?"EPW/XZ/EPK構造の解析が完了しました。これはMOD機能の移植完了を意味しません。":(targetInfo.deepAnalysis&&targetInfo.deepAnalysis.note)||"HTML構造を一部解析しました。詳細は診断レポートを確認してください。";
