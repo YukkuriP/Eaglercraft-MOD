@@ -16,10 +16,18 @@ Minecraft MODのJARと移植先Eaglercraft HTMLを解析し、対応する一部
 - 対応するPNGテクスチャのZeusパッケージ内配置
 - 変換結果と未対応理由のレポート
 
-## 解析・素材抽出
-- Fabric / Forge / NeoForgeメタデータ検出
-- タグ、翻訳、モデル、blockstatesの索引化
-- assets / dataリソース抽出
+## 大型MODの汎用解析
+- Fabric / Forge / NeoForge / Quilt の形式を検出
+- Java classファイルのバージョンと定数プール内クラス参照を解析（コード実行・完全デコンパイルはしない）
+- Entrypoint、Mixin設定、Access Transformer、ServiceLoader、Jar-in-Jarを検出
+- 依存関係とMinecraftバージョン候補を抽出
+- assets / data内のテクスチャ、モデル、blockstates、レシピ、タグ、言語、音声、シェーダー、設定を分類
+- 大型JAR向けにclassを逐次解析し、全classバイト列を同時保持しない
+- 同じMOD内に対象外機能が含まれていても、無関係な安全なリソースは個別に解析・抽出
+- 詳細な `generic-analysis.json` を出力
+
+## 注意
+ファイル数・JARサイズに独自の固定上限は設けていません。ただし、ブラウザ・端末のメモリ、JSZip、出力ZIPの容量など、実行環境の上限はあります。
 
 ## 制限
 任意のJavaバイトコード、Forge/Fabric API、Mixin、独自機械処理、複雑なモデル・状態・アニメーションを自動移植するものではありません。単純モデル以外は未対応としてレポートします。生成したMODはZeus対応Eaglercraft 26.2 / 26.3で実機確認が必要です。Zeusのブロック・アイテム追加機能は自分のワールド向けで、サーバー側にMOD機能が追加されるわけではありません。
