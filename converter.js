@@ -30,7 +30,7 @@
   }
   function idOf(value, allowTag) {
     if (typeof value === "string") {
-      if (value.startsWith("#")) return allowTag ? value : null;
+      if (value.startsWith("#")) { if (!allowTag) return null; const tag = value.slice(1); return "#" + (tag.includes(":") ? tag : "minecraft:" + tag); }
       return value.includes(":") ? value : "minecraft:" + value;
     }
     if (!value || typeof value !== "object") return null;
@@ -51,6 +51,7 @@
     const parts = value.split(":")[1].split("/");
     return parts.every(p => p && p !== "." && p !== "..");
   }
+  function validIngredient(value) { const item = idOf(value, true); if (!item) return null; return validId(item.startsWith("#") ? item.slice(1) : item) ? item : null; }
   function isBlocked(path, parsed) {
     const s = path + " " + JSON.stringify(parsed);
     return BLOCKED.test(s);
@@ -70,32 +71,34 @@
     const base = { result: resultId };
     if (safeCount !== 1) base.count = safeCount;
     let call, opts;
-    if (type.endsWith(":crafting_shaped") || type === "minecraft:crafting_shaped" || type === "crafting_shaped") {
+    if (type === "minecraft:crafting_shaped" || type === "crafting_shaped") {
       if (!Array.isArray(r.pattern) || r.pattern.length < 1 || r.pattern.length > 3 || r.pattern.some(row => typeof row !== "string" || row.length < 1 || row.length > 3) || !r.key || typeof r.key !== "object") return { status: "skipped", reason: "invalid shaped recipe" };
       const key = {};
       for (const [symbol, ingredient] of Object.entries(r.key)) {
-        const item = idOf(ingredient, true);
+        const item = validIngredient(ingredient);
         if (!item) return { status: "skipped", reason: "unsupported shaped ingredient" };
         key[symbol] = item;
       }
       opts = Object.assign({ pattern: r.pattern, key }, base);
       call = "recipes.shaped";
-    } else if (type.endsWith(":crafting_shapeless") || type === "minecraft:crafting_shapeless" || type === "crafting_shapeless") {
+    } else if (type === "minecraft:crafting_shapeless" || type === "crafting_shapeless") {
       if (!Array.isArray(r.ingredients) || r.ingredients.length < 1 || r.ingredients.length > 9) return { status: "skipped", reason: "invalid shapeless recipe" };
-      const ingredients = r.ingredients.map(x => idOf(x, true));
+      const ingredients = r.ingredients.map(x => validIngredient(x));
       if (ingredients.some(x => !x)) return { status: "skipped", reason: "unsupported shapeless ingredient" };
       opts = Object.assign({ ingredients }, base);
       call = "recipes.shapeless";
-    } else if (/:(smelting|blasting|smoking|campfire_cooking)$/.test(type) || /^(smelting|blasting|smoking|campfire_cooking)$/.test(type)) {
-      const input = idOf(r.ingredient, true);
+    } else if (/^minecraft:(smelting|blasting|smoking|campfire_cooking)$/.test(type) || /^(smelting|blasting|smoking|campfire_cooking)$/.test(type)) {
+      const input = validIngredient(r.ingredient);
       if (!input) return { status: "skipped", reason: "unsupported cooking ingredient" };
       const seconds = Number(r.cookingtime || 200) / 20;
-      opts = Object.assign({ input, xp: Number(r.experience || 0), seconds: Number.isFinite(seconds) ? seconds : 10 }, base);
+      const xp = Number(r.experience || 0);
+      if (!Number.isFinite(seconds) || seconds <= 0 || !Number.isFinite(xp) || xp < 0) return { status: "skipped", reason: "invalid cooking time or experience" };
+      opts = Object.assign({ input, xp, seconds }, base);
       if (type.endsWith("blasting")) opts.blasting = true;
       if (type.endsWith("smoking")) opts.smoking = true;
       if (type.endsWith("campfire_cooking")) opts.campfire = true;
       call = "recipes.smelting";
-    } else if (type.endsWith(":stonecutting") || type === "stonecutting") {
+    } else if (type === "minecraft:stonecutting" || type === "stonecutting") {
       const input = idOf(r.ingredient, true);
       if (!input) return { status: "skipped", reason: "unsupported stonecutting ingredient" };
       opts = Object.assign({ input }, base);
