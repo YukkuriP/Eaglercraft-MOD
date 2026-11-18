@@ -13,3 +13,21 @@ test("rejects missing texture inputs and unsafe output paths",()=>{
  const x=base();x.textureMappings=[{source:"missing.png",target:"../escape.png"}];
  const r=validate(x);assert.equal(r.valid,false);assert.equal(r.errors.length,2);
 });
+
+
+test("rejects packages exceeding documented Zeus limits",()=>{
+ const x=base();
+ x.packageLimits={files:4097,bytes:64*1024*1024+1,maxFiles:4096,maxBytes:64*1024*1024};
+ const r=validate(x);
+ assert.equal(r.valid,false);
+ assert.ok(r.errors.some(e=>e.includes("file limit")));
+ assert.ok(r.errors.some(e=>e.includes("size limit")));
+});
+
+test("marks omitted files as incomplete rather than import-ready",()=>{
+ const x=base();x.packageSkipped=[{path:"assets/demo/large.png",reason:"size"}];
+ const r=validate(x);
+ assert.equal(r.valid,true);
+ assert.equal(r.readyToImport,false);
+ assert.ok(r.warnings.some(w=>w.includes("omitted")));
+});
