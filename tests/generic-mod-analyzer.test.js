@@ -8,18 +8,15 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname,"..","generic-mod-analyze
 const A=box.Jar2ZeusGenericAnalyzer;
 
 function fakeClass(name, refs=[]) {
-  const utf8=[];
-  function add(s){const b=Buffer.from(s,"utf8");utf8.push(Buffer.from([1,b.length>>8,b.length&255]),b);return utf8.length;}
   const all=[name,...refs];
-  const indices=all.map(add);
-  const cp=[];
-  for(const i of indices)cp.push(Buffer.from([7,i>>8,i&255]));
   const count=1+all.length*2;
-  return Buffer.concat([
-    Buffer.from([0xca,0xfe,0xba,0xbe,0,0,0,61,count>>8,count&255]),
-    ...all.flatMap((s,i)=>[Buffer.from([1,s.length>>8,s.length&255]),Buffer.from(s),Buffer.from([7,(i*2+2)>>8,(i*2+2)&255])]),
-    Buffer.from([0,1,0,2,0,3,0,0,0,0,0,0,0,0])
-  ]);
+  const parts=[Buffer.from([0xca,0xfe,0xba,0xbe,0,0,0,61,count>>8,count&255])];
+  all.forEach((value,i)=>{
+    const bytes=Buffer.from(value,"utf8");
+    parts.push(Buffer.from([1,bytes.length>>8,bytes.length&255]),bytes);
+    parts.push(Buffer.from([7,0,(i+1)*2-1]));
+  });
+  return Buffer.concat(parts);
 }
 
 test("detects loader metadata, mixins, resources and nested jars",()=>{
