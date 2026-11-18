@@ -71,6 +71,8 @@
       loaders: [], minecraftVersions: [], javaClassVersions: {},
       metadata: { fabric: null, quilt: null, forge: null, neoforge: null, manifest: null, jarjar: null },
       entrypoints: [], mixinConfigs: [], accessTransformers: [], services: [],
+      featureFamilies: { blocksItems: [], entities: [], worldGeneration: [], rendering: [], networking: [], userInterface: [], audio: [], commands: [], storage: [], configuration: [] },
+      migrationAssessment: { resourcePort: "partial", javaLogicPort: "requires a manual rewrite or a compatible runtime", overall: "analysis-only until feature adapters and in-game tests pass" },
       nestedJars: [], libraries: [], classes: { count: 0, invalid: 0, names: [], references: {}, frameworkReferences: [] },
       resources: { assets: 0, data: 0, textures: 0, models: 0, blockstates: 0, recipes: 0, tags: 0, lang: 0, sounds: 0, shaders: 0, configs: 0, other: 0 },
       featureReview: { restrictedPathCount: 0, restrictedPaths: [] },
@@ -161,12 +163,33 @@
       } catch (_) {}
     }
     report.classes.frameworkReferences = Array.from(classRefs).filter(x => framework.test(x)).sort().slice(0, 500);
+    const families = [
+      ["blocksItems", /net\/minecraft\/(?:world\/level\/block|world\/item|world\/item\/crafting|block\/|item\/|recipe)/],
+      ["entities", /net\/minecraft\/(?:world\/entity|entity\/)/],
+      ["worldGeneration", /net\/minecraft\/(?:world\/level\/levelgen|world\/gen|world\/level\/biome)/],
+      ["rendering", /net\/minecraft\/client\/(?:renderer|model|gui\/Font)|net\/minecraftforge\/client\/event\/Render|net\/fabricmc\/fabric\/api\/client\/rendering/],
+      ["networking", /net\/minecraft\/(?:network|server\/network)|(?:Packet|Payload|NetworkHandler)/i],
+      ["userInterface", /net\/minecraft\/client\/gui|net\/minecraft\/client\/screen|(?:Screen|Menu|Widget)$/],
+      ["audio", /net\/minecraft\/(?:sounds|client\/sounds)|(?:SoundEvent|SoundManager)/],
+      ["commands", /net\/minecraft\/commands|(?:CommandDispatcher|CommandSource)/],
+      ["storage", /net\/minecraft\/(?:world\/level\/storage|nbt|world\/level\/saveddata)/],
+      ["configuration", /(?:Config|Configuration|ForgeConfigSpec|ModConfig)/]
+    ];
+    for (const ref of classRefs) for (const [family, regex] of families) {
+      if (regex.test(ref) && report.featureFamilies[family].length < 200) report.featureFamilies[family].push(ref);
+    }
+    for (const family of Object.keys(report.featureFamilies)) report.featureFamilies[family] = Array.from(new Set(report.featureFamilies[family])).sort();
+    report.migrationAssessment.featureCounts = Object.fromEntries(Object.entries(report.featureFamilies).map(([k,v]) => [k,v.length]));
+    report.migrationAssessment.detectedFamilies = Object.keys(report.featureFamilies).filter(k => report.featureFamilies[k].length > 0);
     report.classes.names.sort();
     if (report.classes.invalid) report.warnings.push("一部の.classファイルをクラス形式として解析できませんでした");
     if (report.nestedJars.length) report.unsupportedIndicators.push("Nested JAR / Jar-in-Jar dependencies");
     if (report.mixinConfigs.length) report.unsupportedIndicators.push("Mixin transformations");
     if (report.accessTransformers.length) report.unsupportedIndicators.push("Access Transformers");
     if (report.services.length) report.unsupportedIndicators.push("Java ServiceLoader providers");
+    if (report.featureFamilies.rendering.length) report.unsupportedIndicators.push("Custom client rendering / model logic");
+    if (report.featureFamilies.networking.length) report.unsupportedIndicators.push("Custom networking / packet logic");
+    if (report.featureFamilies.worldGeneration.length) report.unsupportedIndicators.push("Custom world generation");
     if (report.classes.count) report.unsupportedIndicators.push("Java bytecode requires runtime/API porting");
     report.archive.unsafePaths = Array.from(new Set(report.archive.unsafePaths));
     report.archive.duplicatePaths = Array.from(new Set(report.archive.duplicatePaths));
