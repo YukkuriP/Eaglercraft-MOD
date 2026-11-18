@@ -1,21 +1,22 @@
 # Jar2Zeus
 
-ブラウザでMinecraft MODのJARを解析し、Zeus向け移植用ZIPのひな型を生成する実験ツールです。
+Minecraft MODのJARと移植先Eaglercraft HTMLをブラウザ内で解析し、移植作業パッケージと解析マニフェスト入りHTMLを出力する実験ツールです。
 
 ## 使い方
-1. GitHub PagesまたはローカルHTTPサーバーで `index.html` を開く
-2. `.jar` を選択して「解析する」
-3. 「Zeus用ZIPを生成」でパッケージを保存
-4. Eaglercraft 26.2 / 26.3 のZeusにZIPを読み込む
+1. `index.html` をブラウザで開く（JSZip CDN読み込みのためインターネット接続が必要）
+2. MODの `.jar` と移植先のEaglercraft `.html` の両方を選択
+3. 「両方を解析」を押す
+4. 結果を確認し「変換パッケージ＋解析済みHTMLをZIP出力」を押す
 
 ## 現在の機能
-- Fabric / Forge / NeoForgeのメタデータ検出
-- MOD ID、バージョン、依存関係の検出
-- Javaクラス数とリソース数の集計
+- Fabric / Forge / NeoForgeのメタデータ、MOD ID、バージョン、依存関係の検出
+- Javaクラス、assets、dataの集計
+- Eaglercraft HTML内のバージョン候補、Zeus関連文字列などの簡易検出
 - `assets/` と `data/` の抽出
-- Zeus形式の `metadata.json` + `main.lua` + レポートZIP生成
+- 移植用パッケージ（metadata、main.luaのひな型、レポート、リソース）の生成
+- 解析マニフェストを埋め込んだHTMLコピーの生成
 
 ## 重要な制限
-これは完全変換器ではありません。Javaバイトコード、Forge/Fabric/NeoForge API、Mixin、ゲームプレイ処理をLua/WASMへ自動変換しません。生成ZIPは移植用の土台であり、動作する変換済みMODではありません。各機能はZeus API向けに再実装・検証が必要です。
+この版は**完全自動変換器ではありません**。生成HTMLに埋め込まれるのは解析マニフェストであり、MODの機能を実装するコードではありません。Javaバイトコード、Forge/Fabric/NeoForge API、Mixin、ゲームプレイ処理は自動変換されません。Zeus APIへの機能別移植と、対象クライアントでの動作検証が別途必要です。Zeus関連文字列の検出も互換性を保証しません。
 
-現在のページはJSZipをCDNから読み込むため、Web版の利用にはインターネット接続が必要です。ローカルZIP配布版には依存ライブラリを同梱したオフライン版も用意しています。
+ファイルはブラウザ内で処理し、サーバーへ送信しません。JSZipをCDNから読み込むためインターネット接続が必要です。オフライン版はまだ用意していません。
