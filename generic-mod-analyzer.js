@@ -64,6 +64,33 @@
     return result;
   }
 
+  function parseLoaderToml(raw, loader) {
+    const text = String(raw || "");
+    const mods = [];
+    const modSections = text.split(/\\[\\[mods\\]\\]/i).slice(1);
+    for (const section of modSections) {
+      const id = (section.match(/\\bmodId\\s*=\\s*"([^"]+)"/i) || [])[1] || null;
+      const version = (section.match(/\\bversion\\s*=\\s*"([^"]+)"/i) || [])[1] || null;
+      const displayName = (section.match(/\\bdisplayName\\s*=\\s*"([^"]+)"/i) || [])[1] || null;
+      if (id) mods.push({ id, version, displayName });
+    }
+    const dependencies = [];
+    const depSections = text.split(/\\[\\[dependencies\\.[^\\]]+\\]\\]/i).slice(1);
+    for (const section of depSections) {
+      const modId = (section.match(/\\bmodId\\s*=\\s*"([^"]+)"/i) || [])[1] || null;
+      const versionRange = (section.match(/\\bversionRange\\s*=\\s*"([^"]+)"/i) || [])[1] || null;
+      const mandatory = (section.match(/\\bmandatory\\s*=\\s*(true|false)/i) || [])[1];
+      if (modId) dependencies.push({ modId, versionRange, mandatory: mandatory == null ? null : mandatory.toLowerCase() === "true" });
+    }
+    return {
+      loader,
+      modLoader: (text.match(/\\bmodLoader\\s*=\\s*"([^"]+)"/i) || [])[1] || null,
+      loaderVersion: (text.match(/\\bloaderVersion\\s*=\\s*"([^"]+)"/i) || [])[1] || null,
+      mods,
+      dependencies
+    };
+  }
+
   function analyze(entries) {
     const report = {
       schema: "jar2zeus.generic-analysis.v1",
@@ -149,9 +176,12 @@
       if (typeof deps.minecraft === "string") report.minecraftVersions.push(deps.minecraft);
       else if (Array.isArray(deps.minecraft)) report.minecraftVersions.push(...deps.minecraft);
       report.libraries.push(...(fabric.jars || []).map(x => x && x.file).filter(Boolean));
+      if (fabric.accessWidener) report.accessTransformers.push(fabric.accessWidener);
     }
     if (report.metadata.quilt) {
       const q = report.metadata.quilt.quilt_loader || {};
+      if (q.metadata && q.metadata.contact) report.metadata.quiltContact = q.metadata.contact;
+      report.libraries.push(...(q.jarjars || []).map(x => x && x.file).filter(Boolean));
       report.entrypoints.push(...Object.entries(q.entrypoints || {}).map(([type, value]) => ({ loader: "Quilt", type, value: JSON.stringify(value) })));
     }
     for (const path of report.mixinConfigs) {
@@ -194,6 +224,7 @@
     report.archive.unsafePaths = Array.from(new Set(report.archive.unsafePaths));
     report.archive.duplicatePaths = Array.from(new Set(report.archive.duplicatePaths));
     report.minecraftVersions = Array.from(new Set(report.minecraftVersions));
+    report.libraries = Array.from(new Set(report.libraries));
     report.loaders = Array.from(new Set(report.loaders));
     return report;
   }
