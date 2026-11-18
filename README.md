@@ -1,32 +1,29 @@
 # Jar2Zeus
 
-Minecraft MODのJARと移植先Eaglercraft HTMLをブラウザ内で解析し、Zeus向けの移植作業パッケージを出力する実験ツールです。
+Minecraft MODのJARと移植先Eaglercraft HTMLを解析し、対応する一部機能を実際のZeus Lua MODとして出力するブラウザツールです。
 
 ## 使い方
-1. `index.html`、`converter.js`、`resource-converter.js` を同じフォルダに置いて開く
+1. `index.html`、`converter.js`、`resource-converter.js`、`definition-converter.js` を同じフォルダに置く
 2. インターネット接続がある状態でJARとEaglercraft HTMLを選択
-3. 「両方を解析」を押す
-4. 結果を確認し、ZIP出力する
+3. 「両方を解析」→「ZIP出力」
+4. ZIP内の `migration-package/main.lua` と `metadata.json`、`textures/` をZeus MODとして確認・読み込み
 
-## 実装済み
-- Fabric / Forge / NeoForgeメタデータの検出
-- 対応形式のレシピJSONをZeus Lua形式へ変換（shaped / shapeless / smelting / blasting / smoking / campfire / stonecutting）
-- ブロック・アイテム・流体・エンティティタグの安全なインデックス化
-- 言語ファイルの翻訳キー抽出
-- モデル・blockstatesの参照一覧を作成
-- assets / dataリソースの抽出
-- 変換済み・未対応・除外内容のレポート
-- パストラバーサル対策、Lua文字列エスケープ
+## 実際にZeus Luaへ変換する範囲
+- shaped / shapeless crafting
+- smelting / blasting / smoking / campfire cooking / stonecutting
+- 単純な cube_all 等のブロックモデルを持つブロックの登録
+- item/generated の単純なアイテム登録
+- 対応するPNGテクスチャのZeusパッケージ内配置
+- 変換結果と未対応理由のレポート
 
-## 出力
-- `main.lua`: 対応したレシピ変換コード
-- `resource-index.json`: タグ・翻訳・モデル・blockstatesの索引
-- `conversion-report.json`: レシピ変換結果
-- `report.json`: JARとHTMLの解析結果
-- `output/*.jar2zeus.html`: 解析マニフェストを埋め込んだHTMLコピー
-- `assets/` と `data/`: 対象リソース
+## 解析・素材抽出
+- Fabric / Forge / NeoForgeメタデータ検出
+- タグ、翻訳、モデル、blockstatesの索引化
+- assets / dataリソース抽出
 
-## 重要な制限
-これはJAR全体の完全変換器ではありません。Javaバイトコード、Forge/Fabric/NeoForge API、Mixin、機械の動作やゲームプレイ処理は自動変換しません。タグ・翻訳・モデル情報はZeus APIの互換性が確認できていないため、実行コードではなく索引データとして出力します。出力HTMLへのマニフェスト埋め込みはMOD機能の実装・動作を意味しません。武器・砲撃などの機能は変換対象外です。
+## 制限
+任意のJavaバイトコード、Forge/Fabric API、Mixin、独自機械処理、複雑なモデル・状態・アニメーションを自動移植するものではありません。単純モデル以外は未対応としてレポートします。生成したMODはZeus対応Eaglercraft 26.2 / 26.3で実機確認が必要です。Zeusのブロック・アイテム追加機能は自分のワールド向けで、サーバー側にMOD機能が追加されるわけではありません。
 
-Zeus対応クライアントとAPIの互換性を確認し、生成したパッケージは実際のゲーム内で検証してください。JSZipをCDNから読み込むためインターネット接続が必要です。ファイル本体はブラウザ内で処理し、サーバーへ送信しません。
+HTMLに解析マニフェストを追加したコピーも出力しますが、ゲーム本体を改造するものではありません。Javaコードの完全自動変換は保証しません。武器・砲撃機能は変換対象外です。
+
+JSZipをCDNから読み込むためインターネット接続が必要です。JARとHTMLの内容はブラウザ内で処理され、サーバーへ送信しません。
