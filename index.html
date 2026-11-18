@@ -65,7 +65,7 @@ $("analyze").onclick=async function(){
 };
 $("build").onclick=async function(){
  try{
- var out=new JSZip(),id="jar2zeus_"+slug(jarReport.jar.mod.id),meta={id:id.slice(0,64),name:"Imported: "+jarReport.jar.mod.name,version:"0.1.0-port",description:"Migration work package; Java gameplay code is not converted.",authors:["Jar2Zeus"],source_loader:jarReport.jar.mod.loader,target_html:htmlFile.name,main:"main.lua"};
+ var out=new JSZip(),id=slug(jarReport.jar.mod.id),meta={id:id.slice(0,64),name:"Imported: "+jarReport.jar.mod.name,version:"0.1.0-port",description:"Migration work package; Java gameplay code is not converted.",authors:["Jar2Zeus"],source_loader:jarReport.jar.mod.loader,target_html:htmlFile.name,main:"main.lua"};
  out.file("migration-package/metadata.json",JSON.stringify(meta,null,2));
  var restricted=/cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket/i;
  var modIdentity=jarReport.jar.mod.id+" "+jarReport.jar.mod.name;
