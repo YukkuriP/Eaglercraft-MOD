@@ -29,10 +29,10 @@
  }
  function convert(entries,modNamespace){
   const files=new Map(entries.filter(e=>safe(e.path)).map(e=>[e.path,e.content]));
-  const json=new Map(),langs={};
+  const json=new Map(),langs={},parentModelIds=new Set();
   for(const [path,raw] of files){
    if(typeof raw!=="string"||!path.endsWith(".json"))continue;
-   try{json.set(path,JSON.parse(raw))}catch(_){}
+   try{const parsed=JSON.parse(raw);json.set(path,parsed);if(typeof parsed.parent==="string")parentModelIds.add(parsed.parent)}catch(_){}
    const lm=path.match(/^assets\/([^/]+)\/lang\/[a-z0-9_-]+\.json$/i);
    if(lm&&lm[1]===modNamespace){try{Object.assign(langs,JSON.parse(raw))}catch(_){}}
   }
@@ -109,6 +109,8 @@
    if(selected.error){report.skipped.push({id,reason:selected.error});continue}
    const model=resolveModel(selected.model,"block");
    if(!model){report.skipped.push({id,reason:"model or parent could not be resolved"});continue}
+   const supportedCubeParent=(model.parents||[]).some(function(p){return /minecraft:block\/(cube_all|cube|cube_column|cube_bottom_top|cube_top)$/.test(p)});
+   if(!supportedCubeParent&&!Array.isArray(model.elements)){report.skipped.push({id,reason:"unsupported block model parent or geometry"});continue}
    const tex=blockTextures(model,match[1]);
    if(!tex.texture){report.skipped.push({id,reason:"no supported texture reference"});continue}
    const local=localId(match[2]);if(!local||seenIds.has("b:"+local)){report.skipped.push({id,reason:"empty or duplicate local Zeus id"});continue}
@@ -125,7 +127,9 @@
    const match=path.match(/^assets\/([^/]+)\/models\/item\/(.+)\.json$/);
    if(!match||match[1]!==modNamespace||BLOCKED.test(path))continue;
    const id=match[1]+":"+match[2];if(!SAFE_ID.test(id))continue;
-   const model=resolveModel(match[1]+":item/"+match[2],"item");
+   const itemModelId=match[1]+":item/"+match[2];
+   if(parentModelIds.has(itemModelId))continue;
+   const model=resolveModel(itemModelId,"item");
    if(!model){report.skipped.push({id,reason:"item model or parent could not be resolved"});continue}
    if(!model.parents.some(p=>String(p).endsWith("item/generated")||String(p).endsWith("item/handheld"))){
     report.skipped.push({id,reason:"item parent is not item/generated or item/handheld"});continue;
