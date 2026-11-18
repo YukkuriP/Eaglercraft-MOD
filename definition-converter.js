@@ -48,7 +48,7 @@
     if(pp&&json.has(pp))parent=resolveModel(own.parent,kind,depth+1,next)||parent;
     else parent={textures:{},elements:null,parent:own.parent};
    }
-   return {textures:Object.assign({},parent.textures||{},own.textures||{}),elements:own.elements||parent.elements||null,parent:own.parent||parent.parent||null,ambientocclusion:own.ambientocclusion};
+   return {textures:Object.assign({},parent.textures||{},own.textures||{}),elements:own.elements||parent.elements||null,parent:own.parent||parent.parent||null,parents:[own.parent].concat(parent.parents||[]).filter(Boolean),ambientocclusion:own.ambientocclusion};
   }
   function resolveTexture(ref,textures,depth=0){
    if(typeof ref!=="string"||depth>12)return null;
@@ -75,6 +75,8 @@
    const map={all:"all",top:"top",bottom:"bottom",side:"side",front:"front",north:"north",south:"south",east:"east",west:"west"};
    for(const [face,key] of Object.entries(map)){
     let ref=resolveTexture(tex[key],tex);
+    if(!ref&&face==="top")ref=resolveTexture(tex.up,tex);
+    if(!ref&&face==="bottom")ref=resolveTexture(tex.down,tex);
     if(!ref&&key==="top")ref=resolveTexture(tex.end,tex);
     if(!ref&&key==="bottom")ref=resolveTexture(tex.end,tex);
     if(!ref&&key==="side")ref=resolveTexture(tex.all,tex);
@@ -125,7 +127,7 @@
    const id=match[1]+":"+match[2];if(!SAFE_ID.test(id))continue;
    const model=resolveModel(match[1]+":item/"+match[2],"item");
    if(!model){report.skipped.push({id,reason:"item model or parent could not be resolved"});continue}
-   if(!String(model.parent||"").endsWith("item/generated")&&!String(model.parent||"").endsWith("item/handheld")){
+   if(!model.parents.some(p=>String(p).endsWith("item/generated")||String(p).endsWith("item/handheld"))){
     report.skipped.push({id,reason:"item parent is not item/generated or item/handheld"});continue;
    }
    const ref=resolveTexture(model.textures&&(model.textures.layer0||model.textures.layer1),model.textures||{});
@@ -134,7 +136,7 @@
    const local=localId(match[2]);if(!local||seenIds.has("i:"+local)){report.skipped.push({id,reason:"empty or duplicate local Zeus id"});continue}
    const translation=langs["item."+match[1]+"."+match[2].replace(/\//g,".")];
    const props={name:translation||local.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()),texture:tex.target,stack:64};
-   if(String(model.parent).endsWith("item/handheld"))props.handheld=true;
+   if(model.parents.some(p=>String(p).endsWith("item/handheld")))props.handheld=true;
    lines.push("items.register("+q(local)+", "+lua(props)+")");
    seenIds.add("i:"+local);report.items.push(id);if(tex.source)copied.push(tex);
   }
