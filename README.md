@@ -18,13 +18,13 @@ Minecraft MODのJARと移植先Eaglercraft HTMLを解析し、対応する一部
 
 ## 大型MODの汎用解析
 - Fabric / Forge / NeoForge / Quilt の形式を検出
-- Java classファイルのバージョンと定数プール内クラス参照を解析（コード実行・完全デコンパイルはしない）
+- Java classファイルのバージョンと定数プール内クラス参照を解析（コード実行・完全デコンパイルはしない）\n- ブロック・アイテム、描画、ネットワーク、ワールド生成、GUI、音声、コマンド、保存領域などの機能群を棚卸しし、移植難易度の判断材料を出力
 - Entrypoint、Mixin設定、Access Transformer、ServiceLoader、Jar-in-Jarを検出
 - 依存関係とMinecraftバージョン候補を抽出
 - assets / data内のテクスチャ、モデル、blockstates、レシピ、タグ、言語、音声、シェーダー、設定を分類
 - 大型JAR向けにclassを逐次解析し、全classバイト列を同時保持しない
 - 同じMOD内に対象外機能が含まれていても、無関係な安全なリソースは個別に解析・抽出
-- 変換処理をアダプター方式に分離し、工程ごとの追加実装・失敗隔離が可能\n- 詳細な `generic-analysis.json` と `adapter-report.json` を出力
+- 変換処理をアダプター方式に分離し、工程ごとの追加実装・失敗隔離が可能\n- `generic-analysis.json`、`conversion-assessment.json`、`source-mod.json`、`adapter-report.json` を出力
 
 ## 出力パッケージの上限
 Zeus公式のパッケージ制限に合わせ、移植先パッケージは展開後4,096ファイル・64 MiB以内に制限します。超過する素材は黙って欠落させず、出力レポートに記録し、完全な移植成功とは判定しません。JARの解析自体にもブラウザ・端末のメモリ上限があります。
