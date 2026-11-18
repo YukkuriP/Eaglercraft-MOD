@@ -106,11 +106,11 @@ $("build").onclick=async function(){
  var definitions=pipelineResult.results.definitions||{report:{},copied:[],lua:""};
  var generatedMain='-- name: '+String(jarReport.jar.mod.name).replace(/[\r\n]/g,' ').slice(0,80)+' (Zeus port)\n-- id: '+id+'\n-- version: 0.1.0\n-- Partial conversion: unsupported Java logic is not translated.\n\n'+pipelineResult.lua;
  if(!addPackageFile("main.lua",generatedMain,true))throw Error("main.luaをパッケージに追加できません");
- addPackageFile("conversion-report.json",,JSON.stringify(converted.report,null,2));
- addPackageFile("definition-report.json",,JSON.stringify(definitions.report,null,2));
- addPackageFile("generic-analysis.json",,JSON.stringify(jarReport.generic_analysis,null,2));
- addPackageFile("adapter-report.json",,JSON.stringify(pipelineResult.report,null,2));
- addPackageFile("resource-index.json",,JSON.stringify(resourceIndex,null,2));
+ addPackageFile("conversion-report.json",JSON.stringify(converted.report,null,2),true);
+ addPackageFile("definition-report.json",JSON.stringify(definitions.report,null,2),true);
+ addPackageFile("generic-analysis.json",JSON.stringify(jarReport.generic_analysis,null,2),true);
+ addPackageFile("adapter-report.json",JSON.stringify(pipelineResult.report,null,2),true);
+ addPackageFile("resource-index.json",JSON.stringify(resourceIndex,null,2),true);
  var successfulMappings=[],availableTextures=[];
  for(var ti of definitions.copied){
   if(!ti.source)continue;
@@ -119,9 +119,9 @@ $("build").onclick=async function(){
   var textureData=await sourceFile.async("uint8array");
   if(addPackageFile(ti.target,textureData,true)){successfulMappings.push(ti);availableTextures.push(ti.source)}
  }
- addPackageFile("conversion-policy.json",,JSON.stringify({policy:"Restricted weapon-related functionality is not ported. Unrelated supported resources are processed individually.",sourceResourceFilesCopied:copied,omittedFiles:packageSkipped},null,2));
- addPackageFile("report.json",,JSON.stringify(jarReport,null,2));
- addPackageFile("validation-report.json",,"{}");
+ addPackageFile("conversion-policy.json",JSON.stringify({policy:"Restricted weapon-related functionality is not ported. Unrelated supported resources are processed individually.",sourceResourceFilesCopied:copied,omittedFiles:packageSkipped},null,2),true);
+ addPackageFile("report.json",JSON.stringify(jarReport,null,2),true);
+ addPackageFile("validation-report.json","{}",true);
  var validation;
  for(var vi=0;vi<4;vi++){
   var limits={files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024};
