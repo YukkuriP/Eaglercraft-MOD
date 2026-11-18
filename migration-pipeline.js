@@ -21,7 +21,7 @@
           const value=await adapter.run(context)||{};
           const files=value.files||{};
           for(const [path,content] of Object.entries(files)){
-            if(typeof path!=="string"||!path||path.startsWith("/")||path.includes("\\\\")||path.split("/").some(p=>p===".."||p===".")){
+            if(typeof path!=="string"||!path||path.startsWith("/")||path.includes("\\")||path.split("/").some(p=>p===".."||p===".")){
               throw new Error("adapter returned an unsafe output path");
             }
             report.files.push({adapter:adapter.id,path});
