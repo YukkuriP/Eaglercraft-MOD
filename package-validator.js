@@ -14,9 +14,10 @@
   if(packageLimits.files>packageLimits.maxFiles)errors.push("Zeus package file limit exceeded");
   if(packageLimits.bytes>packageLimits.maxBytes)errors.push("Zeus package unpacked size limit exceeded");
   const packageFiles=Array.isArray(input.packageFiles)?input.packageFiles:[];
+  if(input.packageSkipped&&input.packageSkipped.length)warnings.push("Some source resources were omitted because of safety or Zeus package limits");
   const packagePaths=new Set();
   for(const file of packageFiles){
-   if(!file||typeof file.path!=="string"||file.path.startsWith("/")||file.path.includes("\\\\")||file.path.split("/").some(p=>p===".."||p==="."))errors.push("unsafe package file path");
+   if(!file||typeof file.path!=="string"||file.path.startsWith("/")||file.path.includes("\\")||file.path.split("/").some(p=>p===".."||p==="."))errors.push("unsafe package file path");
    else if(packagePaths.has(file.path))errors.push("duplicate package file: "+file.path);
    else packagePaths.add(file.path);
   }
@@ -31,7 +32,7 @@
   if(input.analysis&&input.analysis.classes&&input.analysis.classes.count>0)warnings.push("Java bytecode was analyzed, not ported into Zeus Lua");
   if(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length)warnings.push("MOD contains unsupported runtime features: "+input.analysis.unsupportedIndicators.join(", "));
   if(!input.runtimeTested)warnings.push("In-game runtime test has not been performed");
-  return {valid:errors.length===0,packageLimits,readyToImport:!!input.runtimeTested&&errors.length===0&&(!input.adapterReport||!(input.adapterReport.adapters||[]).some(a=>a.status==="failed")),runtimeTested:!!input.runtimeTested,errors,warnings};
+  return {valid:errors.length===0,packageLimits,readyToImport:!!input.runtimeTested&&errors.length===0&&!(input.packageSkipped&&input.packageSkipped.length)&&(!input.adapterReport||!(input.adapterReport.adapters||[]).some(a=>a.status==="failed")),runtimeTested:!!input.runtimeTested,errors,warnings};
  }
  root.Jar2ZeusPackageValidator={validate};
 })(typeof globalThis!=="undefined"?globalThis:this);
