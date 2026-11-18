@@ -55,3 +55,17 @@ test("parses class-file header and constant-pool class references",()=>{
  assert.equal(c.major,61);
  assert.ok(c.references.includes("net/minecraftforge/common/Mod"));
 });
+
+
+test("counts streamed class metadata without retaining full class bytes",()=>{
+ const classInfo=A.parseClass(new Uint8Array(fakeClass("demo/Streamed",["net/minecraftforge/common/Mod"])));
+ const r=A.analyze([{path:"demo/Streamed.class",size:123,classInfo}]);
+ assert.equal(r.classes.count,1);
+ assert.equal(r.javaClassVersions[61],1);
+ assert.ok(r.classes.frameworkReferences.includes("net/minecraftforge/common/Mod"));
+});
+
+test("rejects Windows-style traversal paths",()=>{
+ assert.equal(A.safePath("assets/demo/..\\\\outside.txt"),false);
+ assert.equal(A.safePath("assets/demo/stone.png"),true);
+});
