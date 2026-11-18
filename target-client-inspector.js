@@ -183,11 +183,12 @@
    report.expandedBytes=body.length;
    if(body.length>((options&&options.maxEPKExpandedBytes)||MAX_EXPANDED_BYTES))throw new Error("EPK展開後サイズが安全上限を超えています");
    const v=new DataView(body.buffer,body.byteOffset,body.byteLength),seen=new Set(),counts={};
-   let q=0,recordCount=0;
+   let q=0,recordCount=0,endSeen=false;
    while(q<body.length){
     if(q+4>body.length)throw new Error("EPKエントリー種別が途中で切れています");
     const type=ascii(body,q,q+4);q+=4;
     if(type==="END$"){
+     endSeen=true;
      if(recordCount!==report.fileCount)report.warnings.push("END$時点の件数がヘッダーと一致しません");
      break;
     }
@@ -230,6 +231,9 @@
     }
    }
    report.parsedFiles=recordCount;report.counts=counts;report.namespaces=Array.from(new Set(report.namespaces)).sort();
+   if(!endSeen)report.errors.push("EPK END$終端レコードがありません");
+   if(report.unsafePaths)report.warnings.push("安全でないパスを持つEPKエントリーがあります: "+report.unsafePaths);
+   if(report.duplicatePaths)report.warnings.push("重複するEPKパスがあります: "+report.duplicatePaths);
    if(report.parsedFiles!==report.fileCount)report.errors.push("EPKエントリー件数不一致: header="+report.fileCount+", parsed="+report.parsedFiles);
    if(report.crcFailures)report.errors.push("CRC32不一致: "+report.crcFailures+" files");
    report.valid=report.errors.length===0;
@@ -361,8 +365,9 @@
    }
   }
   result.epk=epkResults;
-  result.deepAnalysis={status:decodable.length&&result.warnings.some(x=>/XZ展開失敗/.test(x))?"partial":"complete",xzDecoderAvailable:true,sectionsAttempted:decodable.length,sectionsExpanded:decodable.filter(x=>x.decompressedBytes!=null).length,totalExpandedBytes:totalExpanded};
-  const allStrings=result.wasmModules.flatMap(x=>x.relevantStrings||[]);
+  const partial=decodable.length===0||result.warnings.length>0||epkResults.some(x=>!x.valid);
+  result.deepAnalysis={status:partial?"partial":"complete",xzDecoderAvailable:true,sectionsAttempted:decodable.length,sectionsExpanded:decodable.filter(x=>x.decompressedBytes!=null).length,totalExpandedBytes:totalExpanded};
+  const allStrings=result.wasmModules.flatMap(x=>x.relevantStrings||[]).concat(result.epw.sections.flatMap(x=>x.relevantStrings||[]));
   const wasmText=allStrings.join("\n").toLowerCase();
   result.runtime.zeusEvidence=result.visible.visibleZeusMarker||/\bzeus\b/.test(wasmText);
   result.runtime.modEvidence={
@@ -389,7 +394,7 @@
    else if(fa.size!==fb.size||fa.crc32!==fb.crc32)changed.push({path,a:{size:fa.size,crc32:fa.crc32},b:{size:fb.size,crc32:fb.crc32}});
   }
   for(const path of mapA.keys())if(!mapB.has(path))removed.push(path);
-  return {aFormat:a&&a.format,bFormat:b&&b.format,sharedFiles:mapA.size+mapB.size-added.length-removed.length,addedToB:added.length,removedFromB:removed.length,changed:changed.length,addedPreview:added.slice(0,100),removedPreview:removed.slice(0,100),changedPreview:changed.slice(0,100)};
+  return {aFormat:a&&a.format,bFormat:b&&b.format,sharedFiles:mapA.size-removed.length,addedToB:added.length,removedFromB:removed.length,changed:changed.length,addedPreview:added.slice(0,100),removedPreview:removed.slice(0,100),changedPreview:changed.slice(0,100)};
  }
  root.Jar2ZeusTargetInspector={inspect,parseEPW,parseEPK,parseWasm,compare,crc32};
 })(typeof globalThis!=="undefined"?globalThis:this);
