@@ -11,6 +11,7 @@
 <script src="resource-converter.js"></script>
 <script src="definition-converter.js"></script>
 <script src="generic-mod-analyzer.js"></script>
+<script src="migration-pipeline.js"></script>
 </head>
 <body><main>
 <h1>Jar2Zeus</h1>
@@ -74,12 +75,18 @@ $("build").onclick=async function(){
  var restricted=/cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident/i;
  var recipeEntries=[];
  for(var n in jarZip.files){var obj=jarZip.files[n];if(!obj.dir&&/^data\/[a-z0-9_.-]+\/recipes?\/.+\.json$/i.test(n)){try{recipeEntries.push({path:n,content:await obj.async("string")})}catch(err){}}}
- var converted=window.Jar2ZeusConverter.convert(recipeEntries);
- var generatedMain='-- name: '+String(jarReport.jar.mod.name).replace(/[\r\n]/g,' ').slice(0,80)+' (Zeus port)\n-- id: '+id+'\n-- version: 0.1.0\n-- Generated supported recipes only. Java gameplay code is not translated.\n\n'+converted.mainLua;
+ var pipeline=window.Jar2ZeusPipeline.create();
+ pipeline.register({id:"recipes",run:function(ctx){var r=window.Jar2ZeusConverter.convert(ctx.recipeEntries);return {lua:r.mainLua,files:{"conversion-report.json":JSON.stringify(r.report,null,2)},report:r.report}}});
+ pipeline.register({id:"definitions",run:function(ctx){var r=window.Jar2ZeusDefinitions.convert(ctx.resourceEntries,ctx.namespace);return {lua:r.lua,files:{"definition-report.json":JSON.stringify(r.report,null,2)},report:r.report,copied:r.copied}}});
+ var pipelineResult=await pipeline.run({recipeEntries:recipeEntries,resourceEntries:resourceEntries,namespace:jarReport.jar.mod.id});
+ var converted=pipelineResult.results.recipes||{report:{},mainLua:""};
+ var definitions=pipelineResult.results.definitions||{report:{},copied:[],lua:""};
+ var generatedMain='-- name: '+String(jarReport.jar.mod.name).replace(/[\r\n]/g,' ').slice(0,80)+' (Zeus port)\n-- id: '+id+'\n-- version: 0.1.0\n-- Generated adapters only; Java gameplay code is not translated.\n\n'+pipelineResult.lua;
  out.file("migration-package/main.lua",generatedMain);
  out.file("migration-package/conversion-report.json",JSON.stringify(converted.report,null,2));
  out.file("migration-package/report.json",JSON.stringify(jarReport,null,2));
  out.file("migration-package/generic-analysis.json",JSON.stringify(jarReport.generic_analysis,null,2));
+ out.file("migration-package/adapter-report.json",JSON.stringify(pipelineResult.report,null,2));
  out.file("migration-package/generic-analysis.json",JSON.stringify(jarReport.generic_analysis,null,2));
  out.file("migration-package/MIGRATION_NOTES.md","# Migration notes\n\nThis package is an analysis and resource extraction result. Java bytecode, Forge/Fabric/NeoForge APIs and Mixin behavior are not translated. Implement supported features against the exact Zeus API and test in the target client. Weapon and artillery behavior is excluded.\n");
  var copied=0,resourceEntries=[],textureBytes={};
