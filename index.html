@@ -1,25 +1,80 @@
 <!doctype html>
-<html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Jar2Zeus</title>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jar2Zeus — JAR + Eaglercraft HTML Migration</title>
 <style>
-body{margin:0;background:#0b1020;color:#eef3ff;font:15px system-ui;padding:24px}main{max-width:850px;margin:auto}.card{background:#151f35;border:1px solid #30415f;border-radius:14px;padding:20px;margin:14px 0}button{background:#829cff;color:#081126;border:0;border-radius:9px;padding:11px 16px;font-weight:bold}input{margin:12px 0}pre{white-space:pre-wrap;background:#091120;padding:14px;border-radius:9px;overflow:auto}.muted{color:#a9b7d0}.warn{color:#ffd78a}
+:root{color-scheme:dark}body{margin:0;background:#0b1020;color:#eef3ff;font:15px system-ui;padding:22px}main{max-width:920px;margin:auto}.card{background:#151f35;border:1px solid #30415f;border-radius:14px;padding:19px;margin:14px 0}button{background:#829cff;color:#081126;border:0;border-radius:9px;padding:11px 16px;font-weight:bold;cursor:pointer}button:disabled{opacity:.4}input{display:block;margin:12px 0;max-width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#091120;padding:14px;border-radius:9px;max-height:420px;overflow:auto}.muted{color:#a9b7d0}.warn{color:#ffd78a}.good{color:#9fe4b5}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.step{border:1px solid #30415f;border-radius:10px;padding:13px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<main><h1>Jar2Zeus</h1><p class="muted">Minecraft JAR inspector · Zeus migration scaffold generator</p>
-<section class="card"><h2>① MODを選択</h2><input id="jar" type="file" accept=".jar"><br><button id="go">解析する</button></section>
-<section class="card"><h2>② 解析結果</h2><pre id="out">JARを選択してください。</pre><p class="warn">注意：Javaのゲーム処理をLua/WASMへ自動変換する機能はありません。メタデータ解析とリソース抽出を行い、移植用のひな型を作ります。</p><button id="save" disabled>Zeus用ZIPを生成</button></section>
-<p class="muted">処理はブラウザ内で行います。JARファイルはアップロードされません。インターネット接続が必要です（JSZipライブラリ読み込み）。</p></main>
+</head>
+<body><main>
+<h1>Jar2Zeus</h1>
+<p class="muted">JAR + Eaglercraft HTML migration analyzer / package builder</p>
+<section class="card"><h2>① ファイルを選択</h2>
+<div class="grid">
+<div class="step"><b>MODのJAR</b><input id="jar" type="file" accept=".jar,.zip"></div>
+<div class="step"><b>移植先のEaglercraft HTML</b><input id="html" type="file" accept=".html,.htm"></div>
+</div>
+<button id="analyze">両方を解析</button>
+</section>
+<section class="card"><h2>② 解析結果</h2><pre id="out">JARと対象HTMLを選択してください。</pre>
+<p class="warn" id="warning">まだ解析されていません。</p>
+<button id="build" disabled>変換パッケージ＋解析済みHTMLをZIP出力</button>
+</section>
+<section class="card"><h2>このツールが行うこと</h2>
+<ul><li>JAR内のFabric / Forge / NeoForgeメタデータ、依存MOD、Javaクラス、assets、dataを調査</li><li>Eaglercraft HTMLのバージョン候補、Zeus関連文字列、MODローダー候補を検出</li><li>対応可能なリソースを抽出し、Zeus向け移植作業パッケージを生成</li><li>解析結果を埋め込んだコピーHTMLをZIPに格納</li></ul>
+<p class="warn">重要：JAR内のJavaコードを完全なLua/WASMへ自動変換したり、Zeus未搭載のHTMLへZeus本体を新規実装して全MOD機能を動かすことは、この版ではできません。出力HTMLへの解析情報の埋め込みは、MOD機能の実装・動作を意味しません。武器・砲撃などの実戦用機能は変換対象にしません。</p>
+</section>
+<p class="muted">ファイルはブラウザ内で処理し、サーバーへ送信しません。JSZip読み込み時のみインターネット接続が必要です。</p>
+</main>
 <script>
-let zip=null,report=null,mod={};
-const $=id=>document.getElementById(id);
+var jarZip=null,jarReport=null,targetInfo=null,sourceHtml="",jarFile=null,htmlFile=null;
+function $(id){return document.getElementById(id)}
 function slug(s){return (s||"imported_mod").toLowerCase().replace(/[^a-z0-9_.-]/g,"_").replace(/^\.+/,"").slice(0,55)||"imported_mod"}
-$("go").onclick=async()=>{try{const f=$("jar").files[0];if(!f)throw Error("JARを選択してください");zip=await JSZip.loadAsync(f);const names=Object.keys(zip.files);let loader="不明",id=null,name=null,version="不明",mc=[],deps=[];
-if(zip.file("fabric.mod.json")){const x=JSON.parse(await zip.file("fabric.mod.json").async("string"));loader="Fabric";id=x.id;name=x.name||id;version=String(x.version||"不明");deps=Object.keys(x.depends||{});const v=(x.depends||{}).minecraft;if(typeof v==="string")mc.push(v);else if(Array.isArray(v))mc.push(...v)}
-for(const [path,l] of [["META-INF/mods.toml","Forge"],["META-INF/neoforge.mods.toml","NeoForge"]])if(zip.file(path)){const t=await zip.file(path).async("string");loader=l;id=(t.match(/\bmodId\s*=\s*"([^"]+)"/)||[])[1]||id;version=(t.match(/\bversion\s*=\s*"([^"]+)"/)||[])[1]||version;deps=[...new Set([...t.matchAll(/modId\s*=\s*"([^"]+)"/g)].map(x=>x[1]).filter(x=>x!==id))]}
-const classes=names.filter(n=>n.endsWith(".class")).length,assets=names.filter(n=>n.startsWith("assets/")).length,data=names.filter(n=>n.startsWith("data/")).length;
-mod={loader,id:id||slug(f.name),name:name||f.name.replace(/\.jar$/i,""),version,minecraft_versions:[...new Set(mc)],dependencies:deps};
-report={source:f.name,detected_mod:mod,counts:{files:names.length,java_classes:classes,assets,data},conversion:{metadata:"解析済み",resources:"抽出可能",java_gameplay_logic:"未変換"},next_steps:["依存関係を確認","Java/Mixin処理を機能単位で解析","Zeus API向けに個別再実装","Eaglercraft 26.2/26.3で検証"]};
-$("out").textContent=JSON.stringify(report,null,2);$("save").disabled=false}catch(e){alert("解析失敗: "+e.message)}};
-$("save").onclick=async()=>{try{const out=new JSZip(),id="jar2zeus_"+slug(mod.id),meta={id:id.slice(0,64),name:"Imported: "+mod.name,version:"0.1.0-port",description:"Migration scaffold; Java gameplay code is not converted.",authors:["Jar2Zeus"],main:"main.lua",api:1,minecraft:["26.2","26.3"]};out.file("metadata.json",JSON.stringify(meta,null,2));out.file("main.lua",'-- Jar2Zeus migration scaffold\n-- Java gameplay logic has NOT been converted.\nlog("Jar2Zeus scaffold loaded.")\n');out.file("report.json",JSON.stringify(report,null,2));out.file("MIGRATION_NOTES.md","Java/Forge/Fabric/NeoForge code and Mixin logic require feature-by-feature reimplementation against the Zeus API.");let copied=0;for(const [n,obj] of Object.entries(zip.files)){if(!obj.dir&&(n.startsWith("assets/")||n.startsWith("data/"))&&!n.split("/").includes("..")){out.file(n,await obj.async("uint8array"));copied++}}
-const blob=await out.generateAsync({type:"blob",compression:"DEFLATE"});if(blob.size>64*1024*1024)throw Error("ZIPが64MBを超えています");const a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download=id+".zip";a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);alert(copied+"個のリソースを格納しました。Javaロジックは未変換です。")}catch(e){alert("ZIP生成失敗: "+e.message)}};
-</script></html>
+function unique(a){return Array.from(new Set(a))}
+function scanHtml(s){
+ var low=s.toLowerCase(),versions=[];
+ var pats=[/eaglercraftx?[^\n<]{0,30}?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/ig,/minecraft[^\n<]{0,30}?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/ig];
+ pats.forEach(function(p){var m;while((m=p.exec(s))!==null)versions.push(m[1])});
+ var hits=["zeus","modloader","eaglercraft","wasm","webassembly","fabric","forge"].filter(function(x){return low.indexOf(x)>=0});
+ return {bytes:new Blob([s]).size,versions:unique(versions).slice(0,12),signals:hits,zeusDetected:low.indexOf("zeus")>=0,hasEaglercraft:low.indexOf("eaglercraft")>=0,scriptTags:(s.match(/<script\b/ig)||[]).length};
+}
+$("analyze").onclick=async function(){
+ try{
+ if(!window.JSZip)throw Error("JSZipを読み込めません。インターネット接続を確認してください。");
+ jarFile=$("jar").files[0];htmlFile=$("html").files[0];
+ if(!jarFile||!htmlFile)throw Error("JARとHTMLの両方を選択してください。");
+ jarZip=await JSZip.loadAsync(jarFile);sourceHtml=await htmlFile.text();
+ var names=Object.keys(jarZip.files),loader="不明",id=null,name=null,version="不明",mc=[],deps=[];
+ if(jarZip.file("fabric.mod.json")){var f=JSON.parse(await jarZip.file("fabric.mod.json").async("string"));loader="Fabric";id=f.id;name=f.name||id;version=String(f.version||"不明");deps=Object.keys(f.depends||{});var v=(f.depends||{}).minecraft;if(typeof v==="string")mc.push(v);else if(Array.isArray(v))mc=mc.concat(v)}
+ [["META-INF/mods.toml","Forge"],["META-INF/neoforge.mods.toml","NeoForge"]].forEach(function(x){if(jarZip.file(x[0]))loader=x[1]});
+ var tomlPath=loader==="Forge"?"META-INF/mods.toml":loader==="NeoForge"?"META-INF/neoforge.mods.toml":null;
+ if(tomlPath&&jarZip.file(tomlPath)){var t=await jarZip.file(tomlPath).async("string");id=(t.match(/\bmodId\s*=\s*"([^"]+)"/)||[])[1]||id;version=(t.match(/\bversion\s*=\s*"([^"]+)"/)||[])[1]||version;deps=unique(deps.concat(Array.from(t.matchAll(/modId\s*=\s*"([^"]+)"/g)).map(function(m){return m[1]}).filter(function(x){return x!==id})))}
+ var classes=names.filter(function(n){return n.endsWith(".class")}).length,assets=names.filter(function(n){return n.startsWith("assets/")}).length,data=names.filter(function(n){return n.startsWith("data/")}).length;
+ targetInfo=scanHtml(sourceHtml);
+ var mod={id:id||slug(jarFile.name),name:name||jarFile.name.replace(/\.jar$/i,""),version:version,loader:loader,minecraft_versions:unique(mc),dependencies:deps};
+ jarReport={jar:{filename:jarFile.name,bytes:jarFile.size,mod:mod,counts:{files:names.length,java_classes:classes,assets:assets,data:data}},target_html:{filename:htmlFile.name,analysis:targetInfo},compatibility:{zeus_runtime:targetInfo.zeusDetected?"Zeus関連文字列を検出（実際のAPI互換性は未確認）":"Zeus関連文字列を検出できず",status:"要検証",notes:["HTMLの内部構造を文字列ベースで調査した結果です。完全な互換性判定ではありません。","Javaクラス・Mixin・Forge/Fabric APIの処理は自動移植されません。","ゲーム内で動作するようにするには、Zeus APIに合わせた機能別実装と実機テストが必要です。"]},conversion:{metadata:"解析済み",resources:"抽出対象",java_logic:"未変換",html_integration:"解析マニフェストを埋め込んだコピーを生成"}};
+ $("out").textContent=JSON.stringify(jarReport,null,2);
+ $("warning").textContent=targetInfo.zeusDetected?"Zeus関連文字列は見つかりました。API互換性と実際のMOD動作は別途検証が必要です。":"Zeus関連文字列が見つかりません。Zeus未搭載HTMLの可能性があり、出力HTMLだけでMOD機能は動作しません。";
+ $("build").disabled=false;
+ }catch(e){alert("解析失敗: "+e.message)}
+};
+$("build").onclick=async function(){
+ try{
+ var out=new JSZip(),id="jar2zeus_"+slug(jarReport.jar.mod.id),meta={id:id.slice(0,64),name:"Imported: "+jarReport.jar.mod.name,version:"0.1.0-port",description:"Migration work package; Java gameplay code is not converted.",authors:["Jar2Zeus"],source_loader:jarReport.jar.mod.loader,target_html:htmlFile.name,main:"main.lua"};
+ out.file("migration-package/metadata.json",JSON.stringify(meta,null,2));
+ out.file("migration-package/main.lua",'-- Jar2Zeus migration work file\n-- This is a scaffold, not a functional port.\nlog("Migration package loaded only when installed in a compatible Zeus runtime.")\n');
+ out.file("migration-package/report.json",JSON.stringify(jarReport,null,2));
+ out.file("migration-package/MIGRATION_NOTES.md","# Migration notes\n\nThis package is an analysis and resource extraction result. Java bytecode, Forge/Fabric/NeoForge APIs and Mixin behavior are not translated. Implement supported features against the exact Zeus API and test in the target client. Weapon and artillery behavior is excluded.\n");
+ var copied=0;
+ for(var n in jarZip.files){var obj=jarZip.files[n];if(!obj.dir&&(n.startsWith("assets/")||n.startsWith("data/"))&&!n.split("/").includes("..")){out.file("migration-package/resources/"+n,await obj.async("uint8array"));copied++}}
+ var marker='<script type="application/json" id="jar2zeus-migration-manifest">'+JSON.stringify({tool:"Jar2Zeus",report:jarReport,package:id})+'</scr'+'ipt>';
+ var patched=sourceHtml.replace(/<\/body\s*>/i,marker+"\n</body>");
+ if(patched===sourceHtml)patched=sourceHtml+"\n"+marker;
+ out.file("output/"+htmlFile.name.replace(/\.html?$/i,"")+".jar2zeus.html",patched);
+ out.file("README.txt","Jar2Zeus output\n\nThe HTML contains an embedded migration manifest only. It does not mean the imported MOD works in-game. The migration-package folder contains metadata, extracted assets/data and a report. Java logic still needs a real Zeus port.\n\nExtracted resource files: "+copied+"\nZeus runtime detected by heuristic: "+jarReport.target_html.analysis.zeusDetected+"\n");
+ var blob=await out.generateAsync({type:"blob",compression:"DEFLATE"});var a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download=id+"-migration.zip";a.click();setTimeout(function(){URL.revokeObjectURL(url)},1500);
+ }catch(e){alert("出力失敗: "+e.message)}
+};
+</script></body></html>
