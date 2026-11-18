@@ -20,5 +20,5 @@ test("export creates a standalone Zeus package with root metadata and clear impo
  assert.match(html,/modZip\.generateAsync\(\{type:"blob"/);
  assert.match(html,/out\.file\(id\+"-zeus-mod\.zip",modBlob\)/);
  assert.match(html,/metadata\.json and main\.lua are at the ZIP root/);
- assert.doesNotMatch(html,/migration-package\\/\+path/);
+ assert.equal(html.includes('migration-package/"+path'),false);
 });
