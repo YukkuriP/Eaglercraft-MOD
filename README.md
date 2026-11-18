@@ -24,7 +24,7 @@ Minecraft MODのJARと移植先Eaglercraft HTMLを解析し、対応する一部
 - assets / data内のテクスチャ、モデル、blockstates、レシピ、タグ、言語、音声、シェーダー、設定を分類
 - 大型JAR向けにclassを逐次解析し、全classバイト列を同時保持しない
 - 同じMOD内に対象外機能が含まれていても、無関係な安全なリソースは個別に解析・抽出
-- 詳細な `generic-analysis.json` を出力
+- 変換処理をアダプター方式に分離し、工程ごとの追加実装・失敗隔離が可能\n- 詳細な `generic-analysis.json` と `adapter-report.json` を出力
 
 ## 注意
 ファイル数・JARサイズに独自の固定上限は設けていません。ただし、ブラウザ・端末のメモリ、JSZip、出力ZIPの容量など、実行環境の上限はあります。
