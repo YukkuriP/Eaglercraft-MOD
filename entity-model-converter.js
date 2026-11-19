@@ -80,8 +80,9 @@
   if(!related.length)return null;
   const hasRotation=related.some(record=>record.boneTracks[boneName].hasRotation);
   const hasPosition=related.some(record=>record.boneTracks[boneName].hasPosition);
-  if(kind==="rotary"&&hasRotation&&related.some(record=>record.looping)){
-   return {kind:"rotary",animation:"spin",sourceAnimations:related.filter(record=>record.looping&&record.boneTracks[boneName].hasRotation).map(record=>record.name),approximate:true};
+  const loopingRotations=related.filter(record=>record.looping&&record.boneTracks[boneName].hasRotation);
+  if(kind==="rotary"&&loopingRotations.length){
+   return {kind:"rotary",animation:"spin",sourceAnimations:loopingRotations.map(record=>record.name),approximate:true};
   }
   let reason;
   if(kind==="rotary"&&hasRotation)reason="rotating machine part is animated, but its source timeline is not a continuous loop; Zeus spin cannot preserve one-shot timing or keyframes";
@@ -153,7 +154,7 @@
       if(cubes.length)part.cubes=cubes;
      }catch(error){report.skipped.push({path,id,bone:bone.name,reason:error.message});bad=true;break}
      const machineMotion=classifyMachineMotion(bone.name,entityAnimations);
-     const motion=machineMotion?(machineMotion.animation||null):classifyMotion(bone.name,entityAnimationNames);
+     const motion=machineMotion?(machineMotion.animation||null):(machineKind(bone.name)?null:classifyMotion(bone.name,entityAnimationNames));
      if(motion){
       part.animation=motion;
       if(/left|_l$|^l_/.test(bone.name.toLowerCase())&&(motion==="leg"||motion==="arm"||motion==="wing"))part.phase=180;
