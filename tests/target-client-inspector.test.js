@@ -112,3 +112,15 @@ test("EPK comparison reports added, removed and changed paths", async () => {
   assert.equal(diff.removedFromB,0);
   assert.equal(diff.changed,1);
 });
+
+test("WASM parser extracts import and export symbols", () => {
+  const bytes = new Uint8Array([
+    0, 97, 115, 109, 1, 0, 0, 0,
+    2, 11, 1, 3, 101, 110, 118, 3, 108, 111, 103, 0, 0,
+    7, 7, 1, 3, 114, 117, 110, 0, 0
+  ]);
+  const parsed = api.parseWasm(bytes);
+  assert.equal(parsed.valid, true, parsed.error);
+  assert.deepEqual(parsed.imports, [{module:"env",name:"log",kind:0,typeIndex:0,kindName:"function"}]);
+  assert.deepEqual(parsed.exports, [{name:"run",kind:0,index:0}]);
+});
