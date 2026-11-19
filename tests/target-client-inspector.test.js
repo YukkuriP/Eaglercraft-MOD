@@ -193,3 +193,12 @@ test("inline-script inspection does not claim API support from a Zeus title alon
  assert.equal(report.runtime.apiPresenceVerified,false);
  assert.equal(report.deepAnalysis.wasmApiInspection,"not-performed");
 });
+
+
+test("a decoder helper alone is not mistaken for an inline client bundle",async()=>{
+ const html='<title>Eaglercraft 26.2</title>'+
+  '<script type="application/octet-stream" id="eag-inline-decoder">AAAAAA==</script>';
+ const report=await api.inspect(html);
+ assert.equal(report.format,"HTML wrapper / external or unknown assets");
+ assert.equal(report.deepAnalysis.status,"no-inline-payload");
+});
