@@ -1,7 +1,7 @@
 /* Jar2Zeus converter core. No dependencies; browser-compatible. */
 (function (root) {
   "use strict";
-  const BLOCKED = /(?:cannon|artillery|projectile|munition|firearm|gunpowder_weapon|weapon|rifle|pistol|musket)/i;
+  const BLOCKED = /(?:cannon|artillery|projectile|munition|firearm|gunpowder_weapon|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i;
   const ID = /^[a-z0-9_.-]+:[a-z0-9_./-]+$/;
   function quote(s) {
     const text = String(s);
