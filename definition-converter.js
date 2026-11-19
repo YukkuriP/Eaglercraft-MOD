@@ -162,15 +162,17 @@
    if(!model.parents.some(p=>String(p).endsWith("item/generated")||String(p).endsWith("item/handheld"))){
     report.skipped.push({id,reason:"item parent is not item/generated or item/handheld"});continue;
    }
-   const ref=resolveTexture(model.textures&&(model.textures.layer0||model.textures.layer1),model.textures||{});
-   const tex=texturePath(match[1],ref);
-   if(!tex|| (tex.source&&!files.has(tex.source))){report.skipped.push({id,reason:"generated item texture missing"});continue}
+   const sourceModelPath=modelPath(itemModelId,"item",match[1]);
+   const modelRef=modelResourcePath(itemModelId,"item",match[1]);
+   if(!sourceModelPath||!files.has(sourceModelPath)||!modelRef){report.skipped.push({id,reason:"source item model file is unavailable in the package"});continue}
+   const textureCheck=validateModelTextures(model,match[1],files);
+   if(!textureCheck.valid){report.skipped.push({id,reason:textureCheck.reason});continue}
    const local=localId(match[2]);if(!local||seenIds.has("i:"+local)){report.skipped.push({id,reason:"empty or duplicate local Zeus id"});continue}
    const translation=langs["item."+match[1]+"."+match[2].replace(/\//g,".")];
-   const props={name:translation||local.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()),texture:tex.target,stack:64};
+   const props={name:translation||local.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()),model:modelRef,stack:64};
    if(model.parents.some(p=>String(p).endsWith("item/handheld")))props.handheld=true;
    lines.push("items.register("+q(local)+", "+lua(props)+")");
-   seenIds.add("i:"+local);report.items.push(id);if(tex.source)copied.push(tex);
+   seenIds.add("i:"+local);report.items.push({id,model:sourceModelPath,modelRef});
   }
   const dedup=new Map();for(const x of copied)if(x.source)dedup.set(x.source,x);
   const mappings=Array.from(dedup.values());
