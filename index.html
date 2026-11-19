@@ -7,8 +7,6 @@
 :root{color-scheme:dark}body{margin:0;background:#0b1020;color:#eef3ff;font:15px system-ui;padding:22px}main{max-width:920px;margin:auto}.card{background:#151f35;border:1px solid #30415f;border-radius:14px;padding:19px;margin:14px 0}button{background:#829cff;color:#081126;border:0;border-radius:9px;padding:11px 16px;font-weight:bold;cursor:pointer}button:disabled{opacity:.4}input{display:block;margin:12px 0;max-width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#091120;padding:14px;border-radius:9px;max-height:420px;overflow:auto}.muted{color:#a9b7d0}.warn{color:#ffd78a}.good{color:#9fe4b5}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.step{border:1px solid #30415f;border-radius:10px;padding:13px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xzwasm@0.1.2/dist/package/xzwasm.min.js"></script>
 <script src="converter.js"></script>
 <script src="resource-converter.js"></script>
 <script src="definition-converter.js"></script>
@@ -18,8 +16,6 @@
 <script src="migration-pipeline.js"></script>
 <script src="zeus-api-contract.js"></script>
 <script src="package-validator.js"></script>
-<script src="target-client-inspector.js"></script>
-<script src="resource-compatibility.js"></script>
 </head>
 <body><main>
 <h1>Jar2Zeus</h1>
@@ -32,12 +28,12 @@
 </div>
 <button id="analyze">JARを解析して再実装を開始</button>
 </section>
-<section class="card"><h2>② 解析結果</h2><pre id="out">JARと対象HTMLを選択してください。</pre>
+<section class="card"><h2>② 解析結果</h2><pre id="out">JARとZeusの対象バージョンを選択してください。</pre>
 <p class="warn" id="warning">まだ解析されていません。</p>
 <button id="build" disabled>Zeus MOD ZIP＋再実装レポートを出力</button>
 </section>
 <section class="card"><h2>このツールが行うこと</h2>
-<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Javaクラスの定数プール・メソッド・バイトコード・API呼び出しを解析</li><li>Javaメソッドの安全な限定範囲をLuaへ変換し、未対応ロジックは再実装タスクに整理</li><li>WASMセクションとTeaVM／MOD識別子候補を抽出。Base64本文を単純文字列検索する誤判定を回避</li><li>JARのassets/data資産と対象EPKをCRC32で照合し、完全一致・同名衝突・新規パスを分類</li><li>ブロック・アイテム・レシピ等のJSON資産をZeus形式へ変換し、Javaコード由来の機能と統合</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>Zeusが直接読み込める、metadata.jsonがZIP直下にある単体MOD ZIPを生成</li></ul>
+<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Javaクラスの定数プール・メソッド・バイトコード・API呼び出しを解析</li><li>Javaメソッドの安全な限定範囲をLuaへ変換し、未対応ロジックは再実装タスクに整理</li><li>クラスのメソッド・命令・呼び出し先を解析し、対応できるJava処理をLuaへ再実装</li><li>JAR内のassets/dataを解析し、変換可能なテクスチャ・モデル・レシピ等を抽出</li><li>ブロック・アイテム・レシピ等のJSON資産をZeus形式へ変換し、Javaコード由来の機能と統合</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>Zeusが直接読み込める、metadata.jsonがZIP直下にある単体MOD ZIPを生成</li></ul>
 <p class="warn">重要：任意のJava MODを100%自動で完全移植できるわけではありません。現在は純粋な整数staticメソッドの一部をLuaへ再実装し、Java/Minecraft/ローダーAPIに依存する処理は機能別の再実装タスクとして出力します。未対応コードを動くふりで置き換えることはしません。危険な武器関連機能は変換対象にしません。</p>
 </section>
 <p class="muted">JARの解析と変換はブラウザ内で処理し、サーバーへ送信しません。ZIP作成時のみJSZipを読み込みます。</p>
