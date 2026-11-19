@@ -182,7 +182,7 @@ $("build").onclick=async function(){
  var validation;
  for(var vi=0;vi<4;vi++){
   var limits={files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024};
-  validation=window.Jar2ZeusPackageValidator.validate({metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,packageLimits:limits,packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,reimplementation:javaReimplementation.report,apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}});
+  validation=window.Jar2ZeusPackageValidator.validate({metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,packageLimits:limits,packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,reimplementation:javaReimplementation.report,recipeReport:converted.report,definitionReport:definitions.report,apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}});
   jarReport.package_validation=validation;
   var reportText=JSON.stringify(jarReport,null,2),validationText=JSON.stringify(validation,null,2);
   var reportIndex=packageFiles.findIndex(function(x){return x.path==="report.json"});
@@ -194,7 +194,7 @@ $("build").onclick=async function(){
   modZip.file("report.json",reportText);
   modZip.file("validation-report.json",validationText);
  }
- validation=window.Jar2ZeusPackageValidator.validate({metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,reimplementation:javaReimplementation.report,apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}});
+ validation=window.Jar2ZeusPackageValidator.validate({metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,reimplementation:javaReimplementation.report,recipeReport:converted.report,definitionReport:definitions.report,apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}});
  jarReport.package_validation=validation;
  modZip.file("validation-report.json",JSON.stringify(validation,null,2));
  modZip.file("report.json",JSON.stringify(jarReport,null,2));
