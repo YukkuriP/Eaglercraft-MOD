@@ -87,10 +87,21 @@
     return {status:"indexed",id,kind:kindMatch[1],replace:obj.replace===true,values:Array.from(new Set(values)),invalid_count:invalid.length};
   }
   function index(entries){
-    const result={tags:[],translations:{},models:[],blockstates:[],skipped:[],counts:{}};
+    const result={tags:[],translations:{},models:[],blockstates:[],textures:[],invalidTextures:[],skipped:[],counts:{}};
     for(const e of entries){
       if(!safePath(e.path)||BLOCKED.test(e.path)){result.skipped.push({path:e.path,reason:"unsafe or restricted path"});continue}
-      if(/^data\/[^/]+\/tags\/(blocks|items|fluids|entity_types)\/.+\.json$/.test(e.path)){
+      if(/\.png$/i.test(e.path)){
+        if(e.pngInfo){
+          const record={path:e.path,width:e.pngInfo.width,height:e.pngInfo.height,bitDepth:e.pngInfo.bitDepth,colorType:e.pngInfo.colorType,hasAlpha:e.pngInfo.hasAlpha};
+          if(e.pngInfo.valid)result.textures.push(record);
+          else result.invalidTextures.push({path:e.path,reason:e.pngInfo.error||"invalid PNG"});
+        }else if(e.bytes instanceof Uint8Array){
+          const info=inspectPng(e.bytes);
+          const record={path:e.path,width:info.width,height:info.height,bitDepth:info.bitDepth,colorType:info.colorType,hasAlpha:info.hasAlpha};
+          if(info.valid)result.textures.push(record);
+          else result.invalidTextures.push({path:e.path,reason:info.error||"invalid PNG"});
+        }else result.invalidTextures.push({path:e.path,reason:"PNG bytes were not supplied to the analyzer"});
+      }else if(/^data\/[^/]+\/tags\/(blocks|items|fluids|entity_types)\/.+\.json$/.test(e.path)){
         const t=parseTag(e.path,e.content);
         if(t.status==="indexed")result.tags.push(t);else if(t.status==="skipped")result.skipped.push({path:e.path,reason:t.reason});
       } else if(/^assets\/[^/]+\/lang\/[a-z0-9_-]+\.json$/.test(e.path)){
@@ -104,7 +115,7 @@
     }
     result.tags.sort((a,b)=>a.id.localeCompare(b.id));
     result.models.sort();result.blockstates.sort();
-    result.counts={tags:result.tags.length,translations:Object.keys(result.translations).length,models:result.models.length,blockstates:result.blockstates.length,skipped:result.skipped.length};
+    result.counts={tags:result.tags.length,translations:Object.keys(result.translations).length,models:result.models.length,blockstates:result.blockstates.length,textures:result.textures.length,invalidTextures:result.invalidTextures.length,skipped:result.skipped.length};
     return result;
   }
   root.Jar2ZeusResources={index,parseTag,inspectPng,crc32};
