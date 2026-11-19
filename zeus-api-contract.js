@@ -1,18 +1,21 @@
-/* Curated, documentation-backed Zeus Lua API contract.
- * This manifest is not proof that a particular HTML build exposes these APIs.
+/* Documentation-backed Zeus API contract for Eaglercraft 26.2 / 26.3.
+ * API names are curated from the official reference. This verifies names and
+ * presence only; it does not prove call signatures or gameplay behavior.
  */
 (function(root){
  "use strict";
  const contract={
-  schema:"jar2zeus.zeus-api-contract.v1",
+  schema:"jar2zeus.zeus-api-contract.v2",
   apiVersion:1,
   documentedGameVersions:["26.2","26.3"],
   sources:[
    "https://dev.eaglercraft.com/docs/modding/api",
    "https://dev.eaglercraft.com/docs/modding/blocks-items-and-mobs",
    "https://dev.eaglercraft.com/docs/modding/events-and-timers",
-   "https://dev.eaglercraft.com/docs/modding/packaging"
+   "https://dev.eaglercraft.com/docs/modding/packaging",
+   "https://dev.eaglercraft.com/docs/modding/webgl"
   ],
+  globalFunctions:["on","async","wait","waitTicks","print","log","require"],
   namespaces:{
    blocks:["register"],
    items:["register"],
@@ -20,10 +23,15 @@
    recipes:["shaped","shapeless","smelting","stonecutting","add"],
    timer:["after","every","time","ticks"],
    hud:["add","removeLayer","before","after","hide","remove","show","restore","replace","isHidden","elements"],
-   ctx:["rect","clip","pushClip","popClip","push","pop","translate","scale","rotate","text","centeredText","textWidth"],
+   ctx:["fill","gradient","outline","line","circle","text","centeredText","wrappedText","textWidth","fontHeight","image","item","tooltip","clip","pushClip","popClip","push","pop","translate","scale","rotate"],
+   ui:["screen","open","close","notify"],
+   screens:["current","close","openMods","addButton"],
+   game:["fps","width","height","scale","isPaused","inWorld","isSingleplayer","screen","option","setOption","openChat"],
+   player:["exists","name","uuid","pos","x","y","z","blockPos","eyePos","velocity","setVelocity","yaw","pitch","setRotation","facing","health","maxHealth","food","saturation","armor","xpLevel","xpProgress","isOnGround","isSneaking","isSprinting","isSwimming","isFlying","setSprinting","gamemode","dimension","biome","heldItem","offhandItem","lookingAt"],
+   camera:["pos","yaw","pitch","project"],
    world:["exists","block","light","biome","time","day","timeOfDay","weather","players","entities"],
-   commands:["register","unregister","list","run"],
    chat:["print","send","command"],
+   commands:["register","unregister","list","run"],
    events:["on","once","off","emit"],
    keys:["bind","isDown","code","name"],
    mouse:["x","y","isDown"],
@@ -32,15 +40,16 @@
    files:["open","save"],
    settings:["toggle","slider","choice","text","key","color","button","get","set","reset","all","onChange","open"],
    storage:[],
-   mods:["get","has","info","list"],
    mod:["log","warn","error","read","exists","files","save","reload","disable"],
-   player:["exists","name","pos","blockPos","rotation","health","food","gamemode","dimension","biome","facing"],
-   camera:["pos","yaw","pitch","project"],
+   mods:["get","has","info","list"],
    json:["encode","decode"],
-   clipboard:["read","write"],
-   http:["get","post"],
-   gl:["createShader","createProgram","createBuffer","drawArrays"],
-   matrix:[]
+   util:["color","rgb","hsv","rgba","alpha","lerp","clamp","round","formatTime","split","trim","startsWith","endsWith","now","uuid","bytes"],
+   clipboard:["set","get"],
+   http:["get","post","request"],
+   gl:["*"],
+   matrix:["identity","multiply","translate","scale","rotate","perspective","ortho","transform"],
+   mic:["start","stop","active","setMuted","muted","level","rate"],
+   rtc:["connect","available"]
   }
  };
  const NS=new Set(Object.keys(contract.namespaces));
@@ -60,8 +69,14 @@
    if(!NS.has(ns))continue;
    const path=ns+(clean[m.index+ns.length]||".")+method;
    matches.push(path);
-   if(!contract.namespaces[ns].includes(method))unsupported.add(path);
-   else required.add(path);
+   const supported=contract.namespaces[ns];
+   if(supported.includes("*")||supported.includes(method))required.add(path);
+   else unsupported.add(path);
+  }
+  const globalPattern=new RegExp("(^|[^A-Za-z0-9_.:])("+contract.globalFunctions.join("|")+")\\\\s*\\\\(","g");
+  while((m=globalPattern.exec(clean))){
+   const name=m[2],path="global."+name;
+   if(name==="print"||name==="log"||name==="require"||name==="on"||name==="async"||name==="wait"||name==="waitTicks")required.add(path);
   }
   return {
    schema:"jar2zeus.zeus-api-validation.v1",
@@ -75,68 +90,32 @@
  }
  function guardLua(lua,validation){
   if(!validation||!validation.valid)throw new Error("Cannot add Zeus API guards: unsupported API calls were found");
-  const guards=validation.requiredApis.filter(path=>!path.startsWith("ctx:")&&!path.startsWith("ctx.")).map(path=>{
+  const guards=validation.requiredApis.filter(path=>!path.startsWith("ctx.")&&!path.startsWith("ctx:")&&!path.startsWith("global.")).map(path=>{
    const [ns,method]=path.split(/[.:]/);
    return 'if type('+ns+') ~= "table" or type('+ns+"."+method+') ~= "function" then error("Jar2Zeus API preflight: missing '+ns+"."+method+' (documented Zeus API v1)") end';
   });
   return [
    "-- Runtime API preflight generated by Jar2Zeus.",
-   "-- This checks API presence only; it does not prove API behavior or MOD completeness.",
+   "-- This checks namespace/function presence only; it does not prove signatures or behavior.",
    ...guards,
    "",
    String(lua||"")
   ].join("\n");
  }
  function runtimeProbeLua(){
-  const checks=[
-   ["blocks.register","table","blocks","register"],
-   ["items.register","table","items","register"],
-   ["entities.register","table","entities","register"],
-   ["recipes.shaped","table","recipes","shaped"],
-   ["recipes.shapeless","table","recipes","shapeless"],
-   ["recipes.smelting","table","recipes","smelting"],
-   ["recipes.stonecutting","table","recipes","stonecutting"],
-   ["timer.every","table","timer","every"],
-   ["timer.after","table","timer","after"],
-   ["hud.add","table","hud","add"],
-   ["world.exists","table","world","exists"],
-   ["world.block","table","world","block"],
-   ["world.entities","table","world","entities"],
-   ["commands.run","table","commands","run"],
-   ["chat.print","table","chat","print"],
-   ["player.pos","table","player","pos"],
-   ["mod.log","table","mod","log"],
-   ["mod.warn","table","mod","warn"],
-   ["mods.get","table","mods","get"],
-   ["storage","table","storage",null],
-   ["events","table","events",null],
-   ["settings","table","settings",null],
-   ["print","function","print",null],
-   ["command","function","command",null],
-   ["async","function","async",null],
-   ["wait","function","wait",null],
-   ["waitTicks","function","waitTicks",null],
-   ["register","function","register",null],
-   ["unregister","function","unregister",null],
-   ["isPaused","function","isPaused",null],
-   ["inWorld","function","inWorld",null],
-   ["isSingleplayer","function","isSingleplayer",null],
-   ["openChat","function","openChat",null],
-   ["blockPos","function","blockPos",null],
-   ["eyePos","function","eyePos",null],
-   ["velocity","function","velocity",null],
-   ["setVelocity","function","setVelocity",null],
-   ["setRotation","function","setRotation",null],
-   ["player","table","player",null],
-   ["ui","table","ui",null],
-   ["game","table","game",null],
-   ["timer","table","timer",null]
-  ];
+  const checks=[];
+  for(const [ns,methods] of Object.entries(contract.namespaces)){
+   if(ns==="ctx")continue;
+   checks.push([ns,"table",null]);
+   if(methods.includes("*"))continue;
+   for(const method of methods)checks.push([ns+"."+method,"table",ns,method]);
+  }
+  for(const name of contract.globalFunctions)checks.push(["global."+name,"function",name,null]);
   return [
    "-- name: Jar2Zeus Runtime API Probe",
    "-- id: jar2zeus_runtime_probe",
-   "-- version: 1.1.0",
-   "-- description: Read-only check of Lua globals in this exact game build.",
+   "-- version: 2.0.0",
+   "-- description: Read-only check of documented API names in this game build.",
    "local function report(line)",
    '  local p = _G["print"]',
    '  if type(p) == "function" then p(line) else',
@@ -145,7 +124,7 @@
    "  end",
    "end",
    "local checks = {",
-   ...checks.map(x=>'  { "'+x[0]+'", "'+x[1]+'", "'+x[2]+'", '+(x[3]?' "'+x[3]+'" ':'nil')+' },'),
+   ...checks.map(x=>'  { "'+x[0]+'", "'+x[1]+'", "'+(x[2]||x[0])+'", '+(x[3]?' "'+x[3]+'" ':'nil')+' },'),
    "}",
    'report("Jar2Zeus API probe: start")',
    "for _, c in ipairs(checks) do",
@@ -159,6 +138,8 @@
    "  end",
    '  report(c[1] .. ": " .. (ok and "OK" or "MISSING"))',
    "end",
+   'local gl = _G["gl"]',
+   'report("gl.available: " .. (type(gl) == "table" and type(gl.available) == "function" and tostring(gl.available()) or "UNAVAILABLE"))',
    'report("Probe complete. OK means present only; behavior is not verified.")',
    ""
   ].join("\n");
