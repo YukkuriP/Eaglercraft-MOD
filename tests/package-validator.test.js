@@ -34,16 +34,24 @@ test("rejects missing output, failed adapters and missing API validation",()=>{
 
 test("rejects unsupported API calls even when other package fields are valid",()=>{
  const x=base();
- x.apiValidation={schema:"jar2zeus.zeus-api-validation.v1",valid:false,requiredApis:[],unsupportedApis:["mod.warn"]};
+ x.apiValidation={schema:"jar2zeus.zeus-api-validation.v1",valid:false,requiredApis:[],unsupportedApis:["world.teleport"]};
  const r=validate(x);
  assert.equal(r.valid,false);
- assert.ok(r.errors.some(e=>e.includes("mod.warn")));
+ assert.ok(r.errors.some(e=>e.includes("world.teleport")));
 });
 
-test("rejects missing texture inputs and unsafe output paths",()=>{
- const x=base();x.textureMappings=[{source:"missing.png",target:"../escape.png"}];
- x.packageFiles.push({path:"../escape.lua",size:1});
- const r=validate(x);assert.equal(r.valid,false);assert.ok(r.errors.length>=3);
+test("rejects missing source textures, traversal paths and single-backslash paths",()=>{
+ const x=base();
+ x.textureMappings=[
+  {source:"missing.png",target:"textures/okay.png"},
+  {source:"present.png",target:"textures\\bad.png"}
+ ];
+ x.packageFiles.push({path:"../escape.lua",size:1},{path:"assets\\escape.lua",size:1});
+ const r=validate(x);
+ assert.equal(r.valid,false);
+ assert.ok(r.errors.some(e=>e.includes("missing source texture")));
+ assert.ok(r.errors.some(e=>e.includes("unsafe package file path")));
+ assert.ok(r.errors.some(e=>e.includes("invalid or unsafe texture mapping")));
 });
 
 test("rejects packages exceeding documented Zeus limits",()=>{
