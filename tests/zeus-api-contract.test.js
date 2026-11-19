@@ -64,6 +64,7 @@ test("runtime probe is read-only and checks documented namespaces plus current L
  assert.match(probe,/waitTicks/);
  assert.match(probe,/MISSING/);
  assert.doesNotMatch(probe,/commands\.run\(["']/);
- assert.match(probe,/rawget\(_G, "print"\)/);
+ assert.match(probe,/_G\["print"\]/);
+ assert.match(probe,/_G\[c\[3\]\]/);
  assert.ok(probe.split("\n").length > 40);
 });
