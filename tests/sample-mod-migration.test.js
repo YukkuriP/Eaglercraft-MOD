@@ -6,6 +6,7 @@ require("../resource-converter.js");
 require("../generic-mod-analyzer.js");
 require("../migration-pipeline.js");
 require("../package-validator.js");
+require("../zeus-api-contract.js");
 
 test("sample safe Fabric-style JAR: amber brick block and crafting recipe", async () => {
   // A small, synthetic JAR entry set representing a harmless decorative-block MOD.
@@ -91,7 +92,10 @@ test("sample safe Fabric-style JAR: amber brick block and crafting recipe", asyn
     packageFiles,
     packageLimits: { files: 3, bytes: 1024, maxFiles: 4096, maxBytes: 64 * 1024 * 1024 },
     packageSkipped: [],
-    runtimeTested: false
+    runtimeTested: false,
+    gameplayVerified: false,
+    apiValidation: globalThis.Jar2ZeusApiValidator.scan(mainLua),
+    targetRuntimeEvidence: { apiPresenceVerified: false, versionVerified: false }
   });
   assert.equal(validation.valid, true);
   assert.equal(validation.runtimeTested, false);
