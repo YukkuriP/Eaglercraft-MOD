@@ -65,26 +65,66 @@
  }
  function parseWasm(bytes){
   const b=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes||0);
-  const out={valid:false,version:null,byteLength:b.length,sections:[],customSections:[],relevantStrings:[],error:null};
+  const out={valid:false,version:null,byteLength:b.length,sections:[],customSections:[],imports:[],exports:[],relevantStrings:[],error:null};
   if(b.length<8||!sameBytes(b.subarray(0,4),[0,0x61,0x73,0x6d])){out.error="WebAssembly magic not found";return out}
   if(b[4]!==1||b[5]!==0||b[6]!==0||b[7]!==0){out.error="unsupported WebAssembly binary version";return out}
   out.valid=true;out.version="1";
-  function readLeb(pos){
-   let val=0,shift=0,byte=0;
-   do{if(pos>=b.length||shift>35)throw new Error("invalid WASM LEB128");byte=b[pos++];val|=(byte&127)<<shift;shift+=7}while(byte&128);
-   return {value:val>>>0,next:pos};
+  function readLeb(pos,limit=b.length){
+   let val=0,shift=0,byte=0,count=0;
+   do{
+    if(pos>=limit||shift>28||count++>=5)throw new Error("invalid WASM LEB128");
+    byte=b[pos++];val+=(byte&127)*Math.pow(2,shift);shift+=7;
+   }while(byte&128);
+   if(val>0xffffffff)throw new Error("WASM LEB128 exceeds u32");
+   return {value:val,next:pos};
+  }
+  function readName(pos,limit){
+   const n=readLeb(pos,limit),end=n.next+n.value;
+   if(end>limit)throw new Error("WASM name exceeds section bounds");
+   return {value:text(b,n.next,end),next:end};
+  }
+  function skipLimits(pos,limit){
+   const flags=readLeb(pos,limit);pos=flags.next;
+   const min=readLeb(pos,limit);pos=min.next;
+   if(flags.value&1){const max=readLeb(pos,limit);pos=max.next}
+   return pos;
   }
   let p=8;
   try{
    while(p<b.length){
-    const id=b[p++],s=readLeb(p);p=s.next;
-    const size=s.value,end=p+size;
+    const id=b[p++],sz=readLeb(p);p=sz.next;
+    const size=sz.value,end=p+size;
     if(!inRange(b.length,p,size))throw new Error("WASM section exceeds module bounds");
     const section={id,size};
     if(id===0){
-     const n=readLeb(p);p=n.next;
-     if(p+n.value>end)throw new Error("invalid WASM custom-section name");
-     const name=text(b,p,p+n.value);section.name=name;out.customSections.push(name);
+     const n=readName(p,end);section.name=n.value;out.customSections.push(n.value);
+    }else if(id===2){
+     let q=p;const count=readLeb(q,end);q=count.next;
+     if(count.value>100000)throw new Error("WASM import count exceeds inspection limit");
+     for(let i=0;i<count.value;i++){
+      const mod=readName(q,end);q=mod.next;
+      const field=readName(q,end);q=field.next;
+      if(q>=end)throw new Error("WASM import kind is truncated");
+      const kind=b[q++],item={module:mod.value,name:field.value,kind};
+      if(kind===0){const t=readLeb(q,end);q=t.next;item.typeIndex=t.value;item.kindName="function"}
+      else if(kind===1){if(q>=end)throw new Error("WASM table type is truncated");item.elementType=b[q++];q=skipLimits(q,end);item.kindName="table"}
+      else if(kind===2){q=skipLimits(q,end);item.kindName="memory"}
+      else if(kind===3){if(q+2>end)throw new Error("WASM global type is truncated");item.valueType=b[q++];item.mutable=b[q++]!==0;item.kindName="global"}
+      else if(kind===4){const attr=readLeb(q,end);q=attr.next;const t=readLeb(q,end);q=t.next;item.attribute=attr.value;item.typeIndex=t.value;item.kindName="tag"}
+      else throw new Error("unknown WASM import kind: "+kind);
+      out.imports.push(item);
+     }
+     if(q!==end)throw new Error("WASM import section has trailing bytes");
+    }else if(id===7){
+     let q=p;const count=readLeb(q,end);q=count.next;
+     if(count.value>100000)throw new Error("WASM export count exceeds inspection limit");
+     for(let i=0;i<count.value;i++){
+      const n=readName(q,end);q=n.next;
+      if(q>=end)throw new Error("WASM export kind is truncated");
+      const kind=b[q++],index=readLeb(q,end);q=index.next;
+      out.exports.push({name:n.value,kind,index:index.value});
+     }
+     if(q!==end)throw new Error("WASM export section has trailing bytes");
     }
     out.sections.push(section);p=end;
    }
