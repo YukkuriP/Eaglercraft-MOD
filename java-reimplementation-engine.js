@@ -183,6 +183,7 @@
    if(RESTRICTED.test(m.name||""))return true;
    for(const call of (m.code&&m.code.invocations)||[])if(RESTRICTED.test((call.owner||"")+"."+ (call.name||"")))return true;
    for(const field of (m.code&&m.code.fieldAccesses)||[])if(RESTRICTED.test((field.owner||"")+"."+ (field.name||"")))return true;
+   for(const value of (m.code&&m.code.stringConstants)||[])if(RESTRICTED.test(value))return true;
   }
   return false;
  }
