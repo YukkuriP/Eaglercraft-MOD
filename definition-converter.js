@@ -27,6 +27,23 @@
   const source="assets/"+ns+"/textures/"+p+".png";
   return safe(source)?{source,target:"textures/"+ns+"_"+p.replace(/\//g,"_")+".png"}:null;
  }
+ function modelResourcePath(id,kind,ns){
+  const source=modelPath(id,kind,ns);
+  const prefix="assets/"+ns+"/";
+  return source&&source.startsWith(prefix)?source.slice(prefix.length):null;
+ }
+ function validateModelTextures(model,ns,files){
+  const used=[];
+  for(const ref of Object.values(model.textures||{})){
+   const resolved=typeof ref==="string"&&ref.startsWith("#")?null:ref;
+   if(resolved==null)continue;
+   const texture=texturePath(ns,resolved);
+   if(!texture)return {valid:false,reason:"model references a texture outside the MOD namespace or Minecraft"};
+   if(texture.source&&!files.has(texture.source))return {valid:false,reason:"model texture is missing: "+texture.source};
+   if(texture.source)used.push(texture);
+  }
+  return {valid:true,used};
+ }
  function convert(entries,modNamespace){
   const files=new Map(entries.filter(e=>safe(e.path)).map(e=>[e.path,e.content]));
   const json=new Map(),langs={},parentModelIds=new Set();
@@ -111,17 +128,20 @@
    if(!model){report.skipped.push({id,reason:"model or parent could not be resolved"});continue}
    const supportedCubeParent=(model.parents||[]).some(function(p){return /minecraft:block\/(cube_all|cube|cube_column|cube_bottom_top|cube_top)$/.test(p)});
    if(!supportedCubeParent&&!Array.isArray(model.elements)){report.skipped.push({id,reason:"unsupported block model parent or geometry"});continue}
-   const tex=blockTextures(model,match[1]);
-   if(!tex.texture){report.skipped.push({id,reason:"no supported texture reference"});continue}
+   const sourceModelPath=modelPath(selected.model,"block",match[1]);
+   const modelRef=modelResourcePath(selected.model,"block",match[1]);
+   if(!sourceModelPath||!files.has(sourceModelPath)||!modelRef){report.skipped.push({id,reason:"source model file is unavailable in the package"});continue}
+   const textureCheck=validateModelTextures(model,match[1],files);
+   if(!textureCheck.valid){report.skipped.push({id,reason:textureCheck.reason});continue}
    const local=localId(match[2]);if(!local||seenIds.has("b:"+local)){report.skipped.push({id,reason:"empty or duplicate local Zeus id"});continue}
    const translation=langs["block."+match[1]+"."+match[2].replace(/\//g,".")];
-   const props={name:translation||local.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()),texture:tex.texture,hardness:1.5,sound:"stone"};
+   const props={name:translation||local.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()),model:modelRef,hardness:1.5,sound:"stone"};
    const parent=String(model.parent||"");
    if(/cube_column/.test(parent))props.rotate="axis";
    if(/glass|leaves/.test(match[2]))props.transparent=true;
    lines.push("blocks.register("+q(local)+", "+lua(props)+")");
-   seenIds.add("b:"+local);report.blocks.push(id);
-   copied.push(...tex.used);
+   seenIds.add("b:"+local);report.blocks.push({id,model:sourceModelPath,modelRef});
+   copied.push(...textureCheck.used);
   }
   for(const [path,raw] of json){
    const match=path.match(/^assets\/([^/]+)\/models\/item\/(.+)\.json$/);
