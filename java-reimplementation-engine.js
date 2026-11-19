@@ -23,7 +23,9 @@
  function pureHelper(clazz,m){
   const d=descriptor(m.descriptor),c=m.code;
   if(!(m.accessFlags&8)||!d||d.args.some(x=>x!=="I")||d.result!=="I"||!c||c.decodeError)return null;
-  if((c.branchTargets||[]).length||(c.exceptions||[]).length||(c.invocations||[]).length||(c.fieldAccesses||[]).length)return null;
+  if((c.branchTargets||[]).length||(c.exceptions||[]).length||(c.fieldAccesses||[]).length)return null;
+  const invocationInstructions=(c.instructions||[]).filter(x=>/^invoke/.test(x.name));
+  if(invocationInstructions.some(x=>x.name!=="invokestatic"||!x.member||x.member.owner!=="java/lang/Math"||!["abs","max","min"].includes(x.member.name)))return null;
   if(m.name.startsWith("<")||RESTRICTED.test(clazz.className+"."+m.name))return null;
   const stack=[],locals=new Map(),params=[];
   for(let i=0;i<d.args.length;i++){const n="arg"+i;locals.set(i,n);params.push(n);}
@@ -44,12 +46,34 @@
     if(match){const slot=Number(match[1]),v="v"+slot;locals.set(slot,v);lines.push("  local "+v+" = "+pop());continue;}
     if(n==="istore"){const v="v"+x.operand;locals.set(x.operand,v);lines.push("  local "+v+" = "+pop());continue;}
     if(n==="iinc"){const v=locals.get(x.local);if(!v)return null;lines.push("  "+v+" = "+i32(v+" + "+x.increment));continue;}
-    if(["iadd","isub","imul","idiv","irem"].includes(n)){
+    if(["iadd","isub","imul","idiv","irem","iand","ior","ixor","ishl","ishr","iushr"].includes(n)){
      const b=pop(),a=pop();let e;
      if(n==="idiv")e="math.modf(("+a+") / ("+b+"))";
      else if(n==="irem")e="(("+a+") - math.modf(("+a+") / ("+b+")) * ("+b+"))";
+     else if(n==="iand")e="("+a+" & "+b+")";
+     else if(n==="ior")e="("+a+" | "+b+")";
+     else if(n==="ixor")e="("+a+" ~ "+b+")";
+     else if(n==="ishl")e="("+a+" << ("+b+" & 31))";
+     else if(n==="ishr")e="("+a+" >> ("+b+" & 31))";
+     else if(n==="iushr")e="(("+a+" & 0xffffffff) >> ("+b+" & 31))";
      else e="("+a+") "+({iadd:"+",isub:"-",imul:"*"}[n])+" ("+b+")";
      stack.push(i32(e));continue;
+    }
+    if(n==="invokestatic"&&x.member&&x.member.owner==="java/lang/Math"){
+     const desc=descriptor(x.member.descriptor);
+     if(!desc||desc.args.some(t=>t!=="I")||desc.result!=="I")return null;
+     const args=[];for(let ai=0;ai<desc.args.length;ai++)args.unshift(pop());
+     if(x.member.name==="abs"&&args.length===1)stack.push(i32("math.abs("+args[0]+")"));
+     else if(x.member.name==="max"&&args.length===2)stack.push(i32("math.max("+args[0]+", "+args[1]+")"));
+     else if(x.member.name==="min"&&args.length===2)stack.push(i32("math.min("+args[0]+", "+args[1]+")"));
+     else return null;
+     continue;
+    }
+    if(n==="i2b"||n==="i2s"||n==="i2c"){
+     const a=pop(),mask=n==="i2b"?255:65535;
+     const signed=n==="i2b"?128:32768;
+     const converted=n==="i2c"?"(("+a+") & "+mask+")":"((("+a+") & "+mask+") >= "+signed+" and (("+a+") & "+mask+") - "+(mask+1)+" or (("+a+") & "+mask+"))";
+     stack.push(i32(converted));continue;
     }
     if(n==="ineg"){stack.push(i32("-("+pop()+")"));continue;}
     if(n==="pop"){pop();continue;}
