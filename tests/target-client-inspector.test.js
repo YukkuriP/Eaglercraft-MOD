@@ -124,3 +124,35 @@ test("WASM parser extracts import and export symbols", () => {
   assert.deepEqual(parsed.imports, [{module:"env",name:"log",kind:0,typeIndex:0,kindName:"function"}]);
   assert.deepEqual(parsed.exports, [{name:"run",kind:0,index:0}]);
 });
+
+test("EPK comparison reports added, removed and changed paths", async () => {
+  const first=await api.parseEPK(makeEPK("assets/demo/textures/a.png",Buffer.from([1])));
+  const second=await api.parseEPK(makeEPK("assets/demo/textures/a.png",Buffer.from([2])));
+  const diff=api.compare({format:"a",epk:[first]},{format:"b",epk:[second]});
+  assert.equal(diff.sharedFiles,1);
+  assert.equal(diff.addedToB,0);
+  assert.equal(diff.removedFromB,0);
+  assert.equal(diff.changed,1);
+});
+
+test("EPK comparison never treats unchecked CRC values as identical", () => {
+  const a={format:"a",epk:[{files:[{path:"assets/demo/a.bin",size:4,crc32:null,crcValid:null}]}]};
+  const b={format:"b",epk:[{files:[{path:"assets/demo/a.bin",size:4,crc32:null,crcValid:null}]}]};
+  const diff=api.compare(a,b);
+  assert.equal(diff.changed,0);
+  assert.equal(diff.counts.unverified,1);
+  assert.equal(diff.unverifiedPreview[0].path,"assets/demo/a.bin");
+});
+
+test("EPK comparison flags duplicate and unsafe paths instead of silently overwriting them", () => {
+  const a={epk:[{files:[
+    {path:"assets/demo/a.bin",size:1,crc32:1,crcValid:true},
+    {path:"assets/demo/a.bin",size:1,crc32:1,crcValid:true},
+    {path:"../escape.bin",size:1,crc32:1,crcValid:true}
+  ]}]};
+  const b={epk:[{files:[{path:"assets/demo/a.bin",size:1,crc32:1,crcValid:true}]}]};
+  const diff=api.compare(a,b);
+  assert.equal(diff.counts.duplicatePathsA,1);
+  assert.equal(diff.counts.unsafeA,1);
+  assert.equal(diff.counts.ambiguous,1);
+});
