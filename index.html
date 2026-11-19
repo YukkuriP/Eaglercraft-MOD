@@ -10,6 +10,7 @@
 <script src="converter.js"></script>
 <script src="resource-converter.js"></script>
 <script src="definition-converter.js"></script>
+<script src="entity-model-converter.js"></script>
 <script src="java-bytecode-analyzer.js"></script>
 <script src="generic-mod-analyzer.js"></script>
 <script src="java-reimplementation-engine.js"></script>
@@ -129,7 +130,7 @@ $("build").onclick=async function(){
   var obj=jarZip.files[n];
   if(obj.dir||!(n.startsWith("assets/")||n.startsWith("data/"))||!window.Jar2ZeusGenericAnalyzer.safePath(n)||restricted.test(n)||(/^data\/[^/]+\/recipes?\//i.test(n)))continue;
   var bytes=await obj.async("uint8array"),includeFile=true;
-  if(n.endsWith(".json")&&(/\/tags\/(blocks|items|fluids|entity_types)\//.test(n)||/\/lang\//.test(n)||/\/models\//.test(n)||/\/blockstates\//.test(n))){
+  if(n.endsWith(".json")&&(/\/tags\/(blocks|items|fluids|entity_types)\//.test(n)||/\/lang\//.test(n)||/\/models\//.test(n)||/\/blockstates\//.test(n)||/\/geo\//.test(n)||/\/animations\//.test(n))){
    try{resourceEntries.push({path:n,content:new TextDecoder().decode(bytes)})}catch(err){}
   }else if(n.endsWith(".png")){
    var pngInfo=window.Jar2ZeusResources.inspectPng(bytes);
@@ -142,10 +143,13 @@ $("build").onclick=async function(){
  var pipeline=window.Jar2ZeusPipeline.create();
  pipeline.register({id:"recipes",run:function(ctx){var r=window.Jar2ZeusConverter.convert(ctx.recipeEntries);return {lua:r.mainLua,report:r.report}}});
  pipeline.register({id:"definitions",run:function(ctx){var r=window.Jar2ZeusDefinitions.convert(ctx.resourceEntries,ctx.namespace);return {lua:r.lua,report:r.report,copied:r.copied}}});
+ pipeline.register({id:"entity-models",run:function(ctx){var r=window.Jar2ZeusEntityModels.convert(ctx.resourceEntries,ctx.namespace);return {lua:r.lua,files:r.files,report:r.report}}});
  pipeline.register({id:"java-reimplementation",run:function(ctx){var r=window.Jar2ZeusReimplementation.run({classes:ctx.javaClasses,analysis:ctx.analysis});return {lua:r.lua,report:r.report,plan:r.plan}}});
  var pipelineResult=await pipeline.run({recipeEntries:recipeEntries,resourceEntries:resourceEntries,namespace:jarReport.jar.mod.id,javaClasses:javaClassRecords,analysis:jarReport.generic_analysis});
  var converted=pipelineResult.results.recipes||{report:{},mainLua:""};
  var definitions=pipelineResult.results.definitions||{report:{},copied:[],lua:""};
+ var entityModels=pipelineResult.results["entity-models"]||{report:{schema:"jar2zeus.entity-models.v1",skipped:[{reason:"entity model adapter unavailable"}],animationsUnmapped:[]},files:{},lua:""};
+ var entityFileCount=0;for(var entityPath in entityModels.files){if(addPackageFile(entityPath,entityModels.files[entityPath],true))entityFileCount++;else entityModels.report.skipped.push({path:entityPath,reason:"entity texture could not be added to Zeus package"});}
  var javaReimplementation=pipelineResult.results["java-reimplementation"]||{report:{schema:"jar2zeus.reimplementation.v1",status:"failed",warnings:["Java再実装エンジンが実行できませんでした。"]},plan:{schema:"jar2zeus.reimplementation-plan.v1",tasks:[]},lua:""};
  var generatedMain='-- name: '+String(jarReport.jar.mod.name).replace(/[\r\n]/g,' ').slice(0,80)+' (Zeus port)\n-- id: '+id+'\n-- version: 0.1.0\n-- Java methods are conservatively reimplemented where supported; pending work is reported.\n\n'+pipelineResult.lua;
  var apiValidation=window.Jar2ZeusApiValidator.scan(generatedMain);
@@ -165,6 +169,7 @@ $("build").onclick=async function(){
 
  addPackageFile("conversion-report.json",JSON.stringify(converted.report,null,2),true);
  addPackageFile("definition-report.json",JSON.stringify(definitions.report,null,2),true);
+ addPackageFile("entity-model-report.json",JSON.stringify(entityModels.report,null,2),true);
  addPackageFile("reimplementation-report.json",JSON.stringify(javaReimplementation.report,null,2),true);
  addPackageFile("reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2),true);
  addPackageFile("generic-analysis.json",JSON.stringify(jarReport.generic_analysis,null,2),true);
@@ -191,10 +196,11 @@ $("build").onclick=async function(){
    textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,
    packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},
    packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,
-   reimplementation:javaReimplementation.report,recipeReport:converted.report,definitionReport:definitions.report,
+   reimplementation:javaReimplementation.report,recipeReport:converted.report,definitionReport:definitions.report,entityReport:entityModels.report,
    apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}
   });
   jarReport.package_validation=validation;
+  jarReport.entity_model_report=entityModels.report;
   var reportText=JSON.stringify(jarReport,null,2);
   var validationText=JSON.stringify(validation,null,2);
   if(!replacePackageFile("report.json",reportText))throw Error("report.jsonを上限内で更新できません");
@@ -208,7 +214,7 @@ $("build").onclick=async function(){
   textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,
   packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},
   packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,
-  reimplementation:javaReimplementation.report,recipeReport:converted.report,definitionReport:definitions.report,
+  reimplementation:javaReimplementation.report,recipeReport:converted.report,definitionReport:definitions.report,entityReport:entityModels.report,
   apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}
  });
  jarReport.package_validation=validation;
