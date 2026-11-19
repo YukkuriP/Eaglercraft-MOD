@@ -98,10 +98,10 @@
       loaders: [], minecraftVersions: [], javaClassVersions: {},
       metadata: { fabric: null, quilt: null, forge: null, neoforge: null, manifest: null, jarjar: null },
       entrypoints: [], mixinConfigs: [], accessTransformers: [], services: [],
-      featureFamilies: { blocksItems: [], entities: [], worldGeneration: [], rendering: [], networking: [], userInterface: [], audio: [], commands: [], storage: [], configuration: [] },
+      featureFamilies: { blocksItems: [], entities: [], worldGeneration: [], rendering: [], animations: [], networking: [], userInterface: [], audio: [], commands: [], storage: [], configuration: [] },
       migrationAssessment: { resourcePort: "partial", javaLogicPort: "requires a manual rewrite or a compatible runtime", overall: "analysis-only until feature adapters and in-game tests pass" },
       nestedJars: [], libraries: [], classes: { count: 0, invalid: 0, names: [], references: {}, frameworkReferences: [] },
-      resources: { assets: 0, data: 0, textures: 0, models: 0, blockstates: 0, recipes: 0, tags: 0, lang: 0, sounds: 0, shaders: 0, configs: 0, other: 0 },
+      resources: { assets: 0, data: 0, textures: 0, models: 0, entityGeometries: 0, animations: 0, blockstates: 0, recipes: 0, tags: 0, lang: 0, sounds: 0, shaders: 0, configs: 0, other: 0 },
       featureReview: { restrictedPathCount: 0, restrictedPaths: [] },
       unsupportedIndicators: [], warnings: []
     };
@@ -125,6 +125,8 @@
       else if (lower.startsWith("data/")) report.resources.data++;
       if (/\/textures\/.*\.png$/i.test(path)) report.resources.textures++;
       if (/\/models\/.*\.json$/i.test(path)) report.resources.models++;
+      if (/\/geo\/.*\.geo\.json$/i.test(path) || /\/models\/entity\/.*\.json$/i.test(path)) report.resources.entityGeometries++;
+      if (/\/animations\/.*\.json$/i.test(path) || /\.animation\.json$/i.test(path)) report.resources.animations++;
       if (/\/blockstates\/.*\.json$/i.test(path)) report.resources.blockstates++;
       if (/\/recipes?\/.*\.json$/i.test(path)) report.resources.recipes++;
       if (/\/tags\/.*\.json$/i.test(path)) report.resources.tags++;
@@ -197,7 +199,8 @@
       ["blocksItems", /net\/minecraft\/(?:world\/level\/block|world\/item|world\/item\/crafting|block\/|item\/|recipe)/],
       ["entities", /net\/minecraft\/(?:world\/entity|entity\/)/],
       ["worldGeneration", /net\/minecraft\/(?:world\/level\/levelgen|world\/gen|world\/level\/biome)/],
-      ["rendering", /net\/minecraft\/client\/(?:renderer|model|gui\/Font)|net\/minecraftforge\/client\/event\/Render|net\/fabricmc\/fabric\/api\/client\/rendering/],
+      ["rendering", /net\/minecraft\/client\/(?:renderer|model|animation|gui\/Font)|net\/minecraftforge\/client\/event\/Render|net\/fabricmc\/fabric\/api\/client\/rendering|software\/bernie\/geckolib|com\/github\/alexthe666\/citadel/],
+      ["animations", /(?:AnimationController|AnimationDefinition|AnimationState|Keyframe|software\/bernie\/geckolib\/animation|net\/minecraft\/client\/animation)/],
       ["networking", /net\/minecraft\/(?:network|server\/network)|(?:Packet|Payload|NetworkHandler)/i],
       ["userInterface", /net\/minecraft\/client\/gui|net\/minecraft\/client\/screen|(?:Screen|Menu|Widget)$/],
       ["audio", /net\/minecraft\/(?:sounds|client\/sounds)|(?:SoundEvent|SoundManager)/],
@@ -218,6 +221,7 @@
     if (report.accessTransformers.length) report.unsupportedIndicators.push("Access Transformers");
     if (report.services.length) report.unsupportedIndicators.push("Java ServiceLoader providers");
     if (report.featureFamilies.rendering.length) report.unsupportedIndicators.push("Custom client rendering / model logic");
+    if (report.featureFamilies.animations.length || report.resources.animations) report.unsupportedIndicators.push("Custom entity animation / keyframe logic");
     if (report.featureFamilies.networking.length) report.unsupportedIndicators.push("Custom networking / packet logic");
     if (report.featureFamilies.worldGeneration.length) report.unsupportedIndicators.push("Custom world generation");
     if (report.classes.count) report.unsupportedIndicators.push("Java bytecode requires runtime/API porting");
