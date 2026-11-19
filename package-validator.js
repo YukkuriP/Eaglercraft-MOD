@@ -37,12 +37,17 @@
   if(packageLimits.bytes>packageLimits.maxBytes)errors.push("Zeus package unpacked size limit exceeded");
   const packageFiles=Array.isArray(input.packageFiles)?input.packageFiles:[];
   if(input.packageSkipped&&input.packageSkipped.length)warnings.push("Some source resources were omitted because of safety or Zeus package limits");
-  const packagePaths=new Set();
+  const packagePaths=new Set();let listedBytes=0;
   for(const file of packageFiles){
    if(!file||unsafePath(file.path))errors.push("unsafe package file path");
    else if(packagePaths.has(file.path))errors.push("duplicate package file: "+file.path);
    else packagePaths.add(file.path);
+   const size=Number(file&&file.size);
+   if(!Number.isFinite(size)||size<0)errors.push("invalid package file size: "+(file&&file.path||"unknown"));
+   else listedBytes+=size;
   }
+  if(packageLimits.files!==packageFiles.length)errors.push("package file count does not match the output file list");
+  if(packageLimits.bytes!==listedBytes)errors.push("package byte count does not match the output file list");
   if(!packagePaths.has("metadata.json"))errors.push("metadata.json missing from package root");
   if(!packagePaths.has("main.lua"))errors.push("main.lua missing from package root");
   if(metadata&&typeof metadata.main==="string"&&!packagePaths.has(metadata.main))errors.push("metadata.main points to a file missing from the package");
@@ -80,7 +85,7 @@
   const unsupportedRuntime=!!(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length);
   const conversionComplete=valid&&!skipped&&!incompleteJava&&skippedResources===0&&!restrictedResources&&!unsupportedRuntime;
   if(!conversionComplete)warnings.push("The generated package is a partial port; review skipped resources, restricted-content exclusions, Java reimplementation tasks and runtime indicators");
-  const readyToImport=conversionComplete&&runtimeTested&&targetEvidence.apiPresenceVerified===true&&targetEvidence.versionVerified===true;
+  const readyToImport=conversionComplete&&runtimeTested&&gameplayVerified&&targetEvidence.apiPresenceVerified===true&&targetEvidence.versionVerified===true;
   return {
    valid,
    conversionComplete,
