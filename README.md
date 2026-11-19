@@ -3,13 +3,32 @@
 Minecraft MODのJARと移植先Eaglercraft HTMLを解析し、対応する一部機能を実際のZeus Lua MODとして出力するブラウザツールです。
 
 ## 使い方
-1. `index.html` と、参照されるJavaScriptファイル（`converter.js`、`resource-converter.js`、`definition-converter.js`、`generic-mod-analyzer.js`、`migration-pipeline.js`、`package-validator.js`、`target-client-inspector.js`、`resource-compatibility.js`）を同じフォルダに置く
+1. `index.html` と、参照されるJavaScriptファイル（`converter.js`、`resource-converter.js`、`definition-converter.js`、`generic-mod-analyzer.js`、`migration-pipeline.js`、`zeus-api-contract.js`、`package-validator.js`、`target-client-inspector.js`、`resource-compatibility.js`）を同じフォルダに置く
 2. インターネット接続がある状態でJARとEaglercraft HTMLを選択
 3. 「両方を解析」→「インポート用Zeus MOD ZIP＋診断レポートを出力」
 4. 出力された外側ZIPを展開し、`<mod-id>-zeus-mod.zip` を取り出す。このZIPは `metadata.json` と `main.lua` が直下にある単体Zeus MODパッケージ
 5. Eaglercraft 26.2 / 26.3のModsメニューから単体MOD ZIPをインポートし、有効化してページを再読み込みする
 
 **注意：** アップロードしたHTMLは互換性の手掛かりを調べるだけで、ゲーム本体にMOD機能を注入しません。Zeus非対応の1.8 / 1.12クライアントではこのMOD ZIPは動きません。
+
+
+## 26.2 zeus/master HTMLの解析
+
+最新形式のHTMLでは、`assetsURI=data:...`ではなく、`<script id="eag-inline-wasm-br">`、`eag-inline-assets`、`eag-inline-sounds`などのscript要素にBrotli WASMとEPKを格納する場合があります。インスペクターは両形式を別々に判定し、inline形式ではscriptのメタデータとEPKを解析します。
+
+- `eag-inline-assets`と`eag-inline-sounds`のEPK v2を読み、GZIP展開・ファイル数・CRC32・パスを検査
+- Brotli WASMは存在・宣言サイズを記録しますが、HTMLを実行したりWASMを実行したりはしません
+- EPKの検査成功はLua APIの存在やMODの動作成功を意味しません
+- HTMLタイトル・scriptサイズ等からゲーム版の候補を記録し、出力metadataには選択した26.2 / 26.3だけを指定
+
+## Zeus APIの検査と実機確認
+
+- `zeus-api-contract.js`は公式API資料に基づき、生成Luaの既知namespace/methodの呼び出しを静的検査します
+- 未知の呼び出しは生成を停止し、既知の呼び出しにはmain.lua冒頭でAPI存在チェックを付けます
+- 静的HTML/WASM解析だけでは、対象ビルドのLuaグローバルが公開されているか確定できません
+- 外側の診断ZIPに`zeus-runtime-probe.lua`を出力します。対象HTML上で実行し、`OK` / `MISSING`を確認するための読み取り専用プローブです
+- 構造検証済み、API存在確認済み、ゲーム内動作確認済みを別状態で管理します。実機でのAPI確認がない場合は`readyToImport=false`のままです
+
 
 ## 実際にZeus Luaへ変換する範囲
 - shaped / shapeless crafting
