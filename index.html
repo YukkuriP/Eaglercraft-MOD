@@ -50,9 +50,10 @@ function detectTargetVersion(fileName,info){
  var selected=$("targetVersion").value;
  if(selected==="26.2"||selected==="26.3")return selected;
  var source=[fileName,info&&info.visible&&info.visible.title,info&&info.visible&&info.visible.description].join(" ");
- var matches=unique(Array.from(source.matchAll(/(^|[^0-9])(26\\.[23])(?=$|[^0-9])/g)).map(function(m){return m[2]}));
+ var matches=unique(Array.from(source.matchAll(/(^|[^0-9])(26\.[23])(?=$|[^0-9])/g)).map(function(m){return m[2]}));
  return matches.length===1?matches[0]:null;
 }
+
 async function scanHtml(s){
  if(!window.Jar2ZeusTargetInspector)throw Error("対象HTML解析エンジンが読み込まれていません。");
  return await window.Jar2ZeusTargetInspector.inspect(s);
@@ -132,7 +133,12 @@ $("build").onclick=async function(){
  var converted=pipelineResult.results.recipes||{report:{},mainLua:""};
  var definitions=pipelineResult.results.definitions||{report:{},copied:[],lua:""};
  var generatedMain='-- name: '+String(jarReport.jar.mod.name).replace(/[\r\n]/g,' ').slice(0,80)+' (Zeus port)\n-- id: '+id+'\n-- version: 0.1.0\n-- Partial conversion: unsupported Java logic is not translated.\n\n'+pipelineResult.lua;
+ var apiValidation=window.Jar2ZeusApiValidator.scan(generatedMain);
+ if(!apiValidation.valid)throw Error("未確認のZeus API呼び出しを検出: "+apiValidation.unsupportedApis.join(", "));
+ generatedMain=window.Jar2ZeusApiValidator.guardLua(generatedMain,apiValidation);
  if(!addPackageFile("main.lua",generatedMain,true))throw Error("main.luaをパッケージに追加できません");
+ if(!addPackageFile("api-validation.json",JSON.stringify(apiValidation,null,2),true))throw Error("api-validation.jsonを追加できません");
+
  addPackageFile("conversion-report.json",JSON.stringify(converted.report,null,2),true);
  addPackageFile("definition-report.json",JSON.stringify(definitions.report,null,2),true);
  addPackageFile("generic-analysis.json",JSON.stringify(jarReport.generic_analysis,null,2),true);
@@ -154,7 +160,7 @@ $("build").onclick=async function(){
  var validation;
  for(var vi=0;vi<4;vi++){
   var limits={files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024};
-  validation=window.Jar2ZeusPackageValidator.validate({metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,packageLimits:limits,packageSkipped:packageSkipped,runtimeTested:false});
+  validation=window.Jar2ZeusPackageValidator.validate({metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,packageLimits:limits,packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}});
   jarReport.package_validation=validation;
   var reportText=JSON.stringify(jarReport,null,2),validationText=JSON.stringify(validation,null,2);
   var reportIndex=packageFiles.findIndex(function(x){return x.path==="report.json"});
@@ -166,7 +172,7 @@ $("build").onclick=async function(){
   modZip.file("report.json",reportText);
   modZip.file("validation-report.json",validationText);
  }
- validation=window.Jar2ZeusPackageValidator.validate({metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},packageSkipped:packageSkipped,runtimeTested:false});
+ validation=window.Jar2ZeusPackageValidator.validate({metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}});
  jarReport.package_validation=validation;
  modZip.file("validation-report.json",JSON.stringify(validation,null,2));
  modZip.file("report.json",JSON.stringify(jarReport,null,2));
@@ -174,8 +180,11 @@ $("build").onclick=async function(){
  var modBlob=await modZip.generateAsync({type:"blob",compression:"DEFLATE"});
  out.file(id+"-zeus-mod.zip",modBlob);
  out.file("diagnostics/report.json",JSON.stringify(jarReport,null,2));
+ out.file("diagnostics/api-contract.json",JSON.stringify(window.Jar2ZeusApiContract,null,2));
+ out.file("diagnostics/api-validation.json",JSON.stringify(apiValidation,null,2));
+ out.file("diagnostics/zeus-runtime-probe.lua",window.Jar2ZeusApiValidator.runtimeProbeLua());
  out.file("diagnostics/target-html-analysis.json",JSON.stringify({filename:htmlFile.name,analysis:targetInfo,notice:"The target HTML is analyzed only. It is not patched with a Java MOD runtime."},null,2));
- out.file("README.txt","Jar2Zeus output\n\nIMPORT THIS FILE: "+id+"-zeus-mod.zip\n\nIt is a standalone Zeus MOD ZIP. metadata.json and main.lua are at the ZIP root. On Eaglercraft 26.2/26.3, open the Mods menu and import the ZIP, then enable it and reload the game. The uploaded target HTML is analyzed only; it is not modified to add Zeus.\n\nThis is a partial port: Java gameplay code, loader APIs and unsupported model behavior are not translated. Read diagnostics/report.json and the validation report inside the MOD ZIP. Runtime compatibility has not been verified automatically.\n\nPackage files: "+packageFiles.length+"\nUnpacked package size: "+packageBytes+" bytes\nZeus limits: 4096 files / 64 MiB\nOmitted package files: "+packageSkipped.length+"\nExtracted source resources: "+copied+"\n");
+ out.file("README.txt","Jar2Zeus output\n\nIMPORT THIS FILE: "+id+"-zeus-mod.zip\n\nIt is a standalone Zeus MOD ZIP. metadata.json and main.lua are at the ZIP root. The package targets Eaglercraft "+targetVersion+". The uploaded target HTML is analyzed only; it is not modified to add Zeus.\n\nThis is a partial port: Java gameplay code, loader APIs and unsupported model behavior are not translated. The generated main.lua starts with runtime guards for every documented global API it uses. If the exact game build does not expose one, the mod stops with an explicit preflight error instead of a later nil-index crash.\n\nFor the exact target build, import diagnostics/zeus-runtime-probe.lua as a separate test mod (or paste its contents into the in-game editor). It reports which documented APIs are actually present. It checks API presence only; it does not prove that block registration, rendering, recipes or gameplay behavior work. Read diagnostics/report.json, diagnostics/api-validation.json and the validation report inside the MOD ZIP.\n\nPackage files: "+packageFiles.length+"\nUnpacked package size: "+packageBytes+" bytes\nZeus limits: 4096 files / 64 MiB\nOmitted package files: "+packageSkipped.length+"\nExtracted source resources: "+copied+"\n");
  var blob=await out.generateAsync({type:"blob",compression:"DEFLATE"});var a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download=id+"-migration.zip";a.click();setTimeout(function(){URL.revokeObjectURL(url)},1500);
  }catch(e){alert("出力失敗: "+e.message)}
 };
