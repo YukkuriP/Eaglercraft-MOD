@@ -33,9 +33,16 @@
   return source&&source.startsWith(prefix)?source.slice(prefix.length):null;
  }
  function validateModelTextures(model,ns,files){
-  const used=[];
-  for(const [key,ref] of Object.entries(model.textures||{})){
-   const resolved=resolveTexture(ref,model.textures||{});
+  const used=[],textures=model.textures||{};
+  function resolve(ref,depth=0){
+   if(typeof ref!=="string"||depth>12)return null;
+   if(!ref.startsWith("#"))return ref;
+   const key=ref.slice(1);
+   if(!Object.prototype.hasOwnProperty.call(textures,key))return null;
+   return resolve(textures[key],depth+1);
+  }
+  for(const [key,ref] of Object.entries(textures)){
+   const resolved=resolve(ref);
    if(!resolved)return {valid:false,reason:"unresolved model texture variable: #"+key};
    const texture=texturePath(ns,resolved);
    if(!texture)return {valid:false,reason:"model references a texture outside the MOD namespace or Minecraft: "+resolved};
