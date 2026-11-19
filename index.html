@@ -211,6 +211,8 @@ $("build").onclick=async function(){
  if(!replacePackageFile("report.json",JSON.stringify(jarReport,null,2)))throw Error("report.jsonの最終更新に失敗しました");
  if(!replacePackageFile("validation-report.json",JSON.stringify(validation,null,2)))throw Error("validation-report.jsonの最終更新に失敗しました");
  if(!validation.valid)throw Error("生成パッケージの構造検証に失敗: "+validation.errors.join("; "));
+ $("out").textContent=JSON.stringify(jarReport,null,2);
+ $("warning").textContent=validation.conversionComplete?"構造検証済み。対象ゲームでの動作確認はまだ必要です。":"部分移植として出力しました。未対応機能・省略素材は再実装レポートと診断を確認してください。";
  var modBlob=await modZip.generateAsync({type:"blob",compression:"DEFLATE"});
  out.file(id+"-zeus-mod.zip",modBlob);
  out.file("diagnostics/report.json",JSON.stringify(jarReport,null,2));
