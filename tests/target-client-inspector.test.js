@@ -156,3 +156,40 @@ test("EPK comparison flags duplicate and unsafe paths instead of silently overwr
   assert.equal(diff.counts.unsafeA,1);
   assert.equal(diff.counts.ambiguous,1);
 });
+
+
+test("inspects inline-script EPK and WASM containers used by 26.2 zeus/master builds",async()=>{
+ const assets=makeEPK("assets/demo/textures/amber.png",Buffer.from([1,2,3]),"G");
+ const assetsB64=Buffer.from(assets).toString("base64");
+ const wasmB64=Buffer.from([0xcf,0xff,0x7f,0x79,0xff]).toString("base64");
+ const html=[
+  '<!doctype html><title>Eaglercraft 26.2 (zeus/master)</title>',
+  '<script type="application/octet-stream" id="eag-inline-wasm-br" data-size="5" data-raw-size="106797927">'+wasmB64+'</script>',
+  '<script type="application/octet-stream" id="eag-inline-assets" data-size="'+assets.length+'">'+assetsB64+'</script>',
+  '<script type="application/octet-stream" id="eag-inline-sounds" data-size="0"></script>'
+ ].join("");
+ const report=await api.inspect(html);
+ assert.equal(report.format,"Eaglercraft inline script bundle");
+ assert.equal(report.clientBuild.minecraftVersion,"26.2");
+ assert.equal(report.clientBuild.branch,"zeus/master");
+ assert.equal(report.runtime.wasm,true);
+ assert.equal(report.runtime.zeusEvidence,true);
+ assert.equal(report.runtime.apiPresenceVerified,false);
+ assert.equal(report.inlinePayloads.find(x=>x.id==="eag-inline-wasm-br").rawSize,106797927);
+ assert.equal(report.epk.length,1);
+ assert.equal(report.epk[0].label,"assets");
+ assert.equal(report.epk[0].valid,true,report.epk[0].errors.join("; "));
+ assert.equal(report.epk[0].fileCount,2);
+ assert.equal(report.deepAnalysis.mode,"inline-script-epk-inventory");
+ assert.equal(report.deepAnalysis.compressedWasmInspected,false);
+});
+
+test("inline-script inspection does not claim API support from a Zeus title alone",async()=>{
+ const html='<title>Eaglercraft 26.2 (zeus/master)</title>'+
+  '<script type="application/octet-stream" id="eag-inline-wasm-br" data-size="4" data-raw-size="20">AAAAAA==</script>';
+ const report=await api.inspect(html);
+ assert.equal(report.runtime.zeusEvidence,true);
+ assert.equal(report.runtime.apiCompatibility,"unverified-static-only");
+ assert.equal(report.runtime.apiPresenceVerified,false);
+ assert.equal(report.deepAnalysis.wasmApiInspection,"not-performed");
+});
