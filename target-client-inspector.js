@@ -345,7 +345,7 @@
  }
  async function inspect(html,options){
   const opts=options||{},source=String(html||""),sourceBytes=new TextEncoder().encode(source).length;
-  const result={schema:"jar2zeus.target-client-analysis.v2",sourceBytes,visible:extractVisibleHints(source),format:"unknown",runtime:{kind:"unknown",wasm:false,wasmGc:false,zeusEvidence:false},epw:null,epk:[],wasmModules:[],deepAnalysis:{status:"not-started",xzDecoderAvailable:!!(root.xzwasm&&root.xzwasm.XzReadableStream)},warnings:[],errors:[]};
+  const result={schema:"jar2zeus.target-client-analysis.v2",sourceBytes,visible:extractVisibleHints(source),format:"unknown",runtime:{kind:"unknown",wasm:false,wasmGc:false,zeusEvidence:false,apiCompatibility:"unverified-static-only",apiPresenceVerified:false},epw:null,epk:[],wasmModules:[],deepAnalysis:{status:"not-started",xzDecoderAvailable:!!(root.xzwasm&&root.xzwasm.XzReadableStream)},warnings:[],errors:[]};
   if(sourceBytes>MAX_HTML_BYTES){result.errors.push("HTMLサイズが解析上限を超えています");result.deepAnalysis.status="blocked-size";return result}
   if(!result.visible.hasEaglercraft)result.warnings.push("HTML内にEaglercraftの文字列を確認できません");
   const payload=findInlineAssetsUri(source);
@@ -361,7 +361,7 @@
    return result;
   }
   result.format="Eaglercraft EPW / WASM-GC wrapper";
-  result.runtime={kind:"Eaglercraft WASM client",wasm:true,wasmGc:result.visible.wasmGcHint,zeusEvidence:result.visible.visibleZeusMarker};
+  result.runtime={kind:"Eaglercraft WASM client",wasm:true,wasmGc:result.visible.wasmGcHint,zeusEvidence:result.visible.visibleZeusMarker,apiCompatibility:"unverified-static-only",apiPresenceVerified:false};
   result.epw=parseEPW(binary);
   result.errors.push.apply(result.errors,result.epw.errors);
   result.warnings.push.apply(result.warnings,result.epw.warnings);
