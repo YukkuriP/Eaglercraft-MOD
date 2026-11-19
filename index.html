@@ -138,6 +138,14 @@ $("build").onclick=async function(){
  var generatedMain='-- name: '+String(jarReport.jar.mod.name).replace(/[\r\n]/g,' ').slice(0,80)+' (Zeus port)\n-- id: '+id+'\n-- version: 0.1.0\n-- Java methods are conservatively reimplemented where supported; pending work is reported.\n\n'+pipelineResult.lua;
  var apiValidation=window.Jar2ZeusApiValidator.scan(generatedMain);
  if(!apiValidation.valid)throw Error("未確認のZeus API呼び出しを検出: "+apiValidation.unsupportedApis.join(", "));
+ var permissions=new Set();
+ if(apiValidation.requiredApis.includes("commands.run"))permissions.add("commands");
+ if(apiValidation.requiredApis.some(function(x){return x.startsWith("http.")}))permissions.add("network");
+ if(apiValidation.requiredApis.includes("clipboard.get"))permissions.add("clipboard");
+ if(apiValidation.requiredApis.some(function(x){return x.startsWith("mic.")}))permissions.add("microphone");
+ if(apiValidation.requiredApis.some(function(x){return x.startsWith("rtc.")}))permissions.add("webrtc");
+ if(apiValidation.requiredApis.some(function(x){return x.startsWith("gl.")}))permissions.add("gl");
+ meta.permissions=Array.from(permissions).sort();
  generatedMain=window.Jar2ZeusApiValidator.guardLua(generatedMain,apiValidation);
  if(!addPackageFile("main.lua",generatedMain,true))throw Error("main.luaをパッケージに追加できません");
  if(!addPackageFile("api-validation.json",JSON.stringify(apiValidation,null,2),true))throw Error("api-validation.jsonを追加できません");
