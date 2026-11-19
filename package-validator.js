@@ -47,10 +47,10 @@
    }else warnings.push("Java bytecode was analyzed but no reimplementation report was supplied");
   }
   if(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length)warnings.push("MOD contains unsupported runtime features: "+input.analysis.unsupportedIndicators.join(", "));
-  if(input.runtimeTested!==true)warnings.push("The exact target HTML has not passed an in-game runtime test");
+  if(input.runtimeTested!==true)warnings.push("The selected Zeus target has not passed an in-game runtime test");
   const targetEvidence=input.targetRuntimeEvidence||{};
-  if(targetEvidence.apiPresenceVerified!==true)warnings.push("Static HTML inspection cannot prove that this exact build exposes every required Zeus Lua API");
-  if(targetEvidence.versionVerified!==true)warnings.push("The exact target game version has not been verified from a runtime report");
+  if(targetEvidence.apiPresenceVerified!==true)warnings.push("Required Zeus API presence has not been verified in the selected game build");
+  if(targetEvidence.versionVerified!==true)warnings.push("The running game version has not been confirmed by an in-game report; the package version is based on the selection");
   const valid=errors.length===0;
   const skipped=!!(input.packageSkipped&&input.packageSkipped.length);
   const runtimeTested=input.runtimeTested===true;
