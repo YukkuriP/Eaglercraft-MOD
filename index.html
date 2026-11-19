@@ -179,25 +179,37 @@ $("build").onclick=async function(){
  addPackageFile("conversion-policy.json",JSON.stringify({policy:"Restricted weapon-related functionality is not ported. Unrelated supported resources are processed individually.",sourceResourceFilesCopied:copied,omittedFiles:packageSkipped},null,2),true);
  addPackageFile("report.json",JSON.stringify(jarReport,null,2),true);
  addPackageFile("validation-report.json","{}",true);
- var validation;
- for(var vi=0;vi<4;vi++){
-  var limits={files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024};
-  validation=window.Jar2ZeusPackageValidator.validate({metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,packageLimits:limits,packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,reimplementation:javaReimplementation.report,recipeReport:converted.report,definitionReport:definitions.report,apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}});
+ var validation,validationStable=false;
+ for(var vi=0;vi<12;vi++){
+  var previousBytes=packageBytes;
+  validation=window.Jar2ZeusPackageValidator.validate({
+   metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,
+   textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,
+   packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},
+   packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,
+   reimplementation:javaReimplementation.report,recipeReport:converted.report,definitionReport:definitions.report,
+   apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}
+  });
   jarReport.package_validation=validation;
-  var reportText=JSON.stringify(jarReport,null,2),validationText=JSON.stringify(validation,null,2);
-  var reportIndex=packageFiles.findIndex(function(x){return x.path==="report.json"});
-  var validationIndex=packageFiles.findIndex(function(x){return x.path==="validation-report.json"});
-  var oldReport=reportIndex>=0?packageFiles[reportIndex].size:0,oldValidation=validationIndex>=0?packageFiles[validationIndex].size:0;
-  packageBytes+=new TextEncoder().encode(reportText).length-oldReport+new TextEncoder().encode(validationText).length-oldValidation;
-  packageFiles[reportIndex].size=new TextEncoder().encode(reportText).length;
-  packageFiles[validationIndex].size=new TextEncoder().encode(validationText).length;
-  modZip.file("report.json",reportText);
-  modZip.file("validation-report.json",validationText);
+  var reportText=JSON.stringify(jarReport,null,2);
+  var validationText=JSON.stringify(validation,null,2);
+  if(!replacePackageFile("report.json",reportText))throw Error("report.jsonを上限内で更新できません");
+  if(!replacePackageFile("validation-report.json",validationText))throw Error("validation-report.jsonを上限内で更新できません");
+  if(packageBytes===previousBytes){validationStable=true;break;}
  }
- validation=window.Jar2ZeusPackageValidator.validate({metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,reimplementation:javaReimplementation.report,recipeReport:converted.report,definitionReport:definitions.report,apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}});
+ if(!validationStable)throw Error("診断レポートのサイズ検証が安定しませんでした");
+ // Recompute once with the now-stable file sizes and update their contents.
+ validation=window.Jar2ZeusPackageValidator.validate({
+  metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,
+  textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,
+  packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},
+  packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,
+  reimplementation:javaReimplementation.report,recipeReport:converted.report,definitionReport:definitions.report,
+  apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}
+ });
  jarReport.package_validation=validation;
- modZip.file("validation-report.json",JSON.stringify(validation,null,2));
- modZip.file("report.json",JSON.stringify(jarReport,null,2));
+ if(!replacePackageFile("report.json",JSON.stringify(jarReport,null,2)))throw Error("report.jsonの最終更新に失敗しました");
+ if(!replacePackageFile("validation-report.json",JSON.stringify(validation,null,2)))throw Error("validation-report.jsonの最終更新に失敗しました");
  if(!validation.valid)throw Error("生成パッケージの構造検証に失敗: "+validation.errors.join("; "));
  var modBlob=await modZip.generateAsync({type:"blob",compression:"DEFLATE"});
  out.file(id+"-zeus-mod.zip",modBlob);
