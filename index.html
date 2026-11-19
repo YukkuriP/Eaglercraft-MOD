@@ -112,6 +112,14 @@ $("build").onclick=async function(){
   if(packageFiles.length+1>maxFiles||packageBytes+size>maxBytes){recordPackageSkip(path,"Zeus package limit (4096 files / 64 MiB)");return false}
   modZip.file(path,data);packagePathSet.add(path);packageFiles.push({path:path,size:size});packageBytes+=size;return true;
  }
+ function replacePackageFile(path,data){
+  var index=packageFiles.findIndex(function(file){return file.path===path});
+  if(index<0)return addPackageFile(path,data,true);
+  var size=typeof data==="string"?new TextEncoder().encode(data).length:data.byteLength;
+  var nextBytes=packageBytes-packageFiles[index].size+size;
+  if(packageFiles.length>4096||nextBytes>64*1024*1024){recordPackageSkip(path,"Zeus package limit (4096 files / 64 MiB)");return false}
+  packageBytes=nextBytes;packageFiles[index].size=size;modZip.file(path,data);return true;
+ }
  if(!addPackageFile("metadata.json",JSON.stringify(meta,null,2),true))throw Error("metadata.jsonを作成できません");
  var restricted=/cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident/i;
  var recipeEntries=[],resourceEntries=[];
@@ -146,6 +154,7 @@ $("build").onclick=async function(){
  if(apiValidation.requiredApis.some(function(x){return x.startsWith("rtc.")}))permissions.add("webrtc");
  if(apiValidation.requiredApis.some(function(x){return x.startsWith("gl.")}))permissions.add("gl");
  meta.permissions=Array.from(permissions).sort();
+ if(!replacePackageFile("metadata.json",JSON.stringify(meta,null,2)))throw Error("metadata.jsonの権限情報を更新できません");
  generatedMain=window.Jar2ZeusApiValidator.guardLua(generatedMain,apiValidation);
  if(!addPackageFile("main.lua",generatedMain,true))throw Error("main.luaをパッケージに追加できません");
  if(!addPackageFile("api-validation.json",JSON.stringify(apiValidation,null,2),true))throw Error("api-validation.jsonを追加できません");
