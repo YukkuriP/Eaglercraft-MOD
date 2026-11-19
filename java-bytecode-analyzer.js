@@ -53,18 +53,19 @@
     let q=0;
     function byte(){if(q>=code.length)throw new Error("truncated bytecode");return code[q++];}
     function short(){const a=byte(),b=byte();return (a<<8)|b;}
+    function signedByte(){const v=byte();return v&0x80?v-0x100:v;}
     function signedShort(){const v=short();return v&0x8000?v-0x10000:v;}
     function int32(){const a=byte(),b=byte(),c=byte(),d=byte();return a*0x1000000+b*0x10000+c*0x100+d;}
     function signedInt(){const v=int32();return v>0x7fffffff?v-0x100000000:v;}
     while(q<code.length&&ins.length<20000){
      const pc=q,op=byte(),name=OPCODES[op]||("opcode_"+op.toString(16));
      const x={pc,opcode:op,name};counts[name]=(counts[name]||0)+1;
-     if(op===0x10)x.operand=s1();
-     else if(op===0x11)x.operand=s2();
+     if(op===0x10)x.operand=signedByte();
+     else if(op===0x11)x.operand=signedShort();
      else if(op===0x12){x.cpIndex=byte();x.constant=constant(x.cpIndex);}
      else if(op===0x13||op===0x14){x.cpIndex=short();x.constant=constant(x.cpIndex);}
      else if((op>=0x15&&op<=0x19)||(op>=0x36&&op<=0x3a)||op===0xa9||op===0xbc)x.operand=byte();
-     else if(op===0x84){x.local=byte();x.increment=s1();}
+     else if(op===0x84){x.local=byte();x.increment=signedByte();}
      else if((op>=0x99&&op<=0xa8)||op===0xc6||op===0xc7){x.offset=signedShort();x.target=pc+x.offset;branches.push(x.target);}
      else if(op===0xc8||op===0xc9){x.offset=signedInt();x.target=pc+x.offset;branches.push(x.target);}
      else if((op>=0xb2&&op<=0xb8)||op===0xbb||op===0xbd||op===0xc0||op===0xc1){x.cpIndex=short();x.member=member(x.cpIndex);x.className=cls(x.cpIndex);if(x.member){if(op>=0xb2&&op<=0xb5)fieldRefs.push(x.member);else calls.push(x.member);}}
@@ -84,7 +85,7 @@
       branches.push(pc+x.defaultOffset,...x.pairs.map(z=>z.target));
      }else if(op===0xc4){
       x.wideOpcode=byte();x.name=OPCODES[x.wideOpcode]||("opcode_"+x.wideOpcode.toString(16));x.local=short();
-      if(x.wideOpcode===0x84)x.increment=s2();
+      if(x.wideOpcode===0x84)x.increment=signedShort();
      }
      if(x.name==="ldc"||x.name==="ldc_w"||x.name==="ldc2_w"){
       if(typeof x.constant==="string")strings.push(x.constant);
