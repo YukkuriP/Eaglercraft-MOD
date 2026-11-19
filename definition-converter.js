@@ -34,15 +34,16 @@
  }
  function validateModelTextures(model,ns,files){
   const used=[];
-  for(const ref of Object.values(model.textures||{})){
-   const resolved=typeof ref==="string"&&ref.startsWith("#")?null:ref;
-   if(resolved==null)continue;
+  for(const [key,ref] of Object.entries(model.textures||{})){
+   const resolved=resolveTexture(ref,model.textures||{});
+   if(!resolved)return {valid:false,reason:"unresolved model texture variable: #"+key};
    const texture=texturePath(ns,resolved);
-   if(!texture)return {valid:false,reason:"model references a texture outside the MOD namespace or Minecraft"};
+   if(!texture)return {valid:false,reason:"model references a texture outside the MOD namespace or Minecraft: "+resolved};
    if(texture.source&&!files.has(texture.source))return {valid:false,reason:"model texture is missing: "+texture.source};
    if(texture.source)used.push(texture);
   }
-  return {valid:true,used};
+  const dedup=new Map();for(const item of used)dedup.set(item.source,item);
+  return {valid:true,used:Array.from(dedup.values())};
  }
  function convert(entries,modNamespace){
   const files=new Map(entries.filter(e=>safe(e.path)).map(e=>[e.path,e.content]));
@@ -141,7 +142,7 @@
    if(/glass|leaves/.test(match[2]))props.transparent=true;
    lines.push("blocks.register("+q(local)+", "+lua(props)+")");
    seenIds.add("b:"+local);report.blocks.push({id,model:sourceModelPath,modelRef});
-   copied.push(...textureCheck.used);
+   // The original model and its texture files are already preserved under assets/<namespace>/.
   }
   for(const [path,raw] of json){
    const match=path.match(/^assets\/([^/]+)\/models\/item\/(.+)\.json$/);
