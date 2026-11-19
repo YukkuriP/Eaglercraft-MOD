@@ -84,18 +84,3 @@ Zeus公式のパッケージ制限に合わせ、移植先パッケージは展�
 出力物は、Zeusが直接インポートできる単体MOD ZIPと診断レポートZIPです。アップロードしたHTMLは解析のみで、ゲーム本体を改造しません。Javaコードの完全自動変換は保証しません。安全上の理由で一部の機能は変換対象外です。
 
 JSZipをCDNから読み込むためインターネット接続が必要です。JARとHTMLの内容はブラウザ内で処理され、サーバーへ送信しません。
-
-
-## GitHub ActionsによるConveyor Works検証
-
-`examples/conveyorworks/` は、Create風コンベア機能を対象にしたJar2Zeusの小規模な検証用MODです。GitHub Actionsで次を自動実行します。
-
-1. metadata.jsonの対象バージョン・権限を検査
-2. Zeus API contractに対するLua API呼び出しの静的検査
-3. Lua 5.4構文チェック
-4. Zeus MOD ZIPの生成とZIP整合性検査
-5. ZIPをActions artifact `conveyorworks-zeus-mod` として保存
-
-対象ワークフロー: [Conveyor Works package](.github/workflows/conveyorworks.yml)
-
-Actionsの実行完了後、対象runの **Artifacts** からZIPを取得できます。CI成功はパッケージ・静的検査の成功を示すもので、Eaglercraft実機でのロードやコンベア挙動の成功を意味しません。
