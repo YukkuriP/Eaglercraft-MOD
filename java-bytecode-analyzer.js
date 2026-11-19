@@ -18,12 +18,39 @@
    function u4(){need(4);const v=view.getUint32(p);p+=4;return v;}
    function s4(){need(4);const v=view.getInt32(p);p+=4;return v;}
    function take(n){need(n);const a=bytes.subarray(p,p+n);p+=n;return a;}
+   function decodeModifiedUtf8(data){
+    const units=[];
+    for(let i=0;i<data.length;){
+     const a=data[i++];
+     if(a===0)throw new Error("invalid zero byte in modified UTF-8");
+     if(a<0x80){units.push(a);continue;}
+     if((a&0xe0)===0xc0){
+      if(i>=data.length)throw new Error("truncated modified UTF-8 sequence");
+      const next=data[i++];if((next&0xc0)!==0x80)throw new Error("invalid modified UTF-8 continuation");
+      const value=((a&0x1f)<<6)|(next&0x3f);
+      if(value!==0&&value<0x80)throw new Error("overlong modified UTF-8 sequence");
+      units.push(value);continue;
+     }
+     if((a&0xf0)===0xe0){
+      if(i+1>=data.length)throw new Error("truncated modified UTF-8 sequence");
+      const next=data[i++],last=data[i++];
+      if((next&0xc0)!==0x80||(last&0xc0)!==0x80)throw new Error("invalid modified UTF-8 continuation");
+      const value=((a&0x0f)<<12)|((next&0x3f)<<6)|(last&0x3f);
+      if(value<0x800)throw new Error("overlong modified UTF-8 sequence");
+      units.push(value);continue;
+     }
+     throw new Error("unsupported modified UTF-8 lead byte");
+    }
+    let result="";
+    for(let i=0;i<units.length;i+=4096)result+=String.fromCharCode(...units.slice(i,i+4096));
+    return result;
+   }
    if(u4()!==0xCAFEBABE)throw new Error("invalid class magic");
    out.minor=u2();out.major=u2();
    const cpCount=u2(),cp=new Array(cpCount);
    for(let i=1;i<cpCount;i++){
     const tag=u1();let v={tag};
-    if(tag===1){const n=u2();v.value=new TextDecoder("utf-8").decode(take(n));}
+    if(tag===1){const n=u2();v.value=decodeModifiedUtf8(take(n));}
     else if(tag===3){v.value=s4();}
     else if(tag===4){need(4);v.value=view.getFloat32(p);p+=4;}
     else if(tag===5){const hi=u4(),lo=u4();v.value=String((BigInt(hi)<<32n)|BigInt(lo));cp[i]=v;i++;continue;}
@@ -58,7 +85,8 @@
     function int32(){const a=byte(),b=byte(),c=byte(),d=byte();return a*0x1000000+b*0x10000+c*0x100+d;}
     function signedInt(){const v=int32();return v>0x7fffffff?v-0x100000000:v;}
     while(q<code.length&&ins.length<20000){
-     const pc=q,op=byte(),name=OPCODES[op]||("opcode_"+op.toString(16));
+     const pc=q,op=byte(),name=OPCODES[op];
+     if(!name||name==="breakpoint")throw new Error("reserved or invalid JVM opcode 0x"+op.toString(16));
      const x={pc,opcode:op,name};counts[name]=(counts[name]||0)+1;
      if(op===0x10)x.operand=signedByte();
      else if(op===0x11)x.operand=signedShort();
@@ -84,7 +112,9 @@
       x.pairs=[];for(let k=0;k<count;k++)x.pairs.push({key:signedInt(),target:pc+signedInt()});
       branches.push(pc+x.defaultOffset,...x.pairs.map(z=>z.target));
      }else if(op===0xc4){
-      x.wideOpcode=byte();x.name=OPCODES[x.wideOpcode]||("opcode_"+x.wideOpcode.toString(16));x.local=short();
+      x.wideOpcode=byte();x.name=OPCODES[x.wideOpcode];
+      if(!["iload","lload","fload","dload","aload","istore","lstore","fstore","dstore","astore","ret","iinc"].includes(x.name))throw new Error("invalid wide opcode");
+      x.local=short();
       if(x.wideOpcode===0x84)x.increment=signedShort();
      }
      if(x.name==="ldc"||x.name==="ldc_w"||x.name==="ldc2_w"){
@@ -116,6 +146,7 @@
        try{decoded=decodeCode(codeBytes);}catch(error){decoded={instructions:[],opcodeCounts:{},invocations:[],fieldAccesses:[],stringConstants:[],branchTargets:[],decodeError:error.message};}
        record.code={maxStack,maxLocals,codeLength,instructions:decoded.instructions,opcodeCounts:decoded.opcodeCounts,invocations:decoded.invocations,fieldAccesses:decoded.fieldAccesses,stringConstants:decoded.stringConstants,branchTargets:decoded.branchTargets,exceptions,decodeError:decoded.decodeError||null};
       }else take(length);
+      if(p>end)throw new Error("method attribute overread: "+attrName);
       if(p!==end) p=end;
       record.attributes.push(attrName);
      }
