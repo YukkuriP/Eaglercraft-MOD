@@ -56,27 +56,34 @@
   for(const re of patterns){const m=String(html).match(re);if(m)return m[1]}
   return null;
  }
- function findInlineScript(html,id){
+ function findInlineScriptTag(html,id){
+  const source=String(html);
   const candidates=['id="'+id+'"',"id='"+id+"'"];
   let idAt=-1;
-  for(const token of candidates){idAt=String(html).indexOf(token);if(idAt>=0)break}
+  for(const token of candidates){idAt=source.indexOf(token);if(idAt>=0)break}
   if(idAt<0)return null;
-  const start=String(html).lastIndexOf("<script",idAt);
-  const tagEnd=String(html).indexOf(">",idAt);
+  const start=source.lastIndexOf("<script",idAt);
+  const tagEnd=source.indexOf(">",idAt);
   if(start<0||tagEnd<0||start>=tagEnd)return null;
-  const close=String(html).indexOf("</script",tagEnd);
+  const close=source.indexOf("</script",tagEnd);
   if(close<0)return null;
-  const attrs=String(html).slice(start,tagEnd+1);
+  const attrs=source.slice(start,tagEnd+1);
   function attr(name){
    const m=attrs.match(new RegExp("\\b"+name+"\\s*=\\s*[\"']([^\"']*)[\"']","i"));
    return m?m[1]:null;
   }
-  const body=String(html).slice(tagEnd+1,close).replace(/\s+/g,"");
   return {
    id,type:attr("type"),dataSize:Number(attr("data-size"))||null,
    rawSize:Number(attr("data-raw-size"))||null,
-   encodedBytes:body.length,body
+   bodyStart:tagEnd+1,bodyEnd:close,
+   encodedBytes:close-(tagEnd+1)
   };
+ }
+ function findInlineScript(html,id){
+  const tag=findInlineScriptTag(html,id);
+  if(!tag)return null;
+  const body=String(html).slice(tag.bodyStart,tag.bodyEnd).replace(/\s+/g,"");
+  return Object.assign({},tag,{encodedBytes:body.length,body});
  }
  function inspectInlineScriptMetadata(html){
   const ids=[
@@ -84,18 +91,20 @@
    "eag-inline-server-wasm-br","eag-inline-terrain-wasm-br",
    "eag-inline-assets","eag-inline-sounds"
   ];
-  return ids.map(id=>findInlineScript(html,id)).filter(Boolean).map(x=>({
+  return ids.map(id=>findInlineScriptTag(html,id)).filter(Boolean).map(x=>({
    id:x.id,type:x.type,dataSize:x.dataSize,rawSize:x.rawSize,encodedBytes:x.encodedBytes
   }));
  }
  async function inspectInlineScriptContainer(source,options,result){
-  const ids=["eag-inline-wasm-br","eag-inline-mesh-wasm-br","eag-inline-server-wasm-br","eag-inline-terrain-wasm-br","eag-inline-assets","eag-inline-sounds"];
-  const found={};
-  for(const id of ids)found[id]=findInlineScript(source,id);
-  const hasInline=ids.some(id=>!!found[id]);
-  if(!hasInline)return null;
+  const metadata=inspectInlineScriptMetadata(source);
+  if(!metadata.length)return null;
+  const byId=new Map(metadata.map(x=>[x.id,x]));
+  const hasWasm=byId.has("eag-inline-wasm-br");
+  const includeSounds=!!(options&&options.includeInlineSounds);
+  const assetsBlob=byId.has("eag-inline-assets")?findInlineScript(source,"eag-inline-assets"):null;
+  const soundsBlob=includeSounds&&byId.has("eag-inline-sounds")?findInlineScript(source,"eag-inline-sounds"):null;
   result.format="Eaglercraft inline script bundle";
-  result.inlinePayloads=inspectInlineScriptMetadata(source);
+  result.inlinePayloads=metadata;
   const title=result.visible.title||"";
   const versionMatch=title.match(/Eaglercraft\s+(\d+\.\d+)/i);
   const branchMatch=title.match(/\(([^)]+)\)/);
@@ -104,7 +113,6 @@
    minecraftVersion:versionMatch?versionMatch[1]:null,
    branch:branchMatch?branchMatch[1]:null
   };
-  const hasWasm=!!found["eag-inline-wasm-br"];
   result.runtime={
    kind:hasWasm?"Eaglercraft inline WebAssembly client":"Eaglercraft HTML client",
    wasm:hasWasm,
@@ -113,24 +121,21 @@
    apiCompatibility:"unverified-static-only",
    apiPresenceVerified:false,
    inlineWasmCompressed:hasWasm,
-   inlineWasmRawBytes:found["eag-inline-wasm-br"]&&found["eag-inline-wasm-br"].rawSize||null
+   inlineWasmRawBytes:byId.get("eag-inline-wasm-br")&&byId.get("eag-inline-wasm-br").rawSize||null
   };
-  const includeSounds=!!(options&&options.includeInlineSounds);
   const selected=[
-   ["assets","eag-inline-assets"],
-   ...(includeSounds?[["sounds","eag-inline-sounds"]]:[])
-  ];
+   ["assets",assetsBlob],
+   ["sounds",soundsBlob]
+  ].filter(x=>!!x[1]);
   const packages=[];
   let expandedTotal=0;
-  for(const [label,id] of selected){
-   const blob=found[id];
-   if(!blob)continue;
+  for(const [label,blob] of selected){
    try{
     if(blob.encodedBytes>96*1024*1024)throw new Error("inline base64 payload exceeds inspection limit");
     const bytes=decodeBase64(blob.body);
     if(bytes.length>64*1024*1024)throw new Error("inline EPK exceeds 64 MiB");
     const epk=await parseEPK(bytes,{maxEPKFiles:MAX_EPK_FILES,maxEPKExpandedBytes:MAX_EXPANDED_BYTES-expandedTotal});
-    epk.sourceId=id;
+    epk.sourceId=blob.id;
     epk.label=label;
     expandedTotal+=epk.expandedBytes||0;
     packages.push(epk);
@@ -150,7 +155,7 @@
    packagesParsed:packages.length,
    totalExpandedBytes:expandedTotal
   };
-  if(found["eag-inline-sounds"]&&!includeSounds){
+  if(byId.has("eag-inline-sounds")&&!includeSounds){
    result.warnings.push("音声EPKは検出しましたが、メモリ節約のため既定では展開していません。includeInlineSounds=trueで解析できます");
   }
   if(hasWasm){
