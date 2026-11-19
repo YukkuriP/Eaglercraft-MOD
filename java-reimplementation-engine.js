@@ -149,7 +149,7 @@
    const observed=Array.from(new Set(items.flatMap(x=>x.evidence.map(v=>(v.owner||"")+"."+v.name)))).slice(0,80);
    plan.tasks.push({id:"rewrite-"+feature,feature,sourceMethods:items.map(x=>x.className+"."+x.method+x.descriptor),observedCalls:observed,requiredWork:"Zeus APIを使う機能アダプターとして同等の処理を再実装し、実機で検証する"});
   }
-  report.status=report.methodsPending?"partial-reimplementation":"utility-subset-translated";
+  report.status=report.methodsPending?"partial-reimplementation":report.utilityMethodsTranslated?"utility-subset-translated":"no-translatable-methods";
   if(!report.methodsSeen)report.warnings.push("解析可能なJavaメソッド本体が見つかりませんでした。");
   if(report.methodsPending)report.warnings.push("未再実装のJavaメソッドが残っています。完全移植とは判定しません。");
   if(!report.utilityMethodsTranslated)report.warnings.push("自動翻訳できる単純なint型補助メソッドは見つかりませんでした。");
