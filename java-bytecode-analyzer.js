@@ -54,7 +54,7 @@
     function byte(){if(q>=code.length)throw new Error("truncated bytecode");return code[q++];}
     function short(){const a=byte(),b=byte();return (a<<8)|b;}
     function signedShort(){const v=short();return v&0x8000?v-0x10000:v;}
-    function int32(){const a=byte(),b=byte(),c=byte(),d=byte();return (a*0x1000000)+(b<<16)+(c<<8)+d;}
+    function int32(){const a=byte(),b=byte(),c=byte(),d=byte();return a*0x1000000+b*0x10000+c*0x100+d;}
     function signedInt(){const v=int32();return v>0x7fffffff?v-0x100000000:v;}
     while(q<code.length&&ins.length<20000){
      const pc=q,op=byte(),name=OPCODES[op]||("opcode_"+op.toString(16));
@@ -125,7 +125,7 @@
    const attrCount=u2();
    for(let i=0;i<attrCount;i++){u2();const n=u4();take(n);}
    const refs=new Set([out.className,out.superName,...out.interfaces].filter(Boolean));
-   for(const x of cp)if(x&&x.tag===7){const v=cls(cp.indexOf(x));if(v)refs.add(v);}
+   for(let ci=1;ci<cp.length;ci++){if(cp[ci]&&cp[ci].tag===7){const v=cls(ci);if(v)refs.add(v);}}
    for(const m of out.methods)if(m.code)for(const inv of m.code.invocations)if(inv.owner)refs.add(inv.owner);
    out.references=Array.from(refs).sort();
    out.invocations=out.methods.flatMap(m=>(m.code&&m.code.invocations||[]).map(x=>Object.assign({method:m.name,descriptor:m.descriptor},x)));
