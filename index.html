@@ -14,6 +14,7 @@
 <script src="definition-converter.js"></script>
 <script src="generic-mod-analyzer.js"></script>
 <script src="migration-pipeline.js"></script>
+<script src="zeus-api-contract.js"></script>
 <script src="package-validator.js"></script>
 <script src="target-client-inspector.js"></script>
 <script src="resource-compatibility.js"></script>
@@ -25,7 +26,7 @@
 <section class="card"><h2>① ファイルを選択</h2>
 <div class="grid">
 <div class="step"><b>MODのJAR</b><input id="jar" type="file" accept=".jar,.zip"></div>
-<div class="step"><b>移植先のEaglercraft HTML</b><input id="html" type="file" accept=".html,.htm"></div>
+<div class="step"><b>移植先のEaglercraft HTML</b><input id="html" type="file" accept=".html,.htm"><label for="targetVersion">ゲームバージョン</label><select id="targetVersion"><option value="auto">HTMLから自動判定</option><option value="26.2">26.2</option><option value="26.3">26.3</option></select><p class="muted">自動判定できないHTMLは、実際の版を選択してください。</p></div>
 <div class="step"><b>構造比較用のMOD入りHTML（任意）</b><input id="referenceHtml" type="file" accept=".html,.htm"><p class="muted">Create版・IE版などの参考HTMLを選ぶと、EPK内ファイル構成を比較します。</p></div>
 </div>
 <button id="analyze">両方を解析</button>
@@ -41,10 +42,17 @@
 <p class="muted">ファイルはブラウザ内で処理し、サーバーへ送信しません。JSZip読み込み時のみインターネット接続が必要です。</p>
 </main>
 <script>
-var jarZip=null,jarReport=null,targetInfo=null,referenceInfo=null,sourceHtml="",jarFile=null,htmlFile=null;
+var jarZip=null,jarReport=null,targetInfo=null,referenceInfo=null,sourceHtml="",jarFile=null,htmlFile=null,targetGameVersion=null;
 function $(id){return document.getElementById(id)}
 function slug(s){return (s||"imported_mod").toLowerCase().replace(/[^a-z0-9_.-]/g,"_").replace(/^\.+/,"").slice(0,55).replace(/_+$/,"")||"imported_mod"}
 function unique(a){return Array.from(new Set(a))}
+function detectTargetVersion(fileName,info){
+ var selected=$("targetVersion").value;
+ if(selected==="26.2"||selected==="26.3")return selected;
+ var source=[fileName,info&&info.visible&&info.visible.title,info&&info.visible&&info.visible.description].join(" ");
+ var matches=unique(Array.from(source.matchAll(/(^|[^0-9])(26\\.[23])(?=$|[^0-9])/g)).map(function(m){return m[2]}));
+ return matches.length===1?matches[0]:null;
+}
 async function scanHtml(s){
  if(!window.Jar2ZeusTargetInspector)throw Error("対象HTML解析エンジンが読み込まれていません。");
  return await window.Jar2ZeusTargetInspector.inspect(s);
