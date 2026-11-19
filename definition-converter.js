@@ -98,7 +98,9 @@
    if(!signatures.length)return {error:"no variant model found"};
    const unique=new Map(signatures.map(value=>[value.model+"|"+JSON.stringify(value.transform),value]));
    if(unique.size!==1)return {error:"variants use different models or rotations"};
-   return {model:signatures[0].model,transform:signatures[0].transform};
+   const selected=signatures[0];
+   if(selected.transform.x!==0||selected.transform.y!==0||selected.transform.z!==0||selected.transform.uvlock)return {error:"blockstate model rotation or uvlock is not represented by the Zeus registration"};
+   return {model:selected.model,transform:selected.transform};
   }
   function blockTextures(model,ns){
    const tex=model.textures||{},out={},used=[];
@@ -146,8 +148,8 @@
     const parentPath=modelPath(directParent,"block",match[1]);
     if(!parentPath||!json.has(parentPath)){report.skipped.push({id,reason:"custom block model parent is missing: "+directParent});continue}
    }
-   const supportedCubeParent=(model.parents||[]).some(function(p){return /minecraft:block\/(cube_all|cube|cube_column|cube_bottom_top|cube_top)$/.test(p)});
-   if(!supportedCubeParent&&!Array.isArray(model.elements)){report.skipped.push({id,reason:"unsupported block model parent or geometry"});continue}
+   const builtInBlockParent=(model.parents||[]).some(function(p){return String(p).startsWith("minecraft:block/")});
+   if(!builtInBlockParent&&!Array.isArray(model.elements)){report.skipped.push({id,reason:"unsupported block model parent or geometry"});continue}
    const sourceModelPath=modelPath(selected.model,"block",match[1]);
    const modelRef=modelResourcePath(selected.model,"block",match[1]);
    if(!sourceModelPath||!files.has(sourceModelPath)||!modelRef){report.skipped.push({id,reason:"source model file is unavailable in the package"});continue}
