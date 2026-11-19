@@ -73,7 +73,7 @@
    if(supported.includes("*")||supported.includes(method))required.add(path);
    else unsupported.add(path);
   }
-  const globalPattern=new RegExp("(^|[^A-Za-z0-9_.:])("+contract.globalFunctions.join("|")+")\\\\s*\\\\(","g");
+  const globalPattern=new RegExp("(^|[^A-Za-z0-9_.:])("+contract.globalFunctions.join("|")+")\\s*\\(","g");
   while((m=globalPattern.exec(clean))){
    const name=m[2],path="global."+name;
    if(name==="print"||name==="log"||name==="require"||name==="on"||name==="async"||name==="wait"||name==="waitTicks")required.add(path);
