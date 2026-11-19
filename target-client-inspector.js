@@ -56,6 +56,109 @@
   for(const re of patterns){const m=String(html).match(re);if(m)return m[1]}
   return null;
  }
+ function findInlineScript(html,id){
+  const candidates=['id="'+id+'"',"id='"+id+"'"];
+  let idAt=-1;
+  for(const token of candidates){idAt=String(html).indexOf(token);if(idAt>=0)break}
+  if(idAt<0)return null;
+  const start=String(html).lastIndexOf("<script",idAt);
+  const tagEnd=String(html).indexOf(">",idAt);
+  if(start<0||tagEnd<0||start>=tagEnd)return null;
+  const close=String(html).indexOf("</script",tagEnd);
+  if(close<0)return null;
+  const attrs=String(html).slice(start,tagEnd+1);
+  function attr(name){
+   const m=attrs.match(new RegExp("\\\\b"+name+"\\\\s*=\\\\s*[\\"']([^\\"']*)[\\"']","i"));
+   return m?m[1]:null;
+  }
+  const body=String(html).slice(tagEnd+1,close).replace(/\\s+/g,"");
+  return {
+   id,type:attr("type"),dataSize:Number(attr("data-size"))||null,
+   rawSize:Number(attr("data-raw-size"))||null,
+   encodedBytes:body.length,body
+  };
+ }
+ function inspectInlineScriptMetadata(html){
+  const ids=[
+   "eag-inline-decoder","eag-inline-wasm-br","eag-inline-mesh-wasm-br",
+   "eag-inline-server-wasm-br","eag-inline-terrain-wasm-br",
+   "eag-inline-assets","eag-inline-sounds"
+  ];
+  return ids.map(id=>findInlineScript(html,id)).filter(Boolean).map(x=>({
+   id:x.id,type:x.type,dataSize:x.dataSize,rawSize:x.rawSize,encodedBytes:x.encodedBytes
+  }));
+ }
+ async function inspectInlineScriptContainer(source,options,result){
+  const ids=["eag-inline-wasm-br","eag-inline-mesh-wasm-br","eag-inline-server-wasm-br","eag-inline-terrain-wasm-br","eag-inline-assets","eag-inline-sounds"];
+  const found={};
+  for(const id of ids)found[id]=findInlineScript(source,id);
+  const hasInline=ids.some(id=>!!found[id]);
+  if(!hasInline)return null;
+  result.format="Eaglercraft inline script bundle";
+  result.inlinePayloads=inspectInlineScriptMetadata(source);
+  const title=result.visible.title||"";
+  const versionMatch=title.match(/Eaglercraft\\s+(\\d+\\.\\d+)/i);
+  const branchMatch=title.match(/\\(([^)]+)\\)/);
+  result.clientBuild={
+   title:title,
+   minecraftVersion:versionMatch?versionMatch[1]:null,
+   branch:branchMatch?branchMatch[1]:null
+  };
+  const hasWasm=!!found["eag-inline-wasm-br"];
+  result.runtime={
+   kind:hasWasm?"Eaglercraft inline WebAssembly client":"Eaglercraft HTML client",
+   wasm:hasWasm,
+   wasmGc:result.visible.wasmGcHint,
+   zeusEvidence:result.visible.visibleZeusMarker,
+   apiCompatibility:"unverified-static-only",
+   apiPresenceVerified:false,
+   inlineWasmCompressed:hasWasm,
+   inlineWasmRawBytes:found["eag-inline-wasm-br"]&&found["eag-inline-wasm-br"].rawSize||null
+  };
+  const includeSounds=!!(options&&options.includeInlineSounds);
+  const selected=[
+   ["assets","eag-inline-assets"],
+   ...(includeSounds?[["sounds","eag-inline-sounds"]]:[])
+  ];
+  const packages=[];
+  let expandedTotal=0;
+  for(const [label,id] of selected){
+   const blob=found[id];
+   if(!blob)continue;
+   try{
+    if(blob.encodedBytes>96*1024*1024)throw new Error("inline base64 payload exceeds inspection limit");
+    const bytes=decodeBase64(blob.body);
+    if(bytes.length>64*1024*1024)throw new Error("inline EPK exceeds 64 MiB");
+    const epk=await parseEPK(bytes,{maxEPKFiles:MAX_EPK_FILES,maxEPKExpandedBytes:MAX_EXPANDED_BYTES-expandedTotal});
+    epk.sourceId=id;
+    epk.label=label;
+    expandedTotal+=epk.expandedBytes||0;
+    packages.push(epk);
+    if(!epk.valid)result.errors.push(label+" EPK validation failed: "+epk.errors.join("; "));
+   }catch(e){
+    result.errors.push(label+" inline payload inspection failed: "+String(e&&e.message||e));
+   }
+  }
+  result.epk=packages;
+  result.deepAnalysis={
+   status:result.errors.length===0&&packages.length>0?"complete":"partial",
+   mode:"inline-script-epk-inventory",
+   xzDecoderAvailable:!!(root.xzwasm&&root.xzwasm.XzReadableStream),
+   compressedWasmInspected:false,
+   wasmApiInspection:"not-performed",
+   packagesAttempted:selected.length,
+   packagesParsed:packages.length,
+   totalExpandedBytes:expandedTotal
+  };
+  if(found["eag-inline-sounds"]&&!includeSounds){
+   result.warnings.push("音声EPKは検出しましたが、メモリ節約のため既定では展開していません。includeInlineSounds=trueで解析できます");
+  }
+  if(hasWasm){
+   result.warnings.push("Brotli圧縮WASMの存在と宣言サイズを確認しましたが、WASMを実行・逆コンパイルしていません");
+  }
+  result.warnings.push("EPK資産一覧の検証はLua APIの有無やMODのゲーム内動作を証明しません");
+  return result;
+ }
  function stripBase64ForTextScan(html){
   return String(html)
    .replace(/data:application\/octet-stream;base64,[A-Za-z0-9+/_=\-\s]+/ig,"[embedded binary omitted]")
@@ -348,6 +451,8 @@
   const result={schema:"jar2zeus.target-client-analysis.v2",sourceBytes,visible:extractVisibleHints(source),format:"unknown",runtime:{kind:"unknown",wasm:false,wasmGc:false,zeusEvidence:false,apiCompatibility:"unverified-static-only",apiPresenceVerified:false},epw:null,epk:[],wasmModules:[],deepAnalysis:{status:"not-started",xzDecoderAvailable:!!(root.xzwasm&&root.xzwasm.XzReadableStream)},warnings:[],errors:[]};
   if(sourceBytes>MAX_HTML_BYTES){result.errors.push("HTMLサイズが解析上限を超えています");result.deepAnalysis.status="blocked-size";return result}
   if(!result.visible.hasEaglercraft)result.warnings.push("HTML内にEaglercraftの文字列を確認できません");
+  const inlineContainer=await inspectInlineScriptContainer(source,opts,result);
+  if(inlineContainer)return inlineContainer;
   const payload=findInlineAssetsUri(source);
   if(!payload){result.format="HTML wrapper / external or unknown assets";result.warnings.push("埋め込みBase64 assetsURIが見つかりません。外部assetsURIの可能性があります");result.deepAnalysis.status="no-inline-payload";result.runtime.kind=result.visible.hasEaglercraft?"Eaglercraft HTML":"unknown";return result}
   let binary;
