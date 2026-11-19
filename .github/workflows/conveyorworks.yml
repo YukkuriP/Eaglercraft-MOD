@@ -1,0 +1,71 @@
+name: Conveyor Works package
+
+on:
+  push:
+    branches:
+      - fix/zeus-api-gating-and-runtime-preflight
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Lua 5.4
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4
+
+      - name: Validate metadata and documented Zeus API calls
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          require('./zeus-api-contract.js');
+          const metadata = JSON.parse(fs.readFileSync('examples/conveyorworks/metadata.json', 'utf8'));
+          if (metadata.id !== 'conveyorworks') throw new Error('Unexpected mod id');
+          if (metadata.minecraft !== '26.2') throw new Error('Unexpected target version');
+          if (!Array.isArray(metadata.permissions) || !metadata.permissions.includes('commands')) {
+            throw new Error('commands permission is required by this fixture');
+          }
+          const lua = fs.readFileSync('examples/conveyorworks/main.lua', 'utf8');
+          const result = globalThis.Jar2ZeusApiValidator.scan(lua);
+          if (!result.valid) {
+            console.error(result);
+            throw new Error('Undocumented Zeus API calls found');
+          }
+          console.log('Required APIs:', result.requiredApis.join(', '));
+          console.log('API contract scan passed');
+          NODE
+
+      - name: Check Lua syntax
+        run: luac5.4 -p examples/conveyorworks/main.lua
+
+      - name: Build standalone Zeus MOD ZIP
+        run: |
+          mkdir -p dist
+          cd examples/conveyorworks
+          zip -9 -r ../../dist/ConveyorWorks_0.2.0_Eaglercraft26.2.zip metadata.json main.lua README.md
+          cd ../..
+          unzip -t dist/ConveyorWorks_0.2.0_Eaglercraft26.2.zip
+          unzip -l dist/ConveyorWorks_0.2.0_Eaglercraft26.2.zip
+
+      - name: Upload GitHub Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: conveyorworks-zeus-mod
+          path: dist/ConveyorWorks_0.2.0_Eaglercraft26.2.zip
+          if-no-files-found: error
+          retention-days: 30
