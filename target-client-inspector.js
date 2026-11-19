@@ -97,7 +97,8 @@
  }
  async function inspectInlineScriptContainer(source,options,result){
   const metadata=inspectInlineScriptMetadata(source);
-  if(!metadata.length)return null;
+  const bundleIds=new Set(["eag-inline-wasm-br","eag-inline-mesh-wasm-br","eag-inline-server-wasm-br","eag-inline-terrain-wasm-br","eag-inline-assets","eag-inline-sounds"]);
+  if(!metadata.some(x=>bundleIds.has(x.id)))return null;
   const byId=new Map(metadata.map(x=>[x.id,x]));
   const hasWasm=byId.has("eag-inline-wasm-br");
   const includeSounds=!!(options&&options.includeInlineSounds);
