@@ -84,7 +84,7 @@
     function signedShort(){const v=short();return v&0x8000?v-0x10000:v;}
     function int32(){const a=byte(),b=byte(),c=byte(),d=byte();return a*0x1000000+b*0x10000+c*0x100+d;}
     function signedInt(){const v=int32();return v>0x7fffffff?v-0x100000000:v;}
-    while(q<code.length&&ins.length<20000){
+    while(q<code.length){
      const pc=q,op=byte(),name=OPCODES[op];
      if(!name||name==="breakpoint")throw new Error("reserved or invalid JVM opcode 0x"+op.toString(16));
      const x={pc,opcode:op,name};counts[name]=(counts[name]||0)+1;
@@ -137,7 +137,9 @@
       const attrName=utf(u2()),length=u4(),end=p+length;
       if(end>view.byteLength)throw new Error("attribute exceeds class file boundary");
       if(isMethod&&attrName==="Code"){
-       const maxStack=u2(),maxLocals=u2(),codeLength=u4(),codeBytes=take(codeLength);
+       const maxStack=u2(),maxLocals=u2(),codeLength=u4();
+       if(codeLength>65535)throw new Error("Code.code_length exceeds JVM class-file limit");
+       const codeBytes=take(codeLength);
        const exceptionCount=u2(),exceptions=[];
        for(let z=0;z<exceptionCount;z++)exceptions.push({start:u2(),end:u2(),handler:u2(),catchType:cls(u2())});
        const nested=u2();
