@@ -128,11 +128,15 @@ $("build").onclick=async function(){
  for(var n in jarZip.files){
   var obj=jarZip.files[n];
   if(obj.dir||!(n.startsWith("assets/")||n.startsWith("data/"))||!window.Jar2ZeusGenericAnalyzer.safePath(n)||restricted.test(n)||(/^data\/[^/]+\/recipes?\//i.test(n)))continue;
-  var bytes=await obj.async("uint8array");
+  var bytes=await obj.async("uint8array"),includeFile=true;
   if(n.endsWith(".json")&&(/\/tags\/(blocks|items|fluids|entity_types)\//.test(n)||/\/lang\//.test(n)||/\/models\//.test(n)||/\/blockstates\//.test(n))){
    try{resourceEntries.push({path:n,content:new TextDecoder().decode(bytes)})}catch(err){}
-  }else if(n.endsWith(".png"))resourceEntries.push({path:n,content:"binary"});
-  if(addPackageFile(n,bytes))copied++;
+  }else if(n.endsWith(".png")){
+   var pngInfo=window.Jar2ZeusResources.inspectPng(bytes);
+   resourceEntries.push({path:n,content:"binary",bytes:bytes,pngInfo:pngInfo});
+   if(!pngInfo.valid){recordPackageSkip(n,"invalid PNG: "+(pngInfo.error||"unknown PNG error"));includeFile=false;}
+  }
+  if(includeFile&&addPackageFile(n,bytes))copied++;
  }
  var resourceIndex=window.Jar2ZeusResources.index(resourceEntries);
  var pipeline=window.Jar2ZeusPipeline.create();
