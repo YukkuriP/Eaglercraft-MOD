@@ -68,10 +68,10 @@
   if(close<0)return null;
   const attrs=String(html).slice(start,tagEnd+1);
   function attr(name){
-   const m=attrs.match(new RegExp("\\\\b"+name+"\\\\s*=\\\\s*[\\"']([^\\"']*)[\\"']","i"));
+   const m=attrs.match(new RegExp("\\b"+name+"\\s*=\\s*[\"']([^\"']*)[\"']","i"));
    return m?m[1]:null;
   }
-  const body=String(html).slice(tagEnd+1,close).replace(/\\s+/g,"");
+  const body=String(html).slice(tagEnd+1,close).replace(/\s+/g,"");
   return {
    id,type:attr("type"),dataSize:Number(attr("data-size"))||null,
    rawSize:Number(attr("data-raw-size"))||null,
@@ -97,8 +97,8 @@
   result.format="Eaglercraft inline script bundle";
   result.inlinePayloads=inspectInlineScriptMetadata(source);
   const title=result.visible.title||"";
-  const versionMatch=title.match(/Eaglercraft\\s+(\\d+\\.\\d+)/i);
-  const branchMatch=title.match(/\\(([^)]+)\\)/);
+  const versionMatch=title.match(/Eaglercraft\s+(\d+\.\d+)/i);
+  const branchMatch=title.match(/\(([^)]+)\)/);
   result.clientBuild={
    title:title,
    minecraftVersion:versionMatch?versionMatch[1]:null,
