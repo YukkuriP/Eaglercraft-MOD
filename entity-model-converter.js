@@ -153,7 +153,7 @@
       if(cubes.length)part.cubes=cubes;
      }catch(error){report.skipped.push({path,id,bone:bone.name,reason:error.message});bad=true;break}
      const machineMotion=classifyMachineMotion(bone.name,entityAnimations);
-     const motion=machineMotion&&machineMotion.animation?machineMotion.animation:classifyMotion(bone.name,entityAnimationNames);
+     const motion=machineMotion?(machineMotion.animation||null):classifyMotion(bone.name,entityAnimationNames);
      if(motion){
       part.animation=motion;
       if(/left|_l$|^l_/.test(bone.name.toLowerCase())&&(motion==="leg"||motion==="arm"||motion==="wing"))part.phase=180;
