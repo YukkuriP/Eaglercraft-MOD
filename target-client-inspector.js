@@ -424,17 +424,42 @@
   return result;
  }
  function compare(a,b){
-  const mapA=new Map(),mapB=new Map();
-  for(const pkg of a&&a.epk||[])for(const f of pkg.files||[])mapA.set(f.path,f);
-  for(const pkg of b&&b.epk||[])for(const f of pkg.files||[])mapB.set(f.path,f);
-  const added=[],removed=[],changed=[];
-  for(const [path,fb] of mapB){
-   const fa=mapA.get(path);
-   if(!fa)added.push(path);
-   else if(fa.size!==fb.size||fa.crc32!==fb.crc32)changed.push({path,a:{size:fa.size,crc32:fa.crc32},b:{size:fb.size,crc32:fb.crc32}});
+  function indexAnalysis(value){
+   const map=new Map(),duplicates=[],unsafe=[];
+   for(const pkg of value&&value.epk||[]){
+    for(const f of pkg&&pkg.files||[]){
+     if(!f||typeof f.path!=="string")continue;
+     const safe=!f.path.startsWith("/")&&!f.path.includes("\\")&&!f.path.split("/").some(x=>!x||x==="."||x==="..");
+     if(!safe){unsafe.push(f.path);continue}
+     if(!map.has(f.path))map.set(f.path,[]);
+     map.get(f.path).push(f);
+    }
+   }
+   for(const [path,entries] of map)if(entries.length>1)duplicates.push({path,count:entries.length});
+   return {map,duplicates,unsafe};
   }
-  for(const path of mapA.keys())if(!mapB.has(path))removed.push(path);
-  return {aFormat:a&&a.format,bFormat:b&&b.format,sharedFiles:mapA.size-removed.length,addedToB:added.length,removedFromB:removed.length,changed:changed.length,addedPreview:added.slice(0,100),removedPreview:removed.slice(0,100),changedPreview:changed.slice(0,100)};
+  const A=indexAnalysis(a),B=indexAnalysis(b);
+  const added=[],removed=[],changed=[],unverified=[],ambiguous=[];
+  for(const [path,entriesB] of B.map){
+   const entriesA=A.map.get(path);
+   if(!entriesA){added.push(path);continue}
+   if(entriesA.length!==1||entriesB.length!==1){ambiguous.push({path,aCopies:entriesA.length,bCopies:entriesB.length});continue}
+   const fa=entriesA[0],fb=entriesB[0];
+   if(fa.size!==fb.size){changed.push({path,a:{size:fa.size,crc32:fa.crc32},b:{size:fb.size,crc32:fb.crc32},reason:"size differs"});continue}
+   if(fa.crcValid===true&&fb.crcValid===true&&fa.crc32!==null&&fb.crc32!==null){
+    if(fa.crc32!==fb.crc32)changed.push({path,a:{size:fa.size,crc32:fa.crc32},b:{size:fb.size,crc32:fb.crc32},reason:"CRC32 differs"});
+   }else unverified.push({path,size:fa.size,aCrcValid:fa.crcValid===true,bCrcValid:fb.crcValid===true});
+  }
+  for(const path of A.map.keys())if(!B.map.has(path))removed.push(path);
+  const shared=Array.from(A.map.keys()).filter(path=>B.map.has(path)).length;
+  return {
+   aFormat:a&&a.format,bFormat:b&&b.format,
+   counts:{shared,addedToB:added.length,removedFromB:removed.length,changed:changed.length,unverified:unverified.length,ambiguous:ambiguous.length,unsafeA:A.unsafe.length,unsafeB:B.unsafe.length,duplicatePathsA:A.duplicates.length,duplicatePathsB:B.duplicates.length},
+   sharedFiles:shared,addedToB:added.length,removedFromB:removed.length,changed:changed.length,
+   addedPreview:added.slice(0,100),removedPreview:removed.slice(0,100),changedPreview:changed.slice(0,100),
+   unverifiedPreview:unverified.slice(0,100),ambiguousPreview:ambiguous.slice(0,100),
+   duplicatePathsA:A.duplicates.slice(0,100),duplicatePathsB:B.duplicates.slice(0,100)
+  };
  }
  root.Jar2ZeusTargetInspector={inspect,parseEPW,parseEPK,parseWasm,compare,crc32};
 })(typeof globalThis!=="undefined"?globalThis:this);
