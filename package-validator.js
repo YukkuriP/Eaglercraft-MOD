@@ -38,7 +38,14 @@
    if(!m||typeof m.source!=="string"||unsafePath(m.target))errors.push("invalid or unsafe texture mapping");
    else if(!available.has(m.source))errors.push("missing source texture: "+m.source);
   }
-  if(input.analysis&&input.analysis.classes&&input.analysis.classes.count>0)warnings.push("Java bytecode was analyzed, not ported into Zeus Lua");
+  if(input.analysis&&input.analysis.classes&&input.analysis.classes.count>0){
+   const rebuild=input.reimplementation;
+   if(rebuild&&rebuild.schema==="jar2zeus.reimplementation.v1"){
+    if((rebuild.utilityMethodsTranslated||0)>0)warnings.push("Some pure Java helper methods were emitted as Lua, but this does not by itself connect them to game events");
+    if((rebuild.methodsPending||0)>0)warnings.push((rebuild.methodsPending||0)+" Java methods still need feature-specific Zeus reimplementation");
+    if((rebuild.methodsPending||0)===0&&(rebuild.utilityMethodsTranslated||0)===0)warnings.push("Java bytecode was inspected but no method was translated");
+   }else warnings.push("Java bytecode was analyzed but no reimplementation report was supplied");
+  }
   if(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length)warnings.push("MOD contains unsupported runtime features: "+input.analysis.unsupportedIndicators.join(", "));
   if(input.runtimeTested!==true)warnings.push("The exact target HTML has not passed an in-game runtime test");
   const targetEvidence=input.targetRuntimeEvidence||{};
