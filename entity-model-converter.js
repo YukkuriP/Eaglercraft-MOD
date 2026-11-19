@@ -81,6 +81,7 @@
     const textureWidth=Number(description.texture_width||description.textureWidth||64),textureHeight=Number(description.texture_height||description.textureHeight||32);
     if(!Number.isInteger(textureWidth)||!Number.isInteger(textureHeight)||textureWidth<1||textureHeight<1||textureWidth>4096||textureHeight>4096){report.skipped.push({path,id,reason:"invalid texture dimensions"});continue}
     const entityBase=basename(path).replace(/\.geo$/i,"").toLowerCase();
+    const entityAnimationNames=animations.filter(a=>basename(a.path).toLowerCase()===entityBase).map(a=>a.name);
     const textureCandidates=pngs.filter(e=>{
       const p=e.path.toLowerCase();
       const b=p.split("/").pop().replace(/\.png$/i,"").toLowerCase();
@@ -111,7 +112,7 @@
       }
       if(cubes.length)part.cubes=cubes;
      }catch(error){report.skipped.push({path,id,bone:bone.name,reason:error.message});bad=true;break}
-     const motion=classifyMotion(bone.name,animationNames);
+     const motion=classifyMotion(bone.name,entityAnimationNames);
      if(motion){part.animation=motion;if(/left|_l$|^l_/.test(bone.name.toLowerCase())&&(motion==="leg"||motion==="arm"||motion==="wing"))part.phase=180;report.animationsMapped.push({entity:id,bone:bone.name,motion});}
      partByName.set(bone.name,part);rawParts.push({bone,part});
     }
