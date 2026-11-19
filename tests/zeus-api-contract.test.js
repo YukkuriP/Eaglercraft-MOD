@@ -18,7 +18,7 @@ test("accepts documented APIs used by generated mods, including mod.warn and mod
   'commands.run("say test")',
   'mod.warn("warning")',
   'mod.log("loaded")'
- ].join("\\n"));
+ ].join("\n"));
  assert.equal(result.valid,true);
  assert.deepEqual(Array.from(result.unsupportedApis),[]);
  assert.ok(result.requiredApis.includes("blocks.register"));
@@ -27,7 +27,7 @@ test("accepts documented APIs used by generated mods, including mod.warn and mod
 });
 
 test("rejects misspelled or undocumented calls in known Zeus namespaces",()=>{
- const result=api.scan('blocks.regster("x", {})\\nworld.teleport(1, 2, 3)\\nmod.unknown()');
+ const result=api.scan('blocks.regster("x", {})\nworld.teleport(1, 2, 3)\nmod.unknown()');
  assert.equal(result.valid,false);
  assert.deepEqual(Array.from(result.unsupportedApis).sort(),["blocks.regster","mod.unknown","world.teleport"]);
 });
@@ -39,27 +39,31 @@ test("does not mistake normal strings, long strings or comments for API calls",(
   'local long = [[recipes.unknown()]]',
   'local equals = [=[world.notReal()]=]',
   'items.register("sample", {})'
- ].join("\\n"));
+ ].join("\n"));
  assert.equal(result.valid,true);
  assert.deepEqual(Array.from(result.requiredApis),["items.register"]);
 });
 
 test("guards global APIs but never treats callback-local ctx as a global",()=>{
- const source='hud.add(function(ctx) ctx:text("ok", 0, 0) end)\\nblocks.register("x", {})';
+ const source='hud.add(function(ctx) ctx:text("ok", 0, 0) end)\nblocks.register("x", {})';
  const validation=api.scan(source);
  const guarded=api.guardLua(source,validation);
- assert.match(guarded,/type\\(blocks\\) ~= "table"/);
- assert.match(guarded,/missing blocks\\.register/);
- assert.doesNotMatch(guarded,/type\\(ctx\\)/);
+ assert.match(guarded,/type\(blocks\) ~= "table"/);
+ assert.match(guarded,/missing blocks\.register/);
+ assert.doesNotMatch(guarded,/type\(ctx\)/);
 });
 
-test("runtime probe is read-only and checks the key documented API tables",()=>{
+test("runtime probe is read-only and checks documented namespaces plus current Lua globals",()=>{
  const probe=api.runtimeProbeLua();
- assert.match(probe,/blocks\\.register/);
- assert.match(probe,/items\\.register/);
- assert.match(probe,/recipes\\.shaped/);
- assert.match(probe,/world\\.entities/);
- assert.match(probe,/mod\\.warn/);
+ assert.match(probe,/blocks\.register/);
+ assert.match(probe,/items\.register/);
+ assert.match(probe,/recipes\.shaped/);
+ assert.match(probe,/world\.entities/);
+ assert.match(probe,/mod\.warn/);
+ assert.match(probe,/isSingleplayer/);
+ assert.match(probe,/waitTicks/);
  assert.match(probe,/MISSING/);
- assert.doesNotMatch(probe,/commands\\.run\\(["']/);
+ assert.doesNotMatch(probe,/commands\.run\(["']/);
+ assert.match(probe,/rawget\(_G, "print"\)/);
+ assert.match(probe,/\.join\("\\n"\)/);
 });
