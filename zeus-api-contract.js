@@ -152,7 +152,7 @@
    "  local value = rawget(_G, c[3])",
    "  local ok = false",
    '  if c[2] == "table" then',
-   "    ok = type(value) == \\"table\\"",
+   '    ok = type(value) == "table"',
    '    if ok and c[4] ~= nil then ok = type(value[c[4]]) == "function" end',
    "  else",
    '    ok = type(value) == "function"',
@@ -161,7 +161,7 @@
    "end",
    'report("Probe complete. OK means present only; behavior is not verified.")',
    ""
-  ].join("\\n");
+  ].join("\n");
  }
  root.Jar2ZeusApiContract=contract;
  root.Jar2ZeusApiValidator={scan,guardLua,runtimeProbeLua,stripLuaTrivia};
