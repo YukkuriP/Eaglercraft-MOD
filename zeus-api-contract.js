@@ -75,7 +75,7 @@
  }
  function guardLua(lua,validation){
   if(!validation||!validation.valid)throw new Error("Cannot add Zeus API guards: unsupported API calls were found");
-  const guards=validation.requiredApis.map(path=>{
+  const guards=validation.requiredApis.filter(path=>!path.startsWith("ctx:")&&!path.startsWith("ctx.")).map(path=>{
    const [ns,method]=path.split(/[.:]/);
    return 'if type('+ns+') ~= "table" or type('+ns+"."+method+') ~= "function" then error("Jar2Zeus API preflight: missing '+ns+"."+method+' (documented Zeus API v1)") end';
   });
