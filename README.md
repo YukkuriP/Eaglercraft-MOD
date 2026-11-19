@@ -10,6 +10,7 @@
    - `converter.js`
    - `resource-converter.js`
    - `definition-converter.js`
+   - `entity-model-converter.js`
    - `generic-mod-analyzer.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
@@ -28,12 +29,16 @@ JSZipをCDNから読み込むため初回利用時にインターネット接続
 - **JAR解析:** Fabric / Forge / NeoForge / Quiltのメタデータ、依存関係、Mixin、Access Transformer、Jar-in-Jar等を検出します。
 - **Java解析:** クラスファイルの定数プール、メソッド、JVM命令、分岐、フィールド参照、メソッド呼び出しを解析します。アップロードされたJavaコードは実行しません。
 - **リソース移植:** 対応するレシピ、ブロック状態、ブロック・アイテムモデル、テクスチャ等をZeus形式に変換します。対応するモデルJSONは簡易テクスチャへ潰さず、ZIP内に保持してZeusの `model` 定義から参照します。MOD IDと異なる素材名前空間は誤登録を防ぐため未対応としてレポートします。
+- **3Dエンティティモデル:** 対応するBlockbench/Bedrock形式のgeometry JSONをZeusの `entities.register` 用モデル定義へ変換します。ボーン階層、パーツ、キューブ、UV、ピボット、回転、ミラー、inflateを扱い、対応するPNGテクスチャを同梱します。
+- **モーション:** Zeus公式仕様にある `head` / `leg` / `arm` / `spin` / `bob` / `wing` のパーツモーションへ、ボーン名とアニメーション名から安全に対応付けられる範囲を変換します。独自キーフレームの時刻・補間・任意ボーン曲線は同じ意味で再現できないため、アニメーション診断に未移植として記録します。
 - **Java処理の再実装:** 安全な限定範囲のJavaメソッドをLuaへ変換します。残りは機能別の再実装タスクとして整理し、未対応理由と参照したJava APIをレポートします。
 - **検証と梱包:** 生成LuaのZeus API呼び出しを静的検査し、`metadata.json` と `main.lua` を含むMOD ZIPを生成します。
 
 ## Java再実装の現在の対応範囲
 
 現在の自動バイトコード翻訳は、Javaの状態変更や外部API呼び出しを含まない、整数・真偽値などのプリミティブ型 `static` 補助メソッドの限定された命令セットに対応します。条件分岐、ループ、整数演算、ビット演算と、許可リストにある `java.lang.Math` の `abs` / `min` / `max` を、実行ステップ上限付きのLua関数に変換します。
+
+3Dモデル変換はBedrock/Blockbench系のボーン＋キューブ形式のうち、Zeusが受け付けるUV・パーツ構造に合うものが対象です。Javaコード内で組み立てられる独自モデル、任意のレンダラー、複雑な面別UV、独自シェーダーは自動移植できるとは限りません。独自アニメーションのキーフレーム曲線も、Zeusの組み込みモーション名だけでは完全再現できません。
 
 ゲーム内の登録処理、イベント処理、独自機械、GUI、描画、ネットワーク等は、Java側の意味を読み取っただけでZeus上の同等機能になるわけではありません。Zeus APIに対応する機能アダプターの再実装が必要です。現在のレポートはその残作業を隠さず表示します。したがって、任意のJARが完全移植できる、あるいはZIPを入れれば必ず元MODと同じ動作になる、とは保証しません。
 
@@ -43,6 +48,7 @@ JSZipをCDNから読み込むため初回利用時にインターネット接続
 - `diagnostics/report.json`: JAR・変換・パッケージ全体の診断。
 - `diagnostics/reimplementation-report.json`: Javaメソッドごとの変換状況。
 - `diagnostics/reimplementation-plan.json`: 未実装機能の再実装タスク。
+- `diagnostics/entity-model-report.json`: 3D形状・ボーン・モーションの変換結果と未対応アニメーション。
 - `diagnostics/api-validation.json`: 使用したZeus APIの静的検証結果。
 - `diagnostics/zeus-runtime-probe.lua`: 対象ゲーム内でAPIの存在を確認する読み取り専用プローブ。
 
