@@ -70,9 +70,15 @@
   const gameplayVerified=input.gameplayVerified===true;
   const reimplementation=input.reimplementation||{};
   const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0;
-  const resourceReports=[input.recipeReport,input.definitionReport].filter(Boolean);
-  const skippedResources=resourceReports.reduce((n,r)=>n+(Array.isArray(r.skipped)?r.skipped.length:0)+(r.counts&&r.counts.skipped||0),0);
-  const conversionComplete=valid&&!skipped&&!incompleteJava&&skippedResources===0&&!(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length);
+  const recipeReport=input.recipeReport||{};
+  const definitionReport=input.definitionReport||{};
+  const skippedResources=(Array.isArray(recipeReport.skipped)?recipeReport.skipped.length:0)+
+   (Array.isArray(recipeReport.excluded)?recipeReport.excluded.length:0)+
+   (Array.isArray(definitionReport.skipped)?definitionReport.skipped.length:0);
+  const restrictedResources=!!(input.analysis&&input.analysis.featureReview&&input.analysis.featureReview.restrictedPathCount>0);
+  const unsupportedRuntime=!!(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length);
+  const conversionComplete=valid&&!skipped&&!incompleteJava&&skippedResources===0&&!restrictedResources&&!unsupportedRuntime;
+  if(!conversionComplete)warnings.push("The generated package is a partial port; review skipped resources, restricted-content exclusions, Java reimplementation tasks and runtime indicators");
   const readyToImport=conversionComplete&&runtimeTested&&targetEvidence.apiPresenceVerified===true&&targetEvidence.versionVerified===true;
   return {
    valid,
