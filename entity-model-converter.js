@@ -54,17 +54,56 @@
    const animations=parsed.animations||parsed;
    if(!animations||typeof animations!=="object")continue;
    for(const [name,anim] of Object.entries(animations)){
-    const bones=anim&&anim.bones&&typeof anim.bones==="object"?Object.keys(anim.bones):[];
-    const hasTimeline=!!(anim&&anim.bones&&Object.values(anim.bones).some(ch=>ch&&["position","rotation","scale"].some(k=>ch[k]!==undefined)));
-    list.push({name,path:e.path,bones,hasTimeline,length:Number(anim&&anim.animation_length)||null,loop:anim&&anim.loop||false});
+    const rawTracks=anim&&anim.bones&&typeof anim.bones==="object"?anim.bones:{};
+    const boneTracks={};
+    for(const [bone,track] of Object.entries(rawTracks)){
+     const channels=["position","rotation","scale"].filter(key=>track&&track[key]!==undefined);
+     boneTracks[bone]={channels:channels,hasPosition:channels.includes("position"),hasRotation:channels.includes("rotation"),hasScale:channels.includes("scale")};
+    }
+    const bones=Object.keys(boneTracks),hasTimeline=Object.values(boneTracks).some(track=>track.channels.length>0);
+    const loop=anim&&anim.loop!==undefined?anim.loop:false;
+    list.push({name,path:e.path,bones,boneTracks,hasTimeline,length:Number(anim&&anim.animation_length)||null,loop,looping:loop===true||loop==="loop"});
    }
   }
   return list;
  }
+ function machineKind(name){
+  const n=String(name||"").toLowerCase();
+  if(/gear|cog|wheel|rotor|propeller|fan|shaft|axle|turbine|flywheel|roller|crankshaft/.test(n))return "rotary";
+  if(/piston|plunger|slider|actuator|ram|conveyor|belt|chain|lift|elevator|hinge|door|valve|lever|gate|crank|pump_arm/.test(n))return "mechanical";
+  return null;
+ }
+ function classifyMachineMotion(boneName,records){
+  const kind=machineKind(boneName);
+  if(!kind)return null;
+  const related=(records||[]).filter(record=>record.boneTracks&&record.boneTracks[boneName]&&record.boneTracks[boneName].channels.length);
+  if(!related.length)return null;
+  const hasRotation=related.some(record=>record.boneTracks[boneName].hasRotation);
+  const hasPosition=related.some(record=>record.boneTracks[boneName].hasPosition);
+  if(kind==="rotary"&&hasRotation&&related.some(record=>record.looping)){
+   return {kind:"rotary",animation:"spin",sourceAnimations:related.filter(record=>record.looping&&record.boneTracks[boneName].hasRotation).map(record=>record.name),approximate:true};
+  }
+  let reason;
+  if(kind==="rotary"&&hasRotation)reason="rotating machine part is animated, but its source timeline is not a continuous loop; Zeus spin cannot preserve one-shot timing or keyframes";
+  else if(hasPosition)reason="linear machine movement (piston, slider, belt or conveyor travel) needs per-keyframe translation, which the documented Zeus part-motion labels do not provide";
+  else if(hasRotation)reason="limited-angle or keyed mechanical rotation (such as a hinge, valve or lever) cannot be represented by continuous Zeus spin";
+  else reason="the source animation channel is not supported by the documented Zeus part-motion labels";
+  return {kind,animation:null,sourceAnimations:related.map(record=>record.name),reason,hasPosition,hasRotation};
+ }
+ function machineAssetCandidates(entries,namespace){
+  const pattern=/(?:gear|cog|wheel|rotor|propeller|fan|shaft|axle|turbine|flywheel|roller|crank|piston|plunger|slider|actuator|conveyor|belt|chain|lift|elevator|hinge|door|valve|lever|gate|pump|motor|engine|generator|kinetic|mechanical)/i;
+  return (entries||[]).filter(e=>e&&typeof e.path==="string"&&e.path.startsWith("assets/"+namespace+"/")&&(e.path.includes("/models/block/")||e.path.includes("/blockstates/"))&&pattern.test(e.path)).map(e=>({
+   path:e.path,
+   status:"static_model_only",
+   reason:"the source asset looks like a machine component, but Zeus block models are static; Java block-entity ticking/rendering and per-frame block animation are not converted"
+  }));
+ }
  function convert(entries,namespace){
-  const json=parseJsonEntries(entries),report={schema:"jar2zeus.entity-models.v1",geometriesFound:0,entitiesConverted:[],animationsFound:[],animationsMapped:[],animationsUnmapped:[],skipped:[],warnings:[],counts:{converted:0,skipped:0,parts:0,cubes:0,animations:0}},files={},lines=[];
+  const json=parseJsonEntries(entries),report={schema:"jar2zeus.entity-models.v1",geometriesFound:0,entitiesConverted:[],animationsFound:[],animationsMapped:[],animationsUnmapped:[],machineAnimationsMapped:[],machineAnimationsUnmapped:[],machineAssetsUnmapped:[],skipped:[],warnings:[],counts:{converted:0,skipped:0,parts:0,cubes:0,animations:0,machineMapped:0,machineUnmapped:0,machineAssets:0}},files={},lines=[];
   const animations=animationInfo(entries,namespace);report.animationsFound=animations;
   const animationNames=animations.map(a=>a.name);
+  report.machineAssetsUnmapped=machineAssetCandidates(entries,namespace);
+  report.counts.machineAssets=report.machineAssetsUnmapped.length;
   const pngs=(entries||[]).filter(e=>e&&e.path&&e.path.startsWith("assets/"+namespace+"/textures/")&&e.path.endsWith(".png")&&e.bytes instanceof Uint8Array&&(!e.pngInfo||e.pngInfo.valid));
   const usedIds=new Set();
   for(const [path,raw] of json){
@@ -81,7 +120,8 @@
     const textureWidth=Number(description.texture_width||description.textureWidth||64),textureHeight=Number(description.texture_height||description.textureHeight||32);
     if(!Number.isInteger(textureWidth)||!Number.isInteger(textureHeight)||textureWidth<1||textureHeight<1||textureWidth>4096||textureHeight>4096){report.skipped.push({path,id,reason:"invalid texture dimensions"});continue}
     const entityBase=basename(path).replace(/\.geo$/i,"").toLowerCase();
-    const entityAnimationNames=animations.filter(a=>basename(a.path).toLowerCase()===entityBase).map(a=>a.name);
+    const entityAnimations=animations.filter(a=>basename(a.path).toLowerCase()===entityBase);
+    const entityAnimationNames=entityAnimations.map(a=>a.name);
     const textureCandidates=pngs.filter(e=>{
       const p=e.path.toLowerCase();
       const b=p.split("/").pop().replace(/\.png$/i,"").toLowerCase();
@@ -112,8 +152,19 @@
       }
       if(cubes.length)part.cubes=cubes;
      }catch(error){report.skipped.push({path,id,bone:bone.name,reason:error.message});bad=true;break}
-     const motion=classifyMotion(bone.name,entityAnimationNames);
-     if(motion){part.animation=motion;if(/left|_l$|^l_/.test(bone.name.toLowerCase())&&(motion==="leg"||motion==="arm"||motion==="wing"))part.phase=180;report.animationsMapped.push({entity:id,bone:bone.name,motion});}
+     const machineMotion=classifyMachineMotion(bone.name,entityAnimations);
+     const motion=machineMotion&&machineMotion.animation?machineMotion.animation:classifyMotion(bone.name,entityAnimationNames);
+     if(motion){
+      part.animation=motion;
+      if(/left|_l$|^l_/.test(bone.name.toLowerCase())&&(motion==="leg"||motion==="arm"||motion==="wing"))part.phase=180;
+      report.animationsMapped.push({entity:id,bone:bone.name,motion});
+      if(machineMotion&&machineMotion.animation){
+       report.machineAnimationsMapped.push({entity:id,bone:bone.name,motion:"spin",sourceAnimations:machineMotion.sourceAnimations,approximate:true,limitations:["uses continuous built-in spin","source keyframe timing and exact rotation curve are not preserved"]});
+      }
+     }
+     if(machineMotion&&!machineMotion.animation){
+      report.machineAnimationsUnmapped.push({entity:id,bone:bone.name,kind:machineMotion.kind,sourceAnimations:machineMotion.sourceAnimations,reason:machineMotion.reason});
+     }
      partByName.set(bone.name,part);rawParts.push({bone,part});
     }
     if(bad)continue;
@@ -147,7 +198,12 @@
   report.counts.converted=report.entitiesConverted.length;
   report.counts.skipped=report.skipped.length;
   report.counts.animations=report.animationsMapped.length;
+  report.counts.machineMapped=report.machineAnimationsMapped.length;
+  report.counts.machineUnmapped=report.machineAnimationsUnmapped.length;
   if(report.animationsUnmapped.length)report.warnings.push("Some source animation timelines were not reproduced exactly; see animationsUnmapped");
+  if(report.machineAnimationsMapped.length)report.warnings.push("Some looping rotary machine parts were approximated with Zeus spin; exact source timing and curves are not preserved");
+  if(report.machineAnimationsUnmapped.length)report.warnings.push("Some mechanical movements (for example pistons, conveyors and hinged parts) remain unmapped; see machineAnimationsUnmapped");
+  if(report.machineAssetsUnmapped.length)report.warnings.push("Machine-like block model assets remain static because the documented Zeus block definition API does not expose animated block-entity rendering; see machineAssetsUnmapped");
   return {lua:lines.join("\n"),files,report};
  }
  root.Jar2ZeusEntityModels={convert};
