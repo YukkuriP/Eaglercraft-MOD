@@ -8,7 +8,19 @@
  function validate(input){
   const errors=[],warnings=[];
   if(!input||typeof input!=="object")return {valid:false,readyToImport:false,canImportForTesting:false,runtimeTested:false,gameplayVerified:false,errors:["validation input missing"],warnings:[]};
-  if(!input.metadata||typeof input.metadata.id!=="string"||!input.metadata.id)errors.push("metadata.id missing");
+  const metadata=input.metadata;
+  if(!metadata||typeof metadata!=="object")errors.push("metadata.json missing or invalid");
+  else {
+   if(typeof metadata.id!=="string"||!/^(?!\\.)(?!.*_$)[a-z0-9_.-]{1,64}$/.test(metadata.id))errors.push("metadata.id must be 1-64 lowercase letters, digits, dot, hyphen or underscore; it cannot start with dot or end with underscore");
+   if(typeof metadata.name!=="string"||!metadata.name.trim())errors.push("metadata.name missing");
+   if(typeof metadata.version!=="string"||!metadata.version.trim())errors.push("metadata.version missing");
+   if(metadata.main!=="main.lua")errors.push("metadata.main must point to main.lua");
+   if(metadata.api!==1)errors.push("metadata.api must be Zeus API version 1");
+   if(!Array.isArray(metadata.minecraft)||!metadata.minecraft.length||metadata.minecraft.some(v=>!["26.2","26.3"].includes(v)))errors.push("metadata.minecraft must explicitly list supported Zeus target versions");
+   const allowedPermissions=new Set(["network","clipboard","commands","microphone","webrtc","gl"]);
+   if(metadata.permissions!=null&&(!Array.isArray(metadata.permissions)||metadata.permissions.some(p=>!allowedPermissions.has(p))))errors.push("metadata.permissions contains an unknown permission");
+   if(Array.isArray(metadata.permissions)&&new Set(metadata.permissions).size!==metadata.permissions.length)errors.push("metadata.permissions contains duplicates");
+  }
   if(typeof input.mainLua!=="string"||!input.mainLua.trim())errors.push("main.lua missing or empty");
   if(!input.analysis||input.analysis.schema!=="jar2zeus.generic-analysis.v1")errors.push("generic analysis report missing");
   if(!input.adapterReport||input.adapterReport.schema!=="jar2zeus.pipeline.v1")errors.push("adapter report missing");
@@ -33,6 +45,7 @@
   }
   if(!packagePaths.has("metadata.json"))errors.push("metadata.json missing from package root");
   if(!packagePaths.has("main.lua"))errors.push("main.lua missing from package root");
+  if(metadata&&typeof metadata.main==="string"&&!packagePaths.has(metadata.main))errors.push("metadata.main points to a file missing from the package");
   const available=new Set(input.availableTextures||[]);
   for(const m of mappings){
    if(!m||typeof m.source!=="string"||unsafePath(m.target))errors.push("invalid or unsafe texture mapping");
@@ -55,9 +68,15 @@
   const skipped=!!(input.packageSkipped&&input.packageSkipped.length);
   const runtimeTested=input.runtimeTested===true;
   const gameplayVerified=input.gameplayVerified===true;
-  const readyToImport=valid&&runtimeTested&&!skipped&&targetEvidence.apiPresenceVerified===true&&targetEvidence.versionVerified===true;
+  const reimplementation=input.reimplementation||{};
+  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0;
+  const resourceReports=[input.recipeReport,input.definitionReport].filter(Boolean);
+  const skippedResources=resourceReports.reduce((n,r)=>n+(Array.isArray(r.skipped)?r.skipped.length:0)+(r.counts&&r.counts.skipped||0),0);
+  const conversionComplete=valid&&!skipped&&!incompleteJava&&skippedResources===0&&!(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length);
+  const readyToImport=conversionComplete&&runtimeTested&&targetEvidence.apiPresenceVerified===true&&targetEvidence.versionVerified===true;
   return {
    valid,
+   conversionComplete,
    structurallyValid:valid,
    canImportForTesting:valid,
    readyToImport,
