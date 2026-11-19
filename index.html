@@ -2,90 +2,106 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Jar2Zeus — JAR + Eaglercraft HTML Migration</title>
+<title>Jar2Zeus — Java MOD to Zeus</title>
 <style>
 :root{color-scheme:dark}body{margin:0;background:#0b1020;color:#eef3ff;font:15px system-ui;padding:22px}main{max-width:920px;margin:auto}.card{background:#151f35;border:1px solid #30415f;border-radius:14px;padding:19px;margin:14px 0}button{background:#829cff;color:#081126;border:0;border-radius:9px;padding:11px 16px;font-weight:bold;cursor:pointer}button:disabled{opacity:.4}input{display:block;margin:12px 0;max-width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#091120;padding:14px;border-radius:9px;max-height:420px;overflow:auto}.muted{color:#a9b7d0}.warn{color:#ffd78a}.good{color:#9fe4b5}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.step{border:1px solid #30415f;border-radius:10px;padding:13px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xzwasm@0.1.2/dist/package/xzwasm.min.js"></script>
 <script src="converter.js"></script>
 <script src="resource-converter.js"></script>
 <script src="definition-converter.js"></script>
+<script src="java-bytecode-analyzer.js"></script>
 <script src="generic-mod-analyzer.js"></script>
+<script src="java-reimplementation-engine.js"></script>
 <script src="migration-pipeline.js"></script>
+<script src="zeus-api-contract.js"></script>
 <script src="package-validator.js"></script>
-<script src="target-client-inspector.js"></script>
-<script src="resource-compatibility.js"></script>
 </head>
 <body><main>
 <h1>Jar2Zeus</h1>
 <p class="muted">JAR解析・Zeus MODパッケージ生成ツール</p>
-<p class="warn">重要：このツールはHTML本体へMODを直接埋め込みません。Zeus対応Eaglercraft 26.2 / 26.3のModsメニューから、出力される単体MOD ZIPをインポートしてください。</p>
+<p class="warn">HTMLファイルのアップロードは不要です。移植先のZeus対応バージョンを選択し、出力された単体MOD ZIPをゲームのModsメニューからインポートします。</p>
 <section class="card"><h2>① ファイルを選択</h2>
 <div class="grid">
-<div class="step"><b>MODのJAR</b><input id="jar" type="file" accept=".jar,.zip"></div>
-<div class="step"><b>移植先のEaglercraft HTML</b><input id="html" type="file" accept=".html,.htm"></div>
-<div class="step"><b>構造比較用のMOD入りHTML（任意）</b><input id="referenceHtml" type="file" accept=".html,.htm"><p class="muted">Create版・IE版などの参考HTMLを選ぶと、EPK内ファイル構成を比較します。</p></div>
+<div class="step"><b>変換するMinecraft MODのJAR</b><input id="jar" type="file" accept=".jar,.zip"><p class="muted">Forge / Fabric / NeoForge / QuiltのJARに対応。実行はせず、安全に構造とコードを解析します。</p></div>
+<div class="step"><b>移植先のZeusバージョン</b><select id="targetVersion"><option value="26.3" selected>Eaglercraft 26.3</option><option value="26.2">Eaglercraft 26.2</option></select><p class="muted">対象HTMLは不要です。Zeus Lua API v1向けに生成します。</p></div>
 </div>
-<button id="analyze">両方を解析</button>
+<button id="analyze">JARを解析して再実装を開始</button>
 </section>
-<section class="card"><h2>② 解析結果</h2><pre id="out">JARと対象HTMLを選択してください。</pre>
+<section class="card"><h2>② 解析結果</h2><pre id="out">JARとZeusの対象バージョンを選択してください。</pre>
 <p class="warn" id="warning">まだ解析されていません。</p>
-<button id="build" disabled>インポート用Zeus MOD ZIP＋診断レポートを出力</button>
+<button id="build" disabled>Zeus MOD ZIP＋再実装レポートを出力</button>
 </section>
 <section class="card"><h2>このツールが行うこと</h2>
-<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Eaglercraft HTMLのEPWヘッダー、ローダーJS/WASM、XZ圧縮領域を解析</li><li>EPK v2を二段階で展開し、ファイル一覧・カテゴリ・CRC32・名前空間を検証</li><li>WASMセクションとTeaVM／MOD識別子候補を抽出。Base64本文を単純文字列検索する誤判定を回避</li><li>JARのassets/data資産と対象EPKをCRC32で照合し、完全一致・同名衝突・新規パスを分類</li><li>参考HTMLを指定した場合、2つのEPK内ファイルの追加・削除・変更を比較</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>Zeusが直接読み込める、metadata.jsonがZIP直下にある単体MOD ZIPを生成</li></ul>
-<p class="warn">重要：JAR内のJavaコードを完全なLua/WASMへ自動変換したり、Zeus未搭載のHTMLへZeus本体を新規実装して全MOD機能を動かすことは、この版ではできません。Javaクラス参照は移植計画のために分類しますが、実際のゲームロジックは個別の実装が必要です。出力HTMLへの解析情報の埋め込みは、MOD機能の実装・動作を意味しません。武器・砲撃などの実戦用機能は変換対象にしません。</p>
+<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Javaクラスの定数プール・メソッド・バイトコード・API呼び出しを解析</li><li>Javaメソッドの安全な限定範囲をLuaへ変換し、未対応ロジックは再実装タスクに整理</li><li>クラスのメソッド・命令・呼び出し先を解析し、対応できるJava処理をLuaへ再実装</li><li>JAR内のassets/dataを解析し、変換可能なテクスチャ・モデル・レシピ等を抽出</li><li>ブロック・アイテム・レシピ等のJSON資産をZeus形式へ変換し、Javaコード由来の機能と統合</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>Zeusが直接読み込める、metadata.jsonがZIP直下にある単体MOD ZIPを生成</li></ul>
+<p class="warn">重要：任意のJava MODを100%自動で完全移植できるわけではありません。現在は純粋な整数staticメソッドの一部をLuaへ再実装し、Java/Minecraft/ローダーAPIに依存する処理は機能別の再実装タスクとして出力します。未対応コードを動くふりで置き換えることはしません。危険な武器関連機能は変換対象にしません。</p>
 </section>
-<p class="muted">ファイルはブラウザ内で処理し、サーバーへ送信しません。JSZip読み込み時のみインターネット接続が必要です。</p>
+<p class="muted">JARの解析と変換はブラウザ内で処理し、サーバーへ送信しません。ZIP作成時のみJSZipを読み込みます。</p>
 </main>
 <script>
-var jarZip=null,jarReport=null,targetInfo=null,referenceInfo=null,sourceHtml="",jarFile=null,htmlFile=null;
+var jarZip=null,jarReport=null,jarFile=null,targetGameVersion="26.3",javaClassRecords=[];
 function $(id){return document.getElementById(id)}
 function slug(s){return (s||"imported_mod").toLowerCase().replace(/[^a-z0-9_.-]/g,"_").replace(/^\.+/,"").slice(0,55).replace(/_+$/,"")||"imported_mod"}
 function unique(a){return Array.from(new Set(a))}
-async function scanHtml(s){
- if(!window.Jar2ZeusTargetInspector)throw Error("対象HTML解析エンジンが読み込まれていません。");
- return await window.Jar2ZeusTargetInspector.inspect(s);
-}
 $("analyze").onclick=async function(){
  try{
- if(!window.JSZip)throw Error("JSZipを読み込めません。インターネット接続を確認してください。");
- jarFile=$("jar").files[0];htmlFile=$("html").files[0];var referenceFile=$("referenceHtml").files[0];
- if(!jarFile||!htmlFile)throw Error("JARとHTMLの両方を選択してください。");
- jarZip=await JSZip.loadAsync(jarFile);sourceHtml=await htmlFile.text();
- var names=Object.keys(jarZip.files),loader="不明",id=null,name=null,version="不明",mc=[],deps=[];
- if(jarZip.file("fabric.mod.json")){var f=JSON.parse(await jarZip.file("fabric.mod.json").async("string"));loader="Fabric";id=f.id;name=f.name||id;version=String(f.version||"不明");deps=Object.keys(f.depends||{});var v=(f.depends||{}).minecraft;if(typeof v==="string")mc.push(v);else if(Array.isArray(v))mc=mc.concat(v)}
- if(jarZip.file("quilt.mod.json")){try{var q=JSON.parse(await jarZip.file("quilt.mod.json").async("string"));var ql=q.quilt_loader||{};loader="Quilt";id=ql.id||id;name=(q.metadata&&q.metadata.name)||name||id;version=String(ql.version||version);deps=unique(deps.concat(Object.keys(ql.depends||{})));}catch(e){}}
- [["META-INF/mods.toml","Forge"],["META-INF/neoforge.mods.toml","NeoForge"]].forEach(function(x){if(jarZip.file(x[0]))loader=x[1]});
- var tomlPath=loader==="Forge"?"META-INF/mods.toml":loader==="NeoForge"?"META-INF/neoforge.mods.toml":null;
- if(tomlPath&&jarZip.file(tomlPath)){var t=await jarZip.file(tomlPath).async("string");id=(t.match(/\bmodId\s*=\s*"([^"]+)"/)||[])[1]||id;version=(t.match(/\bversion\s*=\s*"([^"]+)"/)||[])[1]||version;deps=unique(deps.concat(Array.from(t.matchAll(/modId\s*=\s*"([^"]+)"/g)).map(function(m){return m[1]}).filter(function(x){return x!==id})))}
- var classes=names.filter(function(n){return n.endsWith(".class")}).length,assets=names.filter(function(n){return n.startsWith("assets/")}).length,data=names.filter(function(n){return n.startsWith("data/")}).length;
- var genericEntries=[];
- for(var gi=0;gi<names.length;gi++){var gn=names[gi],go=jarZip.files[gn];if(go.dir)continue;var ge={path:gn,size:go._data&&go._data.uncompressedSize||0};if(/\.class$/i.test(gn)){ge.classInfo=window.Jar2ZeusGenericAnalyzer.parseClass(await go.async("uint8array"))}else if(gn==="fabric.mod.json"||gn==="quilt.mod.json"||/^META-INF\/(mods\.toml|neoforge\.mods\.toml|MANIFEST\.MF|jarjar\/metadata\.json)$/i.test(gn)||/mixin.*\.json$/i.test(gn)||/^META-INF\/services\//i.test(gn)){try{ge.content=await go.async("string")}catch(err){}}genericEntries.push(ge)}
- var genericAnalysis=window.Jar2ZeusGenericAnalyzer.analyze(genericEntries);
- targetInfo=await scanHtml(sourceHtml);
- var resourceCompatibility=await window.Jar2ZeusResourceCompatibility.compareJarZip(jarZip,targetInfo);
- if(referenceFile){referenceInfo=await scanHtml(await referenceFile.text());targetInfo.referenceComparison=window.Jar2ZeusTargetInspector.compare(targetInfo,referenceInfo);targetInfo.referenceComparison.referenceFilename=referenceFile.name;referenceInfo=null;}
- var mod={id:id||slug(jarFile.name),name:name||jarFile.name.replace(/\.jar$/i,""),version:version,loader:loader,minecraft_versions:unique(mc),dependencies:deps};
- jarReport={jar:{filename:jarFile.name,bytes:jarFile.size,mod:mod,counts:{files:names.length,java_classes:classes,assets:assets,data:data}},generic_analysis:genericAnalysis,target_html:{filename:htmlFile.name,analysis:targetInfo,resource_compatibility:resourceCompatibility},compatibility:{
- container_format:targetInfo.format,
- runtime:targetInfo.runtime,
- epw_header_valid:targetInfo.epw?targetInfo.epw.valid:null,
- deep_analysis:targetInfo.deepAnalysis?targetInfo.deepAnalysis.status:"unknown",
- zeus_runtime:targetInfo.runtime&&targetInfo.runtime.zeusEvidence?"Zeus識別子を検出（API互換性は未検証）":"Zeus識別子を確認できず（不存在の証明ではない）",
- status:targetInfo.deepAnalysis&&targetInfo.deepAnalysis.status==="complete"?"EPW/EPK構造検証済み。MOD機能の互換性は未検証":"HTMLコンテナは一部解析。MOD機能の互換性は未検証",
- notes:["Base64 assetsURI、EPWヘッダー、XZ領域、EPK v2、CRC32、WASM情報を解析します。","JAR内のassets/dataをEPK内の既存パスとチェックサムで照合します。","解析対象HTMLを実行せず、埋め込みJavaScriptも実行しません。","EPW/EPK構造の一致はJava MODロジックの移植やゲーム内動作を意味しません。","Javaクラス、Mixin、Forge/Fabric API、機械処理などはZeus向けの個別実装と実機テストが必要です。"]
-},conversion:{metadata:"解析済み",resources:"抽出対象",java_logic:"未変換",html_integration:"HTMLは互換性解析のみ。ゲーム本体への注入は行わない"}};
- $("out").textContent=JSON.stringify(jarReport,null,2);
- $("warning").textContent=targetInfo.deepAnalysis&&targetInfo.deepAnalysis.status==="complete"?"EPW/XZ/EPK構造の解析が完了しました。これはMOD機能の移植完了を意味しません。":(targetInfo.deepAnalysis&&targetInfo.deepAnalysis.note)||"HTML構造を一部解析しました。詳細は診断レポートを確認してください。";
- $("build").disabled=false;
+  if(!window.JSZip)throw Error("JSZipを読み込めません。インターネット接続を確認してください。");
+  jarFile=$("jar").files[0];
+  if(!jarFile)throw Error("変換するMODのJARを選択してください。");
+  targetGameVersion=$("targetVersion").value;
+  if(targetGameVersion!=="26.2"&&targetGameVersion!=="26.3")throw Error("Zeusの対象バージョンを選択してください。");
+  jarZip=await JSZip.loadAsync(jarFile);
+  var names=Object.keys(jarZip.files),loader="不明",id=null,name=null,version="不明",mc=[],deps=[];
+  if(jarZip.file("fabric.mod.json")){
+   var f=JSON.parse(await jarZip.file("fabric.mod.json").async("string"));
+   loader="Fabric";id=f.id;name=f.name||id;version=String(f.version||"不明");deps=Object.keys(f.depends||{});
+   var v=(f.depends||{}).minecraft;if(typeof v==="string")mc.push(v);else if(Array.isArray(v))mc=mc.concat(v);
+  }
+  if(jarZip.file("quilt.mod.json")){
+   try{var q=JSON.parse(await jarZip.file("quilt.mod.json").async("string"));var ql=q.quilt_loader||{};loader="Quilt";id=ql.id||id;name=(q.metadata&&q.metadata.name)||name||id;version=String(ql.version||version);deps=unique(deps.concat(Object.keys(ql.depends||{})));}catch(e){}
+  }
+  [["META-INF/mods.toml","Forge"],["META-INF/neoforge.mods.toml","NeoForge"]].forEach(function(x){if(jarZip.file(x[0]))loader=x[1]});
+  var tomlPath=loader==="Forge"?"META-INF/mods.toml":loader==="NeoForge"?"META-INF/neoforge.mods.toml":null;
+  if(tomlPath&&jarZip.file(tomlPath)){
+   var t=await jarZip.file(tomlPath).async("string");
+   id=(t.match(/\bmodId\s*=\s*"([^"]+)"/)||[])[1]||id;
+   version=(t.match(/\bversion\s*=\s*"([^"]+)"/)||[])[1]||version;
+   deps=unique(deps.concat(Array.from(t.matchAll(/modId\s*=\s*"([^"]+)"/g)).map(function(m){return m[1]}).filter(function(x){return x!==id})));
+  }
+  var classes=names.filter(function(n){return n.endsWith(".class")}).length;
+  var assets=names.filter(function(n){return n.startsWith("assets/")}).length;
+  var data=names.filter(function(n){return n.startsWith("data/")}).length;
+  var genericEntries=[];javaClassRecords=[];
+  for(var gi=0;gi<names.length;gi++){
+   var gn=names[gi],go=jarZip.files[gn];if(go.dir)continue;
+   var ge={path:gn,size:go._data&&go._data.uncompressedSize||0};
+   if(/\.class$/i.test(gn)){
+    ge.classInfo=window.Jar2ZeusBytecode.parse(await go.async("uint8array"));
+    if(ge.classInfo.valid)javaClassRecords.push(ge.classInfo);
+   }else if(gn==="fabric.mod.json"||gn==="quilt.mod.json"||/^META-INF\/(mods\.toml|neoforge\.mods\.toml|MANIFEST\.MF|jarjar\/metadata\.json)$/i.test(gn)||/mixin.*\.json$/i.test(gn)||/^META-INF\/services\//i.test(gn)){
+    try{ge.content=await go.async("string")}catch(err){}
+   }
+   genericEntries.push(ge);
+  }
+  var genericAnalysis=window.Jar2ZeusGenericAnalyzer.analyze(genericEntries);
+  genericAnalysis.migrationAssessment.javaLogicPort="Java bytecode is analyzed and a conservative subset is reimplemented; remaining methods are emitted as explicit adapter tasks.";
+  var mod={id:id||slug(jarFile.name),name:name||jarFile.name.replace(/\.jar$/i,""),version:version,loader:loader,minecraft_versions:unique(mc),dependencies:deps};
+  jarReport={
+   jar:{filename:jarFile.name,bytes:jarFile.size,mod:mod,counts:{files:names.length,java_classes:classes,assets:assets,data:data}},
+   generic_analysis:genericAnalysis,
+   target_zeus:{game_version:targetGameVersion,api_version:1,documentation:"https://dev.eaglercraft.com/docs/modding/api",target_html_required:false},
+   conversion:{metadata:"解析済み",resources:"変換候補を抽出",java_logic:"Java bytecodeからZeus向けの限定的な再実装を試行",html_integration:"不要（Zeus専用出力）"}
+  };
+  $("out").textContent=JSON.stringify(jarReport,null,2);
+  $("warning").textContent="JAR解析完了。Javaクラス "+javaClassRecords.length+" 件をバイトコード解析。Zeus "+targetGameVersion+" 向けに再実装を試行します。";
+  $("build").disabled=false;
  }catch(e){alert("解析失敗: "+e.message)}
 };
 $("build").onclick=async function(){
  try{
- var out=new JSZip(),modZip=new JSZip(),id=slug(jarReport.jar.mod.id),meta={id:id,name:"Imported: "+jarReport.jar.mod.name,version:"0.1.0-port",description:"Partial Zeus port generated by Jar2Zeus. Review conversion reports before use.",authors:["Jar2Zeus"],main:"main.lua",api:1,minecraft:["26.2","26.3"]};
+ var out=new JSZip(),modZip=new JSZip(),id=slug(jarReport.jar.mod.id),targetVersion=targetGameVersion;
+ if(targetVersion!=="26.2"&&targetVersion!=="26.3")throw Error("Zeusの対象バージョンを選択してください。");
+ var meta={id:id,name:"Imported: "+jarReport.jar.mod.name,version:"0.1.0-port",description:"Partial Zeus port generated by Jar2Zeus. Runtime compatibility must be tested in the exact target client.",authors:["Jar2Zeus"],main:"main.lua",api:1,minecraft:[targetVersion]};
  var packageFiles=[],packageBytes=0,packageSkipped=[],packageSkippedCount=0,packagePathSet=new Set();
  function recordPackageSkip(path,reason){packageSkippedCount++;if(packageSkipped.length<500)packageSkipped.push({path:path,reason:reason})}
  function addPackageFile(path,data,essential){
@@ -114,13 +130,22 @@ $("build").onclick=async function(){
  var pipeline=window.Jar2ZeusPipeline.create();
  pipeline.register({id:"recipes",run:function(ctx){var r=window.Jar2ZeusConverter.convert(ctx.recipeEntries);return {lua:r.mainLua,report:r.report}}});
  pipeline.register({id:"definitions",run:function(ctx){var r=window.Jar2ZeusDefinitions.convert(ctx.resourceEntries,ctx.namespace);return {lua:r.lua,report:r.report,copied:r.copied}}});
- var pipelineResult=await pipeline.run({recipeEntries:recipeEntries,resourceEntries:resourceEntries,namespace:jarReport.jar.mod.id});
+ pipeline.register({id:"java-reimplementation",run:function(ctx){var r=window.Jar2ZeusReimplementation.run({classes:ctx.javaClasses,analysis:ctx.analysis});return {lua:r.lua,report:r.report,plan:r.plan}}});
+ var pipelineResult=await pipeline.run({recipeEntries:recipeEntries,resourceEntries:resourceEntries,namespace:jarReport.jar.mod.id,javaClasses:javaClassRecords,analysis:jarReport.generic_analysis});
  var converted=pipelineResult.results.recipes||{report:{},mainLua:""};
  var definitions=pipelineResult.results.definitions||{report:{},copied:[],lua:""};
- var generatedMain='-- name: '+String(jarReport.jar.mod.name).replace(/[\r\n]/g,' ').slice(0,80)+' (Zeus port)\n-- id: '+id+'\n-- version: 0.1.0\n-- Partial conversion: unsupported Java logic is not translated.\n\n'+pipelineResult.lua;
+ var javaReimplementation=pipelineResult.results["java-reimplementation"]||{report:{schema:"jar2zeus.reimplementation.v1",status:"failed",warnings:["Java再実装エンジンが実行できませんでした。"]},plan:{schema:"jar2zeus.reimplementation-plan.v1",tasks:[]},lua:""};
+ var generatedMain='-- name: '+String(jarReport.jar.mod.name).replace(/[\r\n]/g,' ').slice(0,80)+' (Zeus port)\n-- id: '+id+'\n-- version: 0.1.0\n-- Java methods are conservatively reimplemented where supported; pending work is reported.\n\n'+pipelineResult.lua;
+ var apiValidation=window.Jar2ZeusApiValidator.scan(generatedMain);
+ if(!apiValidation.valid)throw Error("未確認のZeus API呼び出しを検出: "+apiValidation.unsupportedApis.join(", "));
+ generatedMain=window.Jar2ZeusApiValidator.guardLua(generatedMain,apiValidation);
  if(!addPackageFile("main.lua",generatedMain,true))throw Error("main.luaをパッケージに追加できません");
+ if(!addPackageFile("api-validation.json",JSON.stringify(apiValidation,null,2),true))throw Error("api-validation.jsonを追加できません");
+
  addPackageFile("conversion-report.json",JSON.stringify(converted.report,null,2),true);
  addPackageFile("definition-report.json",JSON.stringify(definitions.report,null,2),true);
+ addPackageFile("reimplementation-report.json",JSON.stringify(javaReimplementation.report,null,2),true);
+ addPackageFile("reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2),true);
  addPackageFile("generic-analysis.json",JSON.stringify(jarReport.generic_analysis,null,2),true);
  addPackageFile("conversion-assessment.json",JSON.stringify(jarReport.generic_analysis.migrationAssessment,null,2),true);
  addPackageFile("source-mod.json",JSON.stringify({source:jarReport.jar.mod,jar:jarReport.jar.filename,dependencies:jarReport.jar.mod.dependencies,minecraftVersions:jarReport.jar.mod.minecraft_versions},null,2),true);
@@ -140,7 +165,7 @@ $("build").onclick=async function(){
  var validation;
  for(var vi=0;vi<4;vi++){
   var limits={files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024};
-  validation=window.Jar2ZeusPackageValidator.validate({metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,packageLimits:limits,packageSkipped:packageSkipped,runtimeTested:false});
+  validation=window.Jar2ZeusPackageValidator.validate({metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,packageLimits:limits,packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,reimplementation:javaReimplementation.report,apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}});
   jarReport.package_validation=validation;
   var reportText=JSON.stringify(jarReport,null,2),validationText=JSON.stringify(validation,null,2);
   var reportIndex=packageFiles.findIndex(function(x){return x.path==="report.json"});
@@ -152,7 +177,7 @@ $("build").onclick=async function(){
   modZip.file("report.json",reportText);
   modZip.file("validation-report.json",validationText);
  }
- validation=window.Jar2ZeusPackageValidator.validate({metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},packageSkipped:packageSkipped,runtimeTested:false});
+ validation=window.Jar2ZeusPackageValidator.validate({metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,reimplementation:javaReimplementation.report,apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}});
  jarReport.package_validation=validation;
  modZip.file("validation-report.json",JSON.stringify(validation,null,2));
  modZip.file("report.json",JSON.stringify(jarReport,null,2));
@@ -160,8 +185,13 @@ $("build").onclick=async function(){
  var modBlob=await modZip.generateAsync({type:"blob",compression:"DEFLATE"});
  out.file(id+"-zeus-mod.zip",modBlob);
  out.file("diagnostics/report.json",JSON.stringify(jarReport,null,2));
- out.file("diagnostics/target-html-analysis.json",JSON.stringify({filename:htmlFile.name,analysis:targetInfo,notice:"The target HTML is analyzed only. It is not patched with a Java MOD runtime."},null,2));
- out.file("README.txt","Jar2Zeus output\n\nIMPORT THIS FILE: "+id+"-zeus-mod.zip\n\nIt is a standalone Zeus MOD ZIP. metadata.json and main.lua are at the ZIP root. On Eaglercraft 26.2/26.3, open the Mods menu and import the ZIP, then enable it and reload the game. The uploaded target HTML is analyzed only; it is not modified to add Zeus.\n\nThis is a partial port: Java gameplay code, loader APIs and unsupported model behavior are not translated. Read diagnostics/report.json and the validation report inside the MOD ZIP. Runtime compatibility has not been verified automatically.\n\nPackage files: "+packageFiles.length+"\nUnpacked package size: "+packageBytes+" bytes\nZeus limits: 4096 files / 64 MiB\nOmitted package files: "+packageSkipped.length+"\nExtracted source resources: "+copied+"\n");
+ out.file("diagnostics/api-contract.json",JSON.stringify(window.Jar2ZeusApiContract,null,2));
+ out.file("diagnostics/api-validation.json",JSON.stringify(apiValidation,null,2));
+ out.file("diagnostics/zeus-runtime-probe.lua",window.Jar2ZeusApiValidator.runtimeProbeLua());
+ out.file("diagnostics/reimplementation-report.json",JSON.stringify(javaReimplementation.report,null,2));
+ out.file("diagnostics/reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2));
+ out.file("diagnostics/target-zeus.json",JSON.stringify(jarReport.target_zeus,null,2));
+ out.file("README.txt","Jar2Zeus output\n\nIMPORT THIS FILE: "+id+"-zeus-mod.zip\n\nStandalone Zeus MOD ZIP for Eaglercraft "+targetVersion+". The uploaded JAR is analyzed locally in this browser; no game HTML is required.\n\nThe Java reimplementation engine only translates a conservative subset of pure integer static helper methods. Remaining Java/loader behavior is listed in reimplementation-report.json and reimplementation-plan.json for feature-specific Zeus adapters. Resource converters separately handle supported recipes, simple block/item definitions, and textures. This output is a partial port unless its remaining tasks are completed and the exact target game is tested.\n\nThe generated main.lua includes preflight guards for documented Zeus APIs. The bundled runtime probe checks API presence only and does not prove gameplay behavior. See diagnostics/report.json, diagnostics/reimplementation-report.json, diagnostics/reimplementation-plan.json, diagnostics/api-validation.json and validation-report.json.\n\nPackage files: "+packageFiles.length+"\nUnpacked package size: "+packageBytes+" bytes\nZeus limits: 4096 files / 64 MiB\nOmitted package files: "+packageSkipped.length+"\nExtracted source resources: "+copied+"\n");
  var blob=await out.generateAsync({type:"blob",compression:"DEFLATE"});var a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download=id+"-migration.zip";a.click();setTimeout(function(){URL.revokeObjectURL(url)},1500);
  }catch(e){alert("出力失敗: "+e.message)}
 };
