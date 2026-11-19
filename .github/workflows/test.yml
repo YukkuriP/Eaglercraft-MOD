@@ -3,11 +3,11 @@ name: Jar2Zeus tests
 on:
   push:
     branches:
-      - main
-      - feature/epw-epk-deep-inspector
+      - "**"
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -15,12 +15,23 @@ permissions:
 jobs:
   node-tests:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - name: Run unit tests
+          node-version: ${{ matrix.node-version }}
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          while IFS= read -r -d '' file; do
+            echo "Checking $file"
+            node --check "$file"
+          done < <(find . -name '*.js' -not -path './node_modules/*' -print0)
+      - name: Run all unit and regression tests
         run: node --test tests/*.test.js
