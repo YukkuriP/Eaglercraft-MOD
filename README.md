@@ -1,76 +1,64 @@
 # Jar2Zeus
 
-Minecraft MODのJARと移植先Eaglercraft HTMLを解析し、対応する一部機能を実際のZeus Lua MODとして出力するブラウザツールです。
+**Minecraft MOD JARを解析し、Eaglercraft Zeus向けのLua MODへ移植するブラウザツール**です。
+
+移植先HTMLのアップロードは不要です。JARを選び、Zeusの対象ゲーム版（26.2 / 26.3）を指定します。
 
 ## 使い方
-1. `index.html` と、参照されるJavaScriptファイル（`converter.js`、`resource-converter.js`、`definition-converter.js`、`generic-mod-analyzer.js`、`migration-pipeline.js`、`zeus-api-contract.js`、`package-validator.js`、`target-client-inspector.js`、`resource-compatibility.js`）を同じフォルダに置く
-2. インターネット接続がある状態でJARとEaglercraft HTMLを選択
-3. 「両方を解析」→「インポート用Zeus MOD ZIP＋診断レポートを出力」
-4. 出力された外側ZIPを展開し、`<mod-id>-zeus-mod.zip` を取り出す。このZIPは `metadata.json` と `main.lua` が直下にある単体Zeus MODパッケージ
-5. Eaglercraft 26.2 / 26.3のModsメニューから単体MOD ZIPをインポートし、有効化してページを再読み込みする
 
-**注意：** アップロードしたHTMLは互換性の手掛かりを調べるだけで、ゲーム本体にMOD機能を注入しません。Zeus非対応の1.8 / 1.12クライアントではこのMOD ZIPは動きません。
+1. `index.html` と次のJavaScriptファイルを同じフォルダに置きます。
+   - `converter.js`
+   - `resource-converter.js`
+   - `definition-converter.js`
+   - `generic-mod-analyzer.js`
+   - `java-bytecode-analyzer.js`
+   - `java-reimplementation-engine.js`
+   - `migration-pipeline.js`
+   - `zeus-api-contract.js`
+   - `package-validator.js`
+2. ブラウザで `index.html` を開き、変換するJARを選択します。
+3. 対象のZeusバージョン（26.2または26.3）を選び、「JARを解析して再実装を開始」を押します。
+4. 解析結果を確認し、「Zeus MOD ZIP＋再実装レポートを出力」を押します。
+5. 出力された外側ZIPを展開し、`<mod-id>-zeus-mod.zip` をEaglercraftのModsメニューからインポートします。
 
+JSZipをCDNから読み込むため初回利用時にインターネット接続が必要です。JARの内容はブラウザ内で処理し、サーバーには送信しません。
 
-## 26.2 zeus/master HTMLの解析
+## 変換パイプライン
 
-最新形式のHTMLでは、`assetsURI=data:...`ではなく、`<script id="eag-inline-wasm-br">`、`eag-inline-assets`、`eag-inline-sounds`などのscript要素にBrotli WASMとEPKを格納する場合があります。インスペクターは両形式を別々に判定し、inline形式ではscriptのメタデータとEPKを解析します。
+- **JAR解析:** Fabric / Forge / NeoForge / Quiltのメタデータ、依存関係、Mixin、Access Transformer、Jar-in-Jar等を検出します。
+- **Java解析:** クラスファイルの定数プール、メソッド、JVM命令、分岐、フィールド参照、メソッド呼び出しを解析します。アップロードされたJavaコードは実行しません。
+- **リソース移植:** 対応するレシピ、単純なブロック・アイテムモデル、テクスチャ等をZeus形式に変換します。
+- **Java処理の再実装:** 安全な限定範囲のJavaメソッドをLuaへ変換します。残りは機能別の再実装タスクとして整理し、未対応理由と参照したJava APIをレポートします。
+- **検証と梱包:** 生成LuaのZeus API呼び出しを静的検査し、`metadata.json` と `main.lua` を含むMOD ZIPを生成します。
 
-- `eag-inline-assets`と`eag-inline-sounds`のEPK v2を読み、GZIP展開・ファイル数・CRC32・パスを検査
-- Brotli WASMは存在・宣言サイズを記録しますが、HTMLを実行したりWASMを実行したりはしません
-- EPKの検査成功はLua APIの存在やMODの動作成功を意味しません
-- HTMLタイトル・scriptサイズ等からゲーム版の候補を記録し、出力metadataには選択した26.2 / 26.3だけを指定
+## Java再実装の現在の対応範囲
 
-## Zeus APIの検査と実機確認
+現在の自動バイトコード翻訳は、分岐・例外・フィールドアクセス・外部API呼び出しを含まない、純粋な整数型 `static` 補助メソッドの一部に限定しています。これは実際にLua関数として生成されます。
 
-- `zeus-api-contract.js`は公式API資料に基づき、生成Luaの既知namespace/methodの呼び出しを静的検査します
-- 未知の呼び出しは生成を停止し、既知の呼び出しにはmain.lua冒頭でAPI存在チェックを付けます
-- 静的HTML/WASM解析だけでは、対象ビルドのLuaグローバルが公開されているか確定できません
-- 外側の診断ZIPに`zeus-runtime-probe.lua`を出力します。対象HTML上で実行し、`OK` / `MISSING`を確認するための読み取り専用プローブです
-- 構造検証済み、API存在確認済み、ゲーム内動作確認済みを別状態で管理します。実機でのAPI確認がない場合は`readyToImport=false`のままです
+ゲーム内の登録処理、イベント処理、独自機械、GUI、描画、ネットワーク等は、Java側の意味を読み取っただけでZeus上の同等機能になるわけではありません。Zeus APIに対応する機能アダプターの再実装が必要です。現在のレポートはその残作業を隠さず表示します。したがって、任意のJARが完全移植できる、あるいはZIPを入れれば必ず元MODと同じ動作になる、とは保証しません。
 
+## 出力ファイル
 
-## 実際にZeus Luaへ変換する範囲
-- shaped / shapeless crafting
-- smelting / blasting / smoking / campfire cooking / stonecutting
-- `cube_all` / `cube` / `cube_column` / `cube_bottom_top` / `cube_top` 系のフルキューブブロック登録\n- カスタム親モデルの継承、テクスチャ変数（`#side` 等）の解決\n- 上面・下面・側面・前面の別テクスチャ対応\n- 複数variantが同一モデルを使うブロックの登録（異なるモデルを混在させる状態は保留）
-- `item/generated` / `item/handheld` と継承モデルのアイテム登録\n- 親モデルとして参照されているテンプレートモデルをアイテムとして誤登録しない
-- 対応するPNGテクスチャのZeusパッケージ内配置
-- 変換結果と未対応理由のレポート
+- `<mod-id>-zeus-mod.zip`: ZeusへインポートするMOD本体。`metadata.json` と `main.lua` がZIP直下にあります。
+- `diagnostics/report.json`: JAR・変換・パッケージ全体の診断。
+- `diagnostics/reimplementation-report.json`: Javaメソッドごとの変換状況。
+- `diagnostics/reimplementation-plan.json`: 未実装機能の再実装タスク。
+- `diagnostics/api-validation.json`: 使用したZeus APIの静的検証結果。
+- `diagnostics/zeus-runtime-probe.lua`: 対象ゲーム内でAPIの存在を確認する読み取り専用プローブ。
 
-## 対象HTMLの内部構造解析（追加）
+Zeusのパッケージ制限に合わせ、展開後4,096ファイル・64 MiB以内を検査します。超過や欠落があればレポートに記録します。
 
-MOD入りEaglercraft HTMLを参考資料として指定すると、対象HTMLを実行せずに内部コンテナを検査します。
+## Zeus APIと対象バージョン
 
-- Base64の `assetsURI` をバイナリとして取り出し、EPW（`EAG$WASM`）形式を識別
-- EPWヘッダーのサイズ・オフセット範囲、loader.js、loader.wasmを検証
-- EPW内のXZ圧縮領域を展開し、WASM領域とEPK資産パッケージを識別
-- EPK v2の `Z`（deflate）、`G`（gzip）、`0`（非圧縮）を読み、レコード件数・CRC32・パス・重複を検査
-- テクスチャ、モデル（JSON/OBJ/MTL/IE）、ブロックステート、レシピ、音声、言語などの資産を分類
-- JARの `assets/`・`data/` と対象EPKをCRC32で照合し、内容一致・同名競合・新規パスを分類\n- 任意の参考HTMLを追加し、EPK内のファイル追加・削除・変更を比較
-- WASMセクションやTeaVM関連文字列を調査。ただし文字列の存在は特定MODの動作実装を証明しない
+Eaglercraftの公式Modding資料に基づき、Zeus Lua API v1 / Eaglercraft 26.2・26.3を対象にしています。1.8 / 1.12クライアントはZeus MODに対応していません。
 
-XZ展開にはブラウザ用 `xzwasm`、EPKの圧縮展開には `pako` をCDNから読み込みます。学校・職場などでCDNが制限される場合は、ライブラリをローカル配置する必要があります。
+- API Reference: https://dev.eaglercraft.com/docs/modding/api
+- Blocks, items and mobs: https://dev.eaglercraft.com/docs/modding/blocks-items-and-mobs
+- Events and timers: https://dev.eaglercraft.com/docs/modding/events-and-timers
+- Packaging: https://dev.eaglercraft.com/docs/modding/packaging
 
-**重要：** この分析で確認できるのは完成済みクライアントのコンテナ・資産構造です。WASM内のJavaコードを元のJavaソースに完全復元したり、別バージョンのゲームへそのまま移植したりはできません。MODの動的処理は対象ランタイムに合わせた再実装とゲーム内テストが必要です。対象HTMLへの自動注入・任意JARの完全移植を保証する機能ではありません。
+静的検証はAPI名やパッケージ構造を調べるもので、対象ゲーム内での表示・動作成功を証明しません。実際のワールドで確認してください。
 
-## 大型MODの汎用解析
-- Fabric / Forge / NeoForge / Quilt の形式を検出
-- Java classファイルのバージョンと定数プール内クラス参照を解析（コード実行・完全デコンパイルはしない）\n- ブロック・アイテム、描画、ネットワーク、ワールド生成、GUI、音声、コマンド、保存領域などの機能群を棚卸しし、移植難易度の判断材料を出力
-- Entrypoint、Mixin設定、Access Transformer、ServiceLoader、Jar-in-Jarを検出
-- 依存関係とMinecraftバージョン候補を抽出
-- assets / data内のテクスチャ、モデル、blockstates、レシピ、タグ、言語、音声、シェーダー、設定を分類
-- 大型JAR向けにclassを逐次解析し、全classバイト列を同時保持しない
-- 同じMOD内に対象外機能が含まれていても、無関係な安全なリソースは個別に解析・抽出
-- 変換処理をアダプター方式に分離し、工程ごとの追加実装・失敗隔離が可能
-- `generic-analysis.json`、`conversion-assessment.json`、`source-mod.json`、`adapter-report.json` を出力
+## 安全上の制限
 
-## 出力パッケージの上限
-Zeus公式のパッケージ制限に合わせ、移植先パッケージは展開後4,096ファイル・64 MiB以内に制限します。超過する素材は黙って欠落させず、出力レポートに記録し、完全な移植成功とは判定しません。JARの解析自体にもブラウザ・端末のメモリ上限があります。
-
-## 制限
-任意のJavaバイトコード、Forge/Fabric API、Mixin、独自機械処理、複雑なモデル・状態・アニメーションを自動移植するものではありません。単純モデル以外は未対応としてレポートします。生成したMODはZeus対応Eaglercraft 26.2 / 26.3で実機確認が必要です。Zeusの公式パッケージ形式（metadata.json / main.lua / assets / data）に沿って出力します。Zeusのブロック・アイテム追加機能は自分のワールド向けで、サーバー側にMOD機能が追加されるわけではありません。
-
-出力物は、Zeusが直接インポートできる単体MOD ZIPと診断レポートZIPです。アップロードしたHTMLは解析のみで、ゲーム本体を改造しません。Javaコードの完全自動変換は保証しません。安全上の理由で一部の機能は変換対象外です。
-
-JSZipをCDNから読み込むためインターネット接続が必要です。JARとHTMLの内容はブラウザ内で処理され、サーバーへ送信しません。
+安全上扱えない機能群は変換対象から除外します。JARは実行せず、クラスファイルとリソースを静的に解析します。
