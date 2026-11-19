@@ -80,7 +80,9 @@
   const skippedResources=(Array.isArray(recipeReport.skipped)?recipeReport.skipped.length:0)+
    (Array.isArray(recipeReport.excluded)?recipeReport.excluded.length:0)+
    (Array.isArray(definitionReport.skipped)?definitionReport.skipped.length:0)+
-   (Array.isArray(definitionReport.ignoredNamespaces)?definitionReport.ignoredNamespaces.length:0);
+   (Array.isArray(definitionReport.ignoredNamespaces)?definitionReport.ignoredNamespaces.length:0)+
+   (input.entityReport&&Array.isArray(input.entityReport.skipped)?input.entityReport.skipped.length:0)+
+   (input.entityReport&&Array.isArray(input.entityReport.animationsUnmapped)?input.entityReport.animationsUnmapped.length:0);
   const restrictedResources=!!(input.analysis&&input.analysis.featureReview&&input.analysis.featureReview.restrictedPathCount>0);
   const unsupportedRuntime=!!(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length);
   const conversionComplete=valid&&!skipped&&!incompleteJava&&skippedResources===0&&!restrictedResources&&!unsupportedRuntime;
