@@ -1,6 +1,10 @@
 /* Structural output validation. This never substitutes for running the package in the target game. */
 (function(root){
  "use strict";
+ function unsafePath(path){
+  return typeof path!=="string" || !path || path.startsWith("/") ||
+   path.includes("\\") || path.split("/").some(p=>!p||p===".."||p===".");
+ }
  function validate(input){
   const errors=[],warnings=[];
   if(!input||typeof input!=="object")return {valid:false,readyToImport:false,canImportForTesting:false,runtimeTested:false,gameplayVerified:false,errors:["validation input missing"],warnings:[]};
@@ -23,7 +27,7 @@
   if(input.packageSkipped&&input.packageSkipped.length)warnings.push("Some source resources were omitted because of safety or Zeus package limits");
   const packagePaths=new Set();
   for(const file of packageFiles){
-   if(!file||typeof file.path!=="string"||file.path.startsWith("/")||file.path.includes("\\\\")||file.path.split("/").some(p=>!p||p===".."||p==="."))errors.push("unsafe package file path");
+   if(!file||unsafePath(file.path))errors.push("unsafe package file path");
    else if(packagePaths.has(file.path))errors.push("duplicate package file: "+file.path);
    else packagePaths.add(file.path);
   }
@@ -31,15 +35,12 @@
   if(!packagePaths.has("main.lua"))errors.push("main.lua missing from package root");
   const available=new Set(input.availableTextures||[]);
   for(const m of mappings){
-   if(!m||typeof m.source!=="string"||typeof m.target!=="string")errors.push("invalid texture mapping");
-   else {
-    if(!available.has(m.source))errors.push("missing source texture: "+m.source);
-    if(m.target.startsWith("/")||m.target.includes("\\\\")||m.target.split("/").some(p=>!p||p===".."||p==="."))errors.push("unsafe texture target: "+m.target);
-   }
+   if(!m||typeof m.source!=="string"||unsafePath(m.target))errors.push("invalid or unsafe texture mapping");
+   else if(!available.has(m.source))errors.push("missing source texture: "+m.source);
   }
   if(input.analysis&&input.analysis.classes&&input.analysis.classes.count>0)warnings.push("Java bytecode was analyzed, not ported into Zeus Lua");
   if(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length)warnings.push("MOD contains unsupported runtime features: "+input.analysis.unsupportedIndicators.join(", "));
-  if(!input.runtimeTested)warnings.push("The exact target HTML has not passed an in-game runtime test");
+  if(input.runtimeTested!==true)warnings.push("The exact target HTML has not passed an in-game runtime test");
   const targetEvidence=input.targetRuntimeEvidence||{};
   if(targetEvidence.apiPresenceVerified!==true)warnings.push("Static HTML inspection cannot prove that this exact build exposes every required Zeus Lua API");
   if(targetEvidence.versionVerified!==true)warnings.push("The exact target game version has not been verified from a runtime report");
