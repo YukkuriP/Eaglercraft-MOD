@@ -68,7 +68,7 @@
   }
   for(let i=0;i<ins.length;i++){
    const x=ins[i],n=x.name,next=nextPc(i),fall=targetOrError(next),code=[];
-   const push=e=>code.push("__push("+e+")");
+   const push=e=>"__push("+e+")";
    const pop=()=> "__pop()";
    if(n==="nop")code.push(fall);
    else if(n==="iconst_m1")code.push(push("-1"),fall);
