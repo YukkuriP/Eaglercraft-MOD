@@ -22,67 +22,160 @@
  function q(s){return '"'+String(s).replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/\r/g,"\\r").replace(/\n/g,"\\n")+'"';}
  function pureHelper(clazz,m){
   const d=descriptor(m.descriptor),c=m.code;
-  if(!(m.accessFlags&8)||!d||d.args.some(x=>x!=="I")||d.result!=="I"||!c||c.decodeError)return null;
-  if((c.branchTargets||[]).length||(c.exceptions||[]).length||(c.fieldAccesses||[]).length)return null;
-  const invocationInstructions=(c.instructions||[]).filter(x=>/^invoke/.test(x.name));
-  if(invocationInstructions.some(x=>x.name!=="invokestatic"||!x.member||x.member.owner!=="java/lang/Math"||!["abs","max","min"].includes(x.member.name)))return null;
+  const intTypes=new Set(["Z","B","C","S","I"]);
+  if(!(m.accessFlags&8)||!d||!intTypes.has(d.result)||d.args.some(x=>!intTypes.has(x))||!c||c.decodeError)return null;
+  if(c.exceptions&&c.exceptions.length)return null;
   if(m.name.startsWith("<")||RESTRICTED.test(clazz.className+"."+m.name))return null;
-  const stack=[],locals=new Map(),params=[];
-  for(let i=0;i<d.args.length;i++){const n="arg"+i;locals.set(i,n);params.push(n);}
-  const lines=[];
-  function pop(){if(!stack.length)throw Error("stack underflow");return stack.pop();}
-  function i32(x){return "((("+x+") + 2147483648) % 4294967296 - 2147483648)";}
-  try{
-   for(const x of c.instructions||[]){
-    const n=x.name;
-    if(n==="nop")continue;
-    if(n==="iconst_m1"){stack.push("-1");continue;}
-    if(/^iconst_[0-5]$/.test(n)){stack.push(n.slice(-1));continue;}
-    if(n==="bipush"||n==="sipush"){stack.push(String(x.operand));continue;}
-    let match=n.match(/^iload_([0-3])$/);
-    if(match){const v=locals.get(Number(match[1]));if(!v)return null;stack.push(v);continue;}
-    if(n==="iload"){const v=locals.get(x.operand);if(!v)return null;stack.push(v);continue;}
-    match=n.match(/^istore_([0-3])$/);
-    if(match){const slot=Number(match[1]),v="v"+slot;locals.set(slot,v);lines.push("  local "+v+" = "+pop());continue;}
-    if(n==="istore"){const v="v"+x.operand;locals.set(x.operand,v);lines.push("  local "+v+" = "+pop());continue;}
-    if(n==="iinc"){const v=locals.get(x.local);if(!v)return null;lines.push("  "+v+" = "+i32(v+" + "+x.increment));continue;}
-    if(["iadd","isub","imul","idiv","irem","iand","ior","ixor","ishl","ishr","iushr"].includes(n)){
-     const b=pop(),a=pop();let e;
-     if(n==="idiv")e="__jar2zeus_idiv("+a+", "+b+")";
-     else if(n==="irem")e="__jar2zeus_irem("+a+", "+b+")";
-     else if(n==="iand")e="("+a+" & "+b+")";
-     else if(n==="ior")e="("+a+" | "+b+")";
-     else if(n==="ixor")e="("+a+" ~ "+b+")";
-     else if(n==="ishl")e="("+a+" << ("+b+" & 31))";
-     else if(n==="ishr")e="("+a+" >> ("+b+" & 31))";
-     else if(n==="iushr")e="(("+a+" & 0xffffffff) >> ("+b+" & 31))";
-     else e="("+a+") "+({iadd:"+",isub:"-",imul:"*"}[n])+" ("+b+")";
-     stack.push(i32(e));continue;
-    }
-    if(n==="invokestatic"&&x.member&&x.member.owner==="java/lang/Math"){
-     const desc=descriptor(x.member.descriptor);
-     if(!desc||desc.args.some(t=>t!=="I")||desc.result!=="I")return null;
-     const args=[];for(let ai=0;ai<desc.args.length;ai++)args.unshift(pop());
-     if(x.member.name==="abs"&&args.length===1)stack.push(i32("math.abs("+args[0]+")"));
-     else if(x.member.name==="max"&&args.length===2)stack.push(i32("math.max("+args[0]+", "+args[1]+")"));
-     else if(x.member.name==="min"&&args.length===2)stack.push(i32("math.min("+args[0]+", "+args[1]+")"));
-     else return null;
-     continue;
-    }
-    if(n==="i2b"||n==="i2s"||n==="i2c"){
-     const a=pop(),mask=n==="i2b"?255:65535;
-     const signed=n==="i2b"?128:32768;
-     const converted=n==="i2c"?"(("+a+") & "+mask+")":"((("+a+") & "+mask+") >= "+signed+" and (("+a+") & "+mask+") - "+(mask+1)+" or (("+a+") & "+mask+"))";
-     stack.push(i32(converted));continue;
-    }
-    if(n==="ineg"){stack.push(i32("-("+pop()+")"));continue;}
-    if(n==="pop"){pop();continue;}
-    if(n==="dup"){const a=pop();stack.push(a,a);continue;}
-    if(n==="ireturn")return {params,lua:lines.concat(["  return "+i32(pop())]).join("\n")};
-    return null;
+  if((c.fieldAccesses||[]).length)return null;
+  const ins=c.instructions||[];
+  if(!ins.length||ins.length>5000||c.codeLength>20000)return null;
+  const pcs=new Set(ins.map(x=>x.pc));
+  for(const target of c.branchTargets||[])if(!pcs.has(target))return null;
+  for(let i=0;i<ins.length;i++){
+   const x=ins[i],n=x.name;
+   if(["goto","goto_w","ifeq","ifne","iflt","ifge","ifgt","ifle","if_icmpeq","if_icmpne","if_icmplt","if_icmpge","if_icmpgt","if_icmple"].includes(n)&&!pcs.has(x.target))return null;
+   if(n==="tableswitch"&&(!pcs.has(x.pc+x.defaultOffset)||(x.targets||[]).some(t=>!pcs.has(t))))return null;
+   if(n==="lookupswitch"&&(!pcs.has(x.pc+x.defaultOffset)||(x.pairs||[]).some(t=>!pcs.has(t.target))))return null;
+  }
+  const invocationInstructions=ins.filter(x=>/^invoke/.test(x.name));
+  for(const x of invocationInstructions){
+   if(x.name!=="invokestatic"||!x.member||x.member.owner!=="java/lang/Math")return null;
+   const md=descriptor(x.member.descriptor);
+   if(!md||md.args.some(t=>t!=="I")||md.result!=="I")return null;
+   const valid=(x.member.name==="abs"&&md.args.length===1)||((x.member.name==="min"||x.member.name==="max")&&md.args.length===2);
+   if(!valid)return null;
+  }
+  const params=[];
+  for(let i=0;i<d.args.length;i++)params.push("arg"+i);
+  const localInit=params.map((name,i)=>"__locals["+i+"] = "+name);
+  const nextPc=i=>i+1<ins.length?ins[i+1].pc:null;
+  const cases=[];
+  function targetOrError(value){return value==null?"error('Java method fell through without return')":"__pc = "+value;}
+  function localIndex(x,n){
+   if(x.wideOpcode!=null)return x.local;
+   if(n.endsWith("_0"))return 0;
+   if(n.endsWith("_1"))return 1;
+   if(n.endsWith("_2"))return 2;
+   if(n.endsWith("_3"))return 3;
+   return x.operand;
+  }
+  function integerReturn(expr){
+   if(d.result==="Z")return "("+expr+" ~= 0)";
+   if(d.result==="B")return "((("+expr+") & 255) >= 128 and (("+expr+") & 255) - 256 or (("+expr+") & 255))";
+   if(d.result==="S")return "((("+expr+") & 65535) >= 32768 and (("+expr+") & 65535) - 65536 or (("+expr+") & 65535))";
+   if(d.result==="C")return "(("+expr+") & 65535)";
+   return "__jar2zeus_i32("+expr+")";
+  }
+  for(let i=0;i<ins.length;i++){
+   const x=ins[i],n=x.name,next=nextPc(i),fall=targetOrError(next),code=[];
+   const push=e=>code.push("__push("+e+")");
+   const pop=()=> "__pop()";
+   if(n==="nop")code.push(fall);
+   else if(n==="iconst_m1")code.push(push("-1"),fall);
+   else if(/^iconst_[0-5]$/.test(n))code.push(push(n.slice(-1)),fall);
+   else if(n==="bipush"||n==="sipush")code.push(push(String(x.operand)),fall);
+   else if(n==="ldc"||n==="ldc_w"||n==="ldc2_w"){
+    if(!Number.isInteger(x.constant))return null;
+    code.push(push(String(x.constant)),fall);
+   }else{
+    let match=n.match(/^iload(?:_([0-3]))?$/);
+    if(match){
+     const slot=match[1]==null?localIndex(x,n):Number(match[1]);
+     if(!Number.isInteger(slot))return null;
+     code.push(push("__locals["+slot+"]"),fall);
+    }else if((match=n.match(/^istore(?:_([0-3]))?$/))){
+     const slot=match[1]==null?localIndex(x,n):Number(match[1]);
+     if(!Number.isInteger(slot))return null;
+     code.push("__locals["+slot+"] = "+pop(),fall);
+    }else if(n==="iinc"){
+     const slot=x.local!=null?x.local:x.operand;
+     if(!Number.isInteger(slot)||!Number.isInteger(x.increment))return null;
+     code.push("__locals["+slot+"] = __jar2zeus_i32(__locals["+slot+"] + ("+x.increment+"))",fall);
+    }else if(["iadd","isub","imul","idiv","irem","iand","ior","ixor","ishl","ishr","iushr"].includes(n)){
+     const a="__a",b="__b";
+     code.push("local "+a+" = "+pop(),"local "+b+" = "+pop());
+     let expr;
+     if(n==="iadd")expr=b+" + "+a;
+     else if(n==="isub")expr=b+" - "+a;
+     else if(n==="imul")expr=b+" * "+a;
+     else if(n==="idiv")expr="__jar2zeus_idiv("+b+", "+a+")";
+     else if(n==="irem")expr="__jar2zeus_irem("+b+", "+a+")";
+     else if(n==="iand")expr="("+b+" & "+a+")";
+     else if(n==="ior")expr="("+b+" | "+a+")";
+     else if(n==="ixor")expr="("+b+" ~ "+a+")";
+     else if(n==="ishl")expr="("+b+" << ("+a+" & 31))";
+     else if(n==="ishr")expr="("+b+" >> ("+a+" & 31))";
+     else expr="(("+b+" & 0xffffffff) >> ("+a+" & 31))";
+     code.push(push("__jar2zeus_i32("+expr+")"),fall);
+    }else if(n==="ineg"){
+     code.push(push("__jar2zeus_i32(-("+pop()+"))"),fall);
+    }else if(n==="i2b"||n==="i2s"||n==="i2c"){
+     const v="__v";code.push("local "+v+" = "+pop());
+     let expr=n==="i2c"?"("+v+" & 65535)":n==="i2b"?"((("+v+" & 255) >= 128) and ("+v+" & 255) - 256 or ("+v+" & 255))":"((("+v+" & 65535) >= 32768) and ("+v+" & 65535) - 65536 or ("+v+" & 65535))";
+     code.push(push("__jar2zeus_i32("+expr+")"),fall);
+    }else if(n==="invokestatic"){
+     const md=descriptor(x.member.descriptor),args=[];
+     for(let z=0;z<md.args.length;z++)args.unshift(pop());
+     let expr;
+     if(x.member.name==="abs")expr="math.abs("+args[0]+")";
+     else if(x.member.name==="min")expr="math.min("+args.join(", ")+")";
+     else expr="math.max("+args.join(", ")+")";
+     code.push(push("__jar2zeus_i32("+expr+")"),fall);
+    }else if(n==="pop")code.push(pop(),fall);
+    else if(n==="pop2")code.push(pop(),pop(),fall);
+    else if(n==="dup"){
+     code.push("local __v = "+pop(),push("__v"),push("__v"),fall);
+    }else if(n==="dup_x1"){
+     code.push("local __a = "+pop(),"local __b = "+pop(),push("__a"),push("__b"),push("__a"),fall);
+    }else if(n==="dup_x2"){
+     code.push("local __a = "+pop(),"local __b = "+pop(),"local __c = "+pop(),push("__a"),push("__c"),push("__b"),push("__a"),fall);
+    }else if(n==="dup2"){
+     code.push("local __a = "+pop(),"local __b = "+pop(),push("__b"),push("__a"),push("__b"),push("__a"),fall);
+    }else if(n==="dup2_x1"){
+     code.push("local __a = "+pop(),"local __b = "+pop(),"local __c = "+pop(),push("__b"),push("__a"),push("__c"),push("__b"),push("__a"),fall);
+    }else if(n==="dup2_x2"){
+     code.push("local __a = "+pop(),"local __b = "+pop(),"local __c = "+pop(),"local __d = "+pop(),push("__b"),push("__a"),push("__d"),push("__c"),push("__b"),push("__a"),fall);
+    }else if(n==="swap"){
+     code.push("local __a = "+pop(),"local __b = "+pop(),push("__a"),push("__b"),fall);
+    }else if(n==="goto"||n==="goto_w")code.push("__pc = "+x.target);
+    else if(["ifeq","ifne","iflt","ifge","ifgt","ifle"].includes(n)){
+     const v="__v";code.push("local "+v+" = "+pop());
+     const test={"ifeq":v+" == 0","ifne":v+" ~= 0","iflt":v+" < 0","ifge":v+" >= 0","ifgt":v+" > 0","ifle":v+" <= 0"}[n];
+     code.push("if "+test+" then __pc = "+x.target+" else "+fall+" end");
+    }else if(["if_icmpeq","if_icmpne","if_icmplt","if_icmpge","if_icmpgt","if_icmple"].includes(n)){
+     code.push("local __a = "+pop(),"local __b = "+pop());
+     const op={"if_icmpeq":"==","if_icmpne":"~=","if_icmplt":"<","if_icmpge":">=","if_icmpgt":">","if_icmple":"<="}[n];
+     code.push("if __b "+op+" __a then __pc = "+x.target+" else "+fall+" end");
+    }else if(n==="tableswitch"){
+     const v="__switch";code.push("local "+v+" = "+pop(),"if false then __pc = "+(x.pc+x.defaultOffset));
+     for(let k=0;k<(x.targets||[]).length;k++)code.push("elseif "+v+" == "+(x.low+k)+" then __pc = "+x.targets[k]);
+     code.push("else __pc = "+(x.pc+x.defaultOffset)+" end");
+    }else if(n==="lookupswitch"){
+     const v="__switch";code.push("local "+v+" = "+pop(),"if false then __pc = "+(x.pc+x.defaultOffset));
+     for(const pair of x.pairs||[])code.push("elseif "+v+" == "+pair.key+" then __pc = "+pair.target);
+     code.push("else __pc = "+(x.pc+x.defaultOffset)+" end");
+    }else if(n==="ireturn"){
+     const v=pop();code.push("return "+integerReturn(v));
+    }else return null;
    }
-  }catch(_){return null;}
-  return null;
+   cases.push((i===0?"if":"elseif")+" __pc == "+x.pc+" then\n      "+code.join("\n      "));
+  }
+  const body=[
+   "local __stack, __sp = {}, 0",
+   "local __locals = {}",
+   ...localInit,
+   "local function __push(v) __sp = __sp + 1; __stack[__sp] = v end",
+   "local function __pop() if __sp < 1 then error('Java operand stack underflow') end; local v = __stack[__sp]; __stack[__sp] = nil; __sp = __sp - 1; return v end",
+   "local __pc = "+ins[0].pc,
+   "local __budget = 100000",
+   "while __budget > 0 do",
+   "  __budget = __budget - 1",
+   "  "+cases.join("\n  "),
+   "  else error('Invalid Java bytecode PC: ' .. tostring(__pc)) end",
+   "end",
+   "error('Java method instruction budget exceeded')"
+  ].join("\n");
+  return {params,lua:body,descriptor:m.descriptor,controlFlow:(c.branchTargets||[]).length>0};
  }
  function isRestrictedClass(clazz){
   if(RESTRICTED.test(clazz.className||""))return true;
