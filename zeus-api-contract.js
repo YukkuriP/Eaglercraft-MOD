@@ -8,10 +8,10 @@
   apiVersion:1,
   documentedGameVersions:["26.2","26.3"],
   sources:[
-   "https://eaglercraft.com/docs/modding/api",
-   "https://eaglercraft.com/docs/modding/blocks-items-and-mobs",
-   "https://eaglercraft.com/docs/modding/events-and-timers",
-   "https://eaglercraft.com/docs/modding/packaging"
+   "https://dev.eaglercraft.com/docs/modding/api",
+   "https://dev.eaglercraft.com/docs/modding/blocks-items-and-mobs",
+   "https://dev.eaglercraft.com/docs/modding/events-and-timers",
+   "https://dev.eaglercraft.com/docs/modding/packaging"
   ],
   namespaces:{
    blocks:["register"],
