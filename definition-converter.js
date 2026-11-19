@@ -82,18 +82,23 @@
   }
   function chooseBlockModel(state){
    if(!state||typeof state!=="object")return {error:"invalid blockstate"};
-   const models=[];
+   const signatures=[];
    if(state.variants&&typeof state.variants==="object"){
     for(const value of Object.values(state.variants)){
      const choices=Array.isArray(value)?value:[value];
-     for(const choice of choices){const model=typeof choice==="string"?choice:choice&&choice.model;if(typeof model==="string")models.push(model)}
+     for(const choice of choices){
+      const model=typeof choice==="string"?choice:choice&&choice.model;
+      if(typeof model!=="string")continue;
+      const transform=typeof choice==="string"?{}:{x:Number(choice.x||0),y:Number(choice.y||0),z:Number(choice.z||0),uvlock:choice.uvlock===true};
+      signatures.push({model,transform});
+     }
     }
    }
    if(state.multipart&&Array.isArray(state.multipart))return {error:"multipart blockstates need per-state logic"};
-   const unique=Array.from(new Set(models));
-   if(!unique.length)return {error:"no variant model found"};
-   if(unique.length!==1)return {error:"different models across blockstate variants"};
-   return {model:unique[0]};
+   if(!signatures.length)return {error:"no variant model found"};
+   const unique=new Map(signatures.map(value=>[value.model+"|"+JSON.stringify(value.transform),value]));
+   if(unique.size!==1)return {error:"variants use different models or rotations"};
+   return {model:signatures[0].model,transform:signatures[0].transform};
   }
   function blockTextures(model,ns){
    const tex=model.textures||{},out={},used=[];
@@ -159,8 +164,8 @@
    if(parentModelIds.has(itemModelId))continue;
    const model=resolveModel(itemModelId,"item");
    if(!model){report.skipped.push({id,reason:"item model or parent could not be resolved"});continue}
-   if(!model.parents.some(p=>String(p).endsWith("item/generated")||String(p).endsWith("item/handheld"))){
-    report.skipped.push({id,reason:"item parent is not item/generated or item/handheld"});continue;
+   if(model.parent&&!json.has(modelPath(model.parent,"item",match[1]))&&!/^minecraft:item\/(generated|handheld)$/.test(model.parent)){
+    report.skipped.push({id,reason:"item model parent is not available in this MOD or a supported Minecraft base model"});continue;
    }
    const sourceModelPath=modelPath(itemModelId,"item",match[1]);
    const modelRef=modelResourcePath(itemModelId,"item",match[1]);
