@@ -56,7 +56,7 @@ function detectTargetVersion(fileName,info){
 
 async function scanHtml(s){
  if(!window.Jar2ZeusTargetInspector)throw Error("対象HTML解析エンジンが読み込まれていません。");
- return await window.Jar2ZeusTargetInspector.inspect(s);
+ return await window.Jar2ZeusTargetInspector.inspect(s,{includeInlineSounds:true});
 }
 $("analyze").onclick=async function(){
  try{
