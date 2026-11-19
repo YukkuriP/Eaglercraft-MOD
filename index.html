@@ -74,6 +74,7 @@ $("analyze").onclick=async function(){
  for(var gi=0;gi<names.length;gi++){var gn=names[gi],go=jarZip.files[gn];if(go.dir)continue;var ge={path:gn,size:go._data&&go._data.uncompressedSize||0};if(/\.class$/i.test(gn)){ge.classInfo=window.Jar2ZeusGenericAnalyzer.parseClass(await go.async("uint8array"))}else if(gn==="fabric.mod.json"||gn==="quilt.mod.json"||/^META-INF\/(mods\.toml|neoforge\.mods\.toml|MANIFEST\.MF|jarjar\/metadata\.json)$/i.test(gn)||/mixin.*\.json$/i.test(gn)||/^META-INF\/services\//i.test(gn)){try{ge.content=await go.async("string")}catch(err){}}genericEntries.push(ge)}
  var genericAnalysis=window.Jar2ZeusGenericAnalyzer.analyze(genericEntries);
  targetInfo=await scanHtml(sourceHtml);
+ targetGameVersion=detectTargetVersion(htmlFile.name,targetInfo);
  var resourceCompatibility=await window.Jar2ZeusResourceCompatibility.compareJarZip(jarZip,targetInfo);
  if(referenceFile){referenceInfo=await scanHtml(await referenceFile.text());targetInfo.referenceComparison=window.Jar2ZeusTargetInspector.compare(targetInfo,referenceInfo);targetInfo.referenceComparison.referenceFilename=referenceFile.name;referenceInfo=null;}
  var mod={id:id||slug(jarFile.name),name:name||jarFile.name.replace(/\.jar$/i,""),version:version,loader:loader,minecraft_versions:unique(mc),dependencies:deps};
@@ -82,12 +83,15 @@ $("analyze").onclick=async function(){
  runtime:targetInfo.runtime,
  epw_header_valid:targetInfo.epw?targetInfo.epw.valid:null,
  deep_analysis:targetInfo.deepAnalysis?targetInfo.deepAnalysis.status:"unknown",
- zeus_runtime:targetInfo.runtime&&targetInfo.runtime.zeusEvidence?"Zeus識別子を検出（API互換性は未検証）":"Zeus識別子を確認できず（不存在の証明ではない）",
- status:targetInfo.deepAnalysis&&targetInfo.deepAnalysis.status==="complete"?"EPW/EPK構造検証済み。MOD機能の互換性は未検証":"HTMLコンテナは一部解析。MOD機能の互換性は未検証",
- notes:["Base64 assetsURI、EPWヘッダー、XZ領域、EPK v2、CRC32、WASM情報を解析します。","JAR内のassets/dataをEPK内の既存パスとチェックサムで照合します。","解析対象HTMLを実行せず、埋め込みJavaScriptも実行しません。","EPW/EPK構造の一致はJava MODロジックの移植やゲーム内動作を意味しません。","Javaクラス、Mixin、Forge/Fabric API、機械処理などはZeus向けの個別実装と実機テストが必要です。"]
+ zeus_runtime:targetInfo.runtime&&targetInfo.runtime.zeusEvidence?"Zeus識別子候補を検出（実行APIは未検証）":"Zeus識別子候補を未検出（不存在の証明ではない）",
+ zeus_api_compatibility:"unverified-static-only",
+ api_presence_verified:false,
+ target_game_version:targetGameVersion||"unknown",
+ status:targetInfo.deepAnalysis&&targetInfo.deepAnalysis.status==="complete"?"EPW/EPK構造検証済み。Lua APIとゲーム内動作は未検証":"HTMLコンテナは一部解析。Lua APIとゲーム内動作は未検証",
+ notes:["Base64 assetsURI、EPWヘッダー、XZ領域、EPK v2、CRC32、WASM情報を解析します。","JAR内のassets/dataをEPK内の既存パスとチェックサムで照合します。","解析対象HTMLを実行せず、埋め込みJavaScriptも実行しません。","Zeus資料で確認したAPIだけをコード生成に使用し、未文書化APIは検証エラーにします。","静的HTML解析ではLuaグローバルの存在を証明できないため、実機用APIプローブとランタイムガードを同梱します。","EPW/EPK構造の一致はJava MODロジックの移植やゲーム内動作を意味しません。","Javaクラス、Mixin、Forge/Fabric API、機械処理などはZeus向けの個別実装と実機テストが必要です。"]
 },conversion:{metadata:"解析済み",resources:"抽出対象",java_logic:"未変換",html_integration:"HTMLは互換性解析のみ。ゲーム本体への注入は行わない"}};
  $("out").textContent=JSON.stringify(jarReport,null,2);
- $("warning").textContent=targetInfo.deepAnalysis&&targetInfo.deepAnalysis.status==="complete"?"EPW/XZ/EPK構造の解析が完了しました。これはMOD機能の移植完了を意味しません。":(targetInfo.deepAnalysis&&targetInfo.deepAnalysis.note)||"HTML構造を一部解析しました。詳細は診断レポートを確認してください。";
+ $("warning").textContent="静的解析完了。Zeus APIの実機確認は未実施です。対象バージョン: "+(targetGameVersion||"不明");
  $("build").disabled=false;
  }catch(e){alert("解析失敗: "+e.message)}
 };
