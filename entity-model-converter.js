@@ -83,7 +83,7 @@
     const entityBase=basename(path).replace(/\.geo$/i,"").toLowerCase();
     const textureCandidates=pngs.filter(e=>{
       const p=e.path.toLowerCase();
-      const b=basename(p).toLowerCase();
+      const b=p.split("/").pop().replace(/\.png$/i,"").toLowerCase();
       return (b===entityBase||b===id||p.includes("/textures/entity/"+entityBase+"/")||p.includes("/textures/entity/"+id+"/"));
     });
     if(textureCandidates.length!==1){report.skipped.push({path,id,reason:textureCandidates.length?"ambiguous entity texture candidates":"matching entity PNG texture not found"});continue}
