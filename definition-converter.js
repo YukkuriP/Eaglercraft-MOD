@@ -141,6 +141,11 @@
    if(selected.error){report.skipped.push({id,reason:selected.error});continue}
    const model=resolveModel(selected.model,"block");
    if(!model){report.skipped.push({id,reason:"model or parent could not be resolved"});continue}
+   const directParent=String(model.parent||"");
+   if(directParent&&!directParent.startsWith("minecraft:")){
+    const parentPath=modelPath(directParent,"block",match[1]);
+    if(!parentPath||!json.has(parentPath)){report.skipped.push({id,reason:"custom block model parent is missing: "+directParent});continue}
+   }
    const supportedCubeParent=(model.parents||[]).some(function(p){return /minecraft:block\/(cube_all|cube|cube_column|cube_bottom_top|cube_top)$/.test(p)});
    if(!supportedCubeParent&&!Array.isArray(model.elements)){report.skipped.push({id,reason:"unsupported block model parent or geometry"});continue}
    const sourceModelPath=modelPath(selected.model,"block",match[1]);
@@ -166,7 +171,7 @@
    if(parentModelIds.has(itemModelId))continue;
    const model=resolveModel(itemModelId,"item");
    if(!model){report.skipped.push({id,reason:"item model or parent could not be resolved"});continue}
-   if(model.parent&&!json.has(modelPath(model.parent,"item",match[1]))&&!/^minecraft:item\/(generated|handheld)$/.test(model.parent)){
+   if(model.parent&&!json.has(modelPath(model.parent,"item",match[1]))&&!String(model.parent).startsWith("minecraft:item/")){
     report.skipped.push({id,reason:"item model parent is not available in this MOD or a supported Minecraft base model"});continue;
    }
    const sourceModelPath=modelPath(itemModelId,"item",match[1]);
