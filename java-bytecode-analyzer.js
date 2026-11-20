@@ -236,7 +236,6 @@
        record.code.verification=root.Jar2ZeusBytecodeVerifier?
         root.Jar2ZeusBytecodeVerifier.verify({code:record.code,descriptor,isStatic:!!(access&8)}):
         {valid:false,structuralOnly:true,errors:["bytecode-verifier.js was not loaded"],warnings:[]};
-       record.code.controlFlow=record.code.verification.controlFlow||null;
       }else take(length);
       if(p>end)throw new Error("method attribute overread: "+attrName);
       if(attrName==="Code"&&p!==end)throw new Error("Code attribute length does not match its parsed contents");
