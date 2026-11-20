@@ -339,7 +339,7 @@
   if(report.cancellationSites.length)report.warnings.push("Java timer/future cancellation calls were found, but they cannot yet be linked to their scheduled task or reproduced by a Zeus timer handle.");
   if(report.totals.annotationBearingMethods)report.warnings.push("Annotation-bearing methods exist; annotation values are not decoded, so annotation-based event subscriptions may be missing.");
   if(report.loaderEntrypoints.length)report.warnings.push("Loader metadata contains entrypoint declarations. Entrypoint classes and execution behavior require a loader-specific rewrite.");
-  if(!report.totals.eventRegistrationSites&&!report.totals.eventReferenceCandidates&&!report.totals.timerSites)report.warnings.push("No supported event-registration or timer pattern was confirmed from the available class-file evidence.");
+  if(!report.totals.eventRegistrationSites&&!report.totals.eventReferenceCandidates&&!report.totals.timerSites&&!report.totals.blockingWaitSites&&!report.totals.cancellationSites)report.warnings.push("No supported event-registration or timer pattern was confirmed from the available class-file evidence.");
   if(Object.values(report.truncation).some(Boolean))report.warnings.push("Some detail arrays reached the 5,000-entry reporting cap; observed totals remain accurate, but not every detail row is stored.");
   report.plan=[
    {task:"review-lifecycle-methods",pending:report.totals.lifecycleCandidates+report.totals.annotationBearingMethods,requiredWork:"Confirm whether name-based or annotation-bearing methods are real loader/event entrypoints; decode annotations and verify execution before rewriting."},
@@ -347,7 +347,7 @@
    {task:"rewrite-event-listeners",pending:report.totals.eventRegistrationSites+report.totals.eventReferenceCandidates,requiredWork:"Resolve the Java callback and port its behavior manually to an equivalent documented Zeus listener."},
    {task:"rewrite-timers",pending:report.totals.timerSites+report.totals.blockingWaitSites+report.totals.cancellationSites,requiredWork:"Resolve timer overloads, delay values and units; distinguish one-shot, fixed-rate, fixed-delay, absolute-date and blocking waits before any manual Zeus-side rewrite."}
   ].filter(task=>task.pending>0);
-  report.status=report.totals.eventRegistrationSites||report.totals.eventReferenceCandidates||report.totals.timerSites||report.totals.blockingWaitSites||report.totals.loaderEntrypoints||report.totals.lifecycleCandidates||report.totals.annotationBearingMethods?"partial-analysis":"no-event-hooks-detected";
+  report.status=report.totals.eventRegistrationSites||report.totals.eventReferenceCandidates||report.totals.timerSites||report.totals.blockingWaitSites||report.totals.cancellationSites||report.totals.loaderEntrypoints||report.totals.lifecycleCandidates||report.totals.annotationBearingMethods?"partial-analysis":"no-event-hooks-detected";
   // No generated Lua is returned by design: this stage is evidence and planning only.
   return report;
  }
