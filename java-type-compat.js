@@ -107,6 +107,7 @@
   lines.push("    local n = math.tointeger(value); if n == nil then error('Java long is outside the exact Lua integer range', 2) end; return n");
   lines.push("  end");
   lines.push("  if to_descriptor == 'F' then return (string.unpack('f', string.pack('f', value))) end");
+  lines.push("  if to_descriptor == 'D' then return value + 0.0 end");
   lines.push("  return value");
   lines.push("end");
   lines.push("local function __j2z_make_field_value(value, descriptor)");
