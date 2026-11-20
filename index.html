@@ -145,7 +145,8 @@ $("build").onclick=async function(){
  pipeline.register({id:"definitions",run:function(ctx){var r=window.Jar2ZeusDefinitions.convert(ctx.resourceEntries,ctx.namespace);return {lua:r.lua,report:r.report,copied:r.copied}}});
  pipeline.register({id:"entity-models",run:function(ctx){var r=window.Jar2ZeusEntityModels.convert(ctx.resourceEntries,ctx.namespace);return {lua:r.lua,files:r.files,report:r.report}}});
  pipeline.register({id:"java-reimplementation",run:function(ctx){var r=window.Jar2ZeusReimplementation.run({classes:ctx.javaClasses,analysis:ctx.analysis});return {lua:r.lua,report:r.report,plan:r.plan}}});
- var pipelineResult=await pipeline.run({recipeEntries:recipeEntries,resourceEntries:resourceEntries,namespace:jarReport.jar.mod.id,javaClasses:javaClassRecords,analysis:jarReport.generic_analysis});
+ var validResourceEntries=resourceEntries.filter(function(entry){return !entry.pngInfo||entry.pngInfo.valid===true;});
+ var pipelineResult=await pipeline.run({recipeEntries:recipeEntries,resourceEntries:validResourceEntries,namespace:jarReport.jar.mod.id,javaClasses:javaClassRecords,analysis:jarReport.generic_analysis});
  var converted=pipelineResult.results.recipes||{report:{},mainLua:""};
  var definitions=pipelineResult.results.definitions||{report:{},copied:[],lua:""};
  var entityModels=pipelineResult.results["entity-models"]||{report:{schema:"jar2zeus.entity-models.v1",skipped:[{reason:"entity model adapter unavailable"}],animationsUnmapped:[],machineAnimationsMapped:[],machineAnimationsUnmapped:[],machineAssetsUnmapped:[]},files:{},lua:""};

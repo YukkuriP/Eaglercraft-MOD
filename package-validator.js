@@ -11,7 +11,7 @@
   const metadata=input.metadata;
   if(!metadata||typeof metadata!=="object")errors.push("metadata.json missing or invalid");
   else {
-   if(typeof metadata.id!=="string"||!/^(?!\\.)(?!.*_$)[a-z0-9_.-]{1,64}$/.test(metadata.id))errors.push("metadata.id must be 1-64 lowercase letters, digits, dot, hyphen or underscore; it cannot start with dot or end with underscore");
+   if(typeof metadata.id!=="string"||!/^(?!\.)(?!.*_$)[a-z0-9_.-]{1,64}$/.test(metadata.id))errors.push("metadata.id must be 1-64 lowercase letters, digits, dot, hyphen or underscore; it cannot start with dot or end with underscore");
    if(typeof metadata.name!=="string"||!metadata.name.trim())errors.push("metadata.name missing");
    if(typeof metadata.version!=="string"||!metadata.version.trim())errors.push("metadata.version missing");
    if(metadata.main!=="main.lua")errors.push("metadata.main must point to main.lua");
