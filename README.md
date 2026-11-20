@@ -96,6 +96,6 @@ ZeusのLuaランタイムは公式資料に記載されたLua 5.4を前提にし
 
 ## Javaクラス・オブジェクト構造モデル
 
-`class-object-analyzer.js` は、既存のクラスファイル解析結果からクラス名・親クラス・実装インターフェース・アクセス修飾子・フィールド・メソッド・コンストラクタ・フィールド参照・メソッド呼び出し関係をまとめます。フィールドはstatic/instance、final、synthetic等を区別し、メソッドdescriptorから引数と戻り値の型・スロット数を復元します。クラス内外の参照や、初期化・登録らしい名前のメソッド候補もレポートします。
+`class-object-analyzer.js` は、クラス名・親クラス・実装インターフェース・アクセス修飾子・フィールド・メソッド・コンストラクタ・フィールド参照・メソッド呼び出し関係をまとめます。フィールドはstatic/instance、final、syntheticを区別し、`ConstantValue` 属性の定数値と型タグを保持します。JVM命令から `new` / 配列生成、`<init>` 呼び出し、`putfield` / `putstatic` の位置を記録し、内部クラスへの割当てとコンストラクタによるフィールド書き込み候補を集計します。メソッドdescriptorから引数・戻り値の型とスロット数も復元します。
 
-出力は `class-object-model.json` と `diagnostics/class-object-model.json` です。これは静的メタデータの構造モデルであり、実行時のオブジェクト値・ヒープ・ジェネリック型情報・注釈の意味・パラメータ名・record component・reflectionの結果を復元するものではありません。初期化メソッド候補は名前によるヒントで、Forge/Fabricの登録や実行順序を証明しません。Javaオブジェクトの挙動をLuaへ自動移植する段階ではありません。
+出力は `class-object-model.json` と `diagnostics/class-object-model.json` です。これは静的な構造・命令サイトのモデルです。実行時のオブジェクト値・ヒープ・参照の別名関係・escape analysis・ジェネリック型情報・注釈の意味・パラメータ名・record component・reflectionの結果は復元しません。初期化メソッド候補は名前によるヒントで、Forge/Fabricの登録や実行順序を証明しません。Javaオブジェクトの挙動をLuaへ自動移植する段階ではありません。
