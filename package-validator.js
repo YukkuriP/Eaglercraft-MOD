@@ -103,7 +103,22 @@
    (Number(forgeApiCompatibility.totals&&forgeApiCompatibility.totals.classReferenceSites)||0):0;
   if(forgeApiPending>0)warnings.push(forgeApiPending+" Forge API call, field or class-reference candidates are not mapped to Zeus; manual porting is required.");
   if(forgeApiReportMissing)warnings.push("Forge API compatibility analysis is missing; imported Forge API use has not been reviewed.");
-  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing;
+  const detectedFabricLoader=!!(input.analysis&&Array.isArray(input.analysis.loaders)&&input.analysis.loaders.includes("Fabric"));
+  const fabricApiCompatibility=input.fabricApiCompatibility||{};
+  const fabricApiReportMissing=(hasJavaClasses||detectedFabricLoader)&&fabricApiCompatibility.schema!=="jar2zeus.fabric-api-compatibility.v1";
+  const fabricMetadata=fabricApiCompatibility.metadata||{};
+  const fabricApiPending=fabricApiCompatibility.schema==="jar2zeus.fabric-api-compatibility.v1"?
+   (Number(fabricApiCompatibility.totals&&fabricApiCompatibility.totals.unmappedSites)||0)+
+   (Number(fabricApiCompatibility.totals&&fabricApiCompatibility.totals.fabricApiClassReferenceSites)||0)+
+   (Number(fabricApiCompatibility.totals&&fabricApiCompatibility.totals.loaderApiClassReferenceSites)||0)+
+   (Number(fabricApiCompatibility.totals&&fabricApiCompatibility.totals.commonApiClassReferenceSites)||0)+
+   (Number(fabricApiCompatibility.totals&&fabricApiCompatibility.totals.entrypointsDeclared)||0)+
+   (fabricMetadata.accessWidener?1:0)+
+   (Array.isArray(fabricMetadata.mixins)?fabricMetadata.mixins.length:0)+
+   (Array.isArray(fabricMetadata.nestedJars)?fabricMetadata.nestedJars.length:0):0;
+  if(fabricApiPending>0)warnings.push(fabricApiPending+" Fabric API, Loader, entrypoint or metadata candidates still require explicit Zeus-side review; none were auto-wired.");
+  if(fabricApiReportMissing)warnings.push("Fabric API compatibility analysis is missing; Fabric API and Loader use has not been reviewed.");
+  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing;
   const skippedResources=(Array.isArray(recipeReport.skipped)?recipeReport.skipped.length:0)+
    (Array.isArray(recipeReport.excluded)?recipeReport.excluded.length:0)+
    (Array.isArray(definitionReport.skipped)?definitionReport.skipped.length:0)+

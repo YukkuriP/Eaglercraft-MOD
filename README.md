@@ -18,6 +18,7 @@
    - `class-object-analyzer.js`
    - `java-type-compat.js`
    - `generic-mod-analyzer.js`
+   - `fabric-api-compat.js`
    - `java-event-lifecycle.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
@@ -134,6 +135,17 @@ ZeusのLuaランタイムは公式資料に記載されたLua 5.4を前提にし
 
 参照する公式資料: [Forge Events](https://docs.minecraftforge.net/en/latest/concepts/events/)、[Registries](https://docs.minecraftforge.net/en/latest/concepts/registries/)、[Mod Lifecycle](https://docs.minecraftforge.net/en/latest/concepts/lifecycle/)。ForgeのバージョンごとにAPIやdescriptorが変わるため、検出した呼び出しのdescriptorは保存しますが、利用Forgeバージョンとの互換性までは自動確定しません。
 
+## Fabric API・Fabric Loader互換性インベントリ
+
+`fabric-api-compat.js` は、Fabric API（`net.fabricmc.fabric.api`）、Fabric Loader API（`net.fabricmc.loader.api`）、Fabric共通API（`net.fabricmc.api`）のクラス参照、JVM field／method descriptor内の型、メソッド呼び出し、フィールドアクセスを静的に調べます。呼び出しごとにJAR内のパス、呼び出し元クラス・メソッド・descriptor、バイトコード位置（PC）、Fabric側の所有クラス・メンバー・descriptor、分類根拠を記録します。
+
+分類領域はイベント／ライフサイクル、プレイヤー・エンティティイベント、レジストリ・コンテンツ登録、ネットワーク、描画、画面・入力、コマンド、ワールド生成・Biome、データ生成、リソース再読み込み、Transfer API、Fabric Loader API、Fabric共通APIです。既知の `Event.register/invoker`、方向別 `PayloadTypeRegistry` 取得、`ServerPlayNetworking` / `ClientPlayNetworking` の一部操作、`FabricLoader` のMod・entrypoint照会、燃料レジストリ、カスタムレジストリ、アイテムグループ、エンティティ属性、キー割当、HUD登録などを「操作候補」として識別します。
+
+`fabric.mod.json` のentrypoint（main / client / server / preLaunch等）について、宣言値・language adapter・対象クラスの存在を記録します。Mixin設定、Access Widener、Nested JAR、依存関係、環境指定も保持します。対象クラスがJAR内で見つかっても、entrypoint interfaceの実装、コンストラクタ実行、初期化順、コールバック実行は確認できません。
+
+**操作候補は変換済みAPIではありません。** Fabric API／Loader APIをZeus Lua APIへ自動置換する機能ではなく、呼び出しはすべて `unmapped`、クラス参照は `unverified` として残します。Mixin変換、Access Widenerによる可視性変更、Nested JARの実行、lambdaのBootstrapMethods / MethodHandle、コールバックの実装、イベントpayload、APIバージョン差は未解決です。未解決のFabric API呼び出し・クラス参照・entrypoint・変換メタデータが残る場合、パッケージ検証は `conversionComplete=false` として手作業の再実装・確認を要求します。
+
+出力は `fabric-api-compatibility.json` と `diagnostics/fabric-api-compatibility.json` です。呼び出し／フィールド／クラス参照の詳細配列は各5,000件、entrypoint詳細は1,000件までとし、切り詰めても観測総数を保持します。Fabric MODの完全移植やゲーム内動作を保証する機能ではありません。
 ## Javaイベント・ライフサイクル解析
 
 `java-event-lifecycle.js` は、クラスファイルとFabric / Forge / NeoForge等のローダーメタデータを静的に照合し、初期化メソッド名、宣言されたentrypoint、既知のイベント型参照、イベントバス登録呼び出し、Javaタイマー呼び出しを診断します。Zeus側の候補として記録するイベントは `tick` / `frame` / `resize` / `hud` / `screen_render` / `overlay` / `screen_open` / `screen_close` / `chat_receive` / `chat_send` / `world_join` / `world_leave` / `mod_loaded` / `mod_unloaded` / `unload` に限定しています。イベント名が似ているだけでは互換と判定せず、既知のソースイベント型を参照した場合も「候補」にとどめます。
