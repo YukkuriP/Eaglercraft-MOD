@@ -90,7 +90,8 @@
    (input.entityReport&&Array.isArray(input.entityReport.skipped)?input.entityReport.skipped.length:0)+
    (input.entityReport&&Array.isArray(input.entityReport.animationsUnmapped)?input.entityReport.animationsUnmapped.length:0)+
    (input.entityReport&&Array.isArray(input.entityReport.machineAnimationsUnmapped)?input.entityReport.machineAnimationsUnmapped.length:0)+
-   (input.entityReport&&Array.isArray(input.entityReport.machineAssetsUnmapped)?input.entityReport.machineAssetsUnmapped.length:0);
+   (input.entityReport&&Array.isArray(input.entityReport.machineAssetsUnmapped)?input.entityReport.machineAssetsUnmapped.length:0)+
+   (input.entityReport&&Array.isArray(input.entityReport.geometryUnmapped)?input.entityReport.geometryUnmapped.length:0);
   const restrictedResources=!!(input.analysis&&input.analysis.featureReview&&input.analysis.featureReview.restrictedPathCount>0);
   const unsupportedRuntime=!!(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length);
   const machineRuntimeComplete=input.machineRuntimeRequired!==true||
