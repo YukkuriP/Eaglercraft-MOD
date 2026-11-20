@@ -157,25 +157,27 @@
     if(annotationAttributes.length)report.totals.annotationBearingMethods++;
     const calls=(method.code&&method.code.invocations)||[];
     for(const call of calls){
-     const name=String(call.name||"");
-     if(!REGISTRATION_NAMES.has(name)||!EVENT_REGISTRY.test(String(call.owner||"")))continue;
+     const registration=registrationInfo(call);
+     if(!registration)continue;
      const id=clazz.className+"."+method.name+method.descriptor+"@"+call.pc+":"+call.owner+"."+name;
      if(registrationIds.has(id))continue;
      registrationIds.add(id);
-     const sourceFramework=matches.length?matches[0].framework:
-      (/net\/neoforged\//.test(evidence.join(" "))?"NeoForge":/net\/minecraftforge\//.test(evidence.join(" "))?"Forge":/net\/fabricmc\//.test(evidence.join(" "))?"Fabric":"unknown");
+     const sourceFramework=registration.framework;
+     const sourceFrameworkCandidates=Array.from(new Set(matches.map(rule=>rule.framework)));
      const candidateRules=matches.filter(rule=>rule.events.every(event=>ZEUS_SAFE_EVENTS.has(event)));
      const eventCandidates=Array.from(new Set(candidateRules.flatMap(rule=>rule.events)));
      for(const rule of candidateRules)classRegistrationRules.add(rule.id);
      report.eventRegistrations.push({
       id,className:clazz.className,method:method.name,descriptor:method.descriptor,pc:Number.isInteger(call.pc)?call.pc:null,
-      sourceFramework,registrationOwner:call.owner||null,registrationMethod:name,
+      sourceFramework,sourceFrameworkCandidates,registrationOwner:registration.owner,registrationMethod:registration.name,
+      registrationApi:"exact-owner-and-method-match",sourceRuleResolution:matches.length===1?"single-class-level-fingerprint":matches.length>1?"ambiguous-class-level-fingerprints":"no-known-source-event-fingerprint",
       sourceRuleIds:candidateRules.map(rule=>rule.id),zeusEventCandidates:eventCandidates,
       status:eventCandidates.length?"candidate-only":"unclassified-registration-site",
-      callbackResolved:false,autoWired:false,
-      reason:eventCandidates.length?
-       "Known event class references suggest a Zeus event candidate, but callback target, Java signature, payload and behavior are not translated.":
-       "Registration call detected without a known source-event fingerprint; manual analysis is required."
+      callbackResolved:false,callbackParameterRecovered:false,autoWired:false,
+      reason:matches.length>1?
+       "Multiple known event types are referenced by this class; they cannot be assigned to this particular registration site.":eventCandidates.length?
+       "A known event class is referenced in this class, but its link to this registration instruction, callback target, Java signature, payload and behavior is not reconstructed.":
+       "A recognized event-bus registration call was found without a known source-event fingerprint; manual analysis is required."
      });
     }
     for(const call of calls){
@@ -186,10 +188,12 @@
      const recurring=name==="scheduleAtFixedRate"||name==="scheduleWithFixedDelay";
      report.timerSites.push({
       className:clazz.className,method:method.name,descriptor:method.descriptor,pc:Number.isInteger(call.pc)?call.pc:null,
-      javaOwner:owner,javaMethod:name,
+      javaOwner:owner,javaMethod:name,javaDescriptor:call.descriptor||null,
+      periodicity:name==="scheduleAtFixedRate"?"fixed-rate":name==="scheduleWithFixedDelay"?"fixed-delay":"unknown-single-or-periodic",
+      hasTimeUnitParameter:/Ljava\/util\/concurrent\/TimeUnit;/.test(call.descriptor||""),
       zeusApiCandidates:recurring?["timer.every"]:["timer.after","timer.every"],
       status:"candidate-only",callbackResolved:false,autoWired:false,
-      reason:"Java scheduler callback, delay units, cancellation and threading are not translated. Choose and implement the equivalent Zeus timer explicitly."
+      reason:"Java scheduler callback, actual delay values and units, cancellation, exception policy and threading are not reconstructed. Zeus timer.after/every use seconds and timers are checked once per frame; choose and implement the equivalent explicitly."
      });
     }
    }
