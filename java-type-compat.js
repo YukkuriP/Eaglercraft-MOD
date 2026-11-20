@@ -172,7 +172,7 @@
   lines.push("  while current and not seen[current] do");
   lines.push("    seen[current] = true; local info = __j2z_types[current]; if not info then break end");
   lines.push("    local method = info.methods and info.methods[method_name .. descriptor]");
-  lines.push("    if method and not method.static and not method.private and not method.abstract then return {owner=current, method=method} end");
+  lines.push("    if method and not method.static and not method.private then return {owner=current, method=method} end");
   lines.push("    current = info.parent");
   lines.push("  end");
   lines.push("  return nil");
@@ -201,6 +201,7 @@
     "new_object_record allocates a blank record with JVM default field values; it does not run constructors or class initializers.",
     "resolve_virtual returns method metadata only; generated Java method bodies are not invoked.",
     "Private/protected/package access checks and Java reflection are not enforced.",
+    "Interface default-method conflict and most-specific interface method resolution are not implemented.",
     "Static fields start with JVM default values; ConstantValue attributes and Java <clinit> assignments are not applied.",
     "Non-null array object fields and full Java array covariance/runtime checks are unsupported.",
     "External superclass/interface definitions are unknown unless their class files are included.",
