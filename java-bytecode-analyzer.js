@@ -124,6 +124,7 @@
       }else if(![3,4,7,8,15,16,17].includes(entry.tag)){
        throw new Error("ldc/ldc_w references an unsupported constant-pool tag "+entry.tag);
       }
+     }
      else if((op>=0x15&&op<=0x19)||(op>=0x36&&op<=0x3a)||op===0xa9||op===0xbc)x.operand=byte();
      else if(op===0x84){x.local=byte();x.increment=signedByte();}
      else if((op>=0x99&&op<=0xa8)||op===0xc6||op===0xc7){x.offset=signedShort();x.target=pc+x.offset;branches.push(x.target);}
@@ -155,7 +156,12 @@
       if(!dyn||dyn.tag!==18||x.zero!==0)throw new Error("invokedynamic must reference CONSTANT_InvokeDynamic and have zero trailing bytes");
       x.dynamic=nt||null;
      }
-     else if(op===0xc5){x.cpIndex=short();x.dimensions=byte();x.className=cls(x.cpIndex);if(!x.className||cp[x.cpIndex].tag!==7||!x.className.startsWith("[")||x.dimensions<1||x.dimensions>(x.className.match(/^\\[+/)||[""])[0].length)throw new Error("invalid multianewarray class or dimensions");}
+     else if(op===0xc5){
+      x.cpIndex=short();x.dimensions=byte();x.className=cls(x.cpIndex);
+      let arrayDepth=0;if(x.className)while(x.className[arrayDepth]==="[")arrayDepth++;
+      if(!x.className||cp[x.cpIndex].tag!==7||arrayDepth===0||x.dimensions<1||x.dimensions>arrayDepth)
+       throw new Error("invalid multianewarray class or dimensions");
+     }
      else if(op===0xaa){
       while(q%4!==0){if(byte()!==0)throw new Error("non-zero switch padding");}
       x.defaultOffset=signedInt();x.low=signedInt();x.high=signedInt();x.targets=[];
