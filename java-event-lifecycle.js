@@ -115,12 +115,13 @@
    status:"analysis-only",
    loaders:Array.isArray(loaderAnalysis.loaders)?loaderAnalysis.loaders.slice():[],
    totals:{classesSeen:classes.length,classesAnalyzed:accepted.length,restrictedClassesSkipped:excluded.length,loaderEntrypoints:0,entrypointsResolved:0,entrypointsUnresolved:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrationSites:0,ambiguousEventRegistrationSites:0,unclassifiedEventRegistrationSites:0,timerSites:0,annotationBearingMethods:0,autoWiredHandlers:0},
-   observed:{loaderEntrypoints:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrations:0,timerSites:0},
-   truncation:{loaderEntrypoints:false,lifecycleCandidates:false,eventReferenceCandidates:false,eventRegistrations:false,timerSites:false},
+   observed:{loaderEntrypoints:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrations:0,timerSites:0,annotationCandidates:0},
+   truncation:{loaderEntrypoints:false,lifecycleCandidates:false,eventReferenceCandidates:false,eventRegistrations:false,timerSites:false,annotationCandidates:false},
    loaderEntrypoints:[],
    lifecycleCandidates:[],
    eventRegistrations:[],
    eventReferenceCandidates:[],
+   annotationCandidates:[],
    timerSites:[],
    zeusEventCatalog:Array.from(ZEUS_SAFE_EVENTS),
    warnings:[],
@@ -175,7 +176,10 @@
      });
     }
     const annotationAttributes=(method.attributes||[]).filter(name=>/Annotations$/.test(name));
-    if(annotationAttributes.length)report.totals.annotationBearingMethods++;
+    if(annotationAttributes.length){
+     report.totals.annotationBearingMethods++;
+     appendDetail(report,"annotationCandidates",{className:clazz.className,method:method.name,descriptor:method.descriptor,attributes:annotationAttributes,annotationValuesDecoded:false,eventBindingResolved:false,autoWired:false,reason:"Method annotation attributes are present, but annotation types and values are not decoded; this is not proof of an event subscription."});
+    }
     const calls=(method.code&&method.code.invocations)||[];
     for(const call of calls){
      const registration=registrationInfo(call);
@@ -235,7 +239,7 @@
   report.totals.eventReferenceCandidates=report.observed.eventReferenceCandidates;
   report.totals.eventRegistrationSites=report.observed.eventRegistrations;
   report.totals.timerSites=report.observed.timerSites;
-  report.reportedCounts={loaderEntrypoints:report.loaderEntrypoints.length,lifecycleCandidates:report.lifecycleCandidates.length,eventReferenceCandidates:report.eventReferenceCandidates.length,eventRegistrations:report.eventRegistrations.length,timerSites:report.timerSites.length};
+  report.reportedCounts={loaderEntrypoints:report.loaderEntrypoints.length,lifecycleCandidates:report.lifecycleCandidates.length,eventReferenceCandidates:report.eventReferenceCandidates.length,eventRegistrations:report.eventRegistrations.length,timerSites:report.timerSites.length,annotationCandidates:report.annotationCandidates.length};
   report.detailLimit=DETAIL_LIMIT;
   if(report.eventRegistrations.length)report.warnings.push("Event registration sites were found, but no Java callback was connected to a Zeus listener.");
   if(report.eventReferenceCandidates.length)report.warnings.push("Known source event classes were referenced without a proven registration site; these are not confirmed listeners.");
