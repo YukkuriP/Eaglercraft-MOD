@@ -103,6 +103,14 @@
   }
   return list;
  }
+ function uniqueChannels(animationNames,records,bone){
+  const set=new Set();
+  for(const record of records||[]){
+   if(!animationNames.includes(record.name)||!record.tracks||!record.tracks[bone])continue;
+   for(const channel of Object.keys(record.tracks[bone]))set.add(channel);
+  }
+  return Array.from(set).sort();
+ }
  function machineKind(name){
   const n=String(name||"").toLowerCase();
   if(/gear|cog|wheel|rotor|propeller|fan|shaft|axle|turbine|flywheel|roller|crankshaft/.test(n))return "rotary";
