@@ -20,12 +20,12 @@
   return {args,result};
  }
  function q(s){return '"'+String(s).replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/\r/g,"\\r").replace(/\n/g,"\\n")+'"';}
- function verifyIntBytecode(m,d,c){
+ function verifyIntBytecode(m,d,c,callTargets){
   const fail=reason=>({valid:false,reason});
   if(!d||!c||c.decodeError)return fail(c&&c.decodeError||"missing method descriptor or Code attribute");
   if(c.verification&&c.verification.valid!==true)return fail("bytecode structural verification failed: "+(c.verification.errors||[]).join("; "));
   const intTypes=new Set(["Z","B","C","S","I"]);
-  if(!intTypes.has(d.result)||d.args.some(x=>!intTypes.has(x)))return fail("only primitive int-like arguments and return values are supported");
+  if((d.result!=="V"&&!intTypes.has(d.result))||d.args.some(x=>!intTypes.has(x)))return fail("only primitive int-like arguments and void/int-like return values are supported");
   if(!Number.isInteger(c.maxLocals)||!Number.isInteger(c.maxStack)||c.maxLocals<d.args.length)return fail("invalid max_locals/max_stack or parameter slots exceed max_locals");
   const ins=c.instructions||[];
   if(!ins.length)return fail("empty bytecode");
@@ -85,12 +85,18 @@
    }else if(["iadd","isub","imul","idiv","irem","iand","ior","ixor","ishl","ishr","iushr"].includes(n)){need=2;delta=-1;}
    else if(n==="ineg"||n==="i2b"||n==="i2s"||n==="i2c"){need=1;}
    else if(n==="invokestatic"){
-    if(!x.member||x.member.owner!=="java/lang/Math")return fail("only approved java.lang.Math static calls are supported at "+x.pc);
+    if(!x.member)return fail("invokestatic has no resolved method reference at "+x.pc);
     const md=descriptor(x.member.descriptor);
-    if(!md||md.args.some(t=>t!=="I")||md.result!=="I")return fail("unsupported Math method descriptor at "+x.pc);
-    const valid=(x.member.name==="abs"&&md.args.length===1)||((x.member.name==="min"||x.member.name==="max")&&md.args.length===2);
-    if(!valid)return fail("unsupported java.lang.Math method at "+x.pc);
-    need=md.args.length;delta=1-md.args.length;
+    if(!md||md.args.some(t=>!intTypes.has(t))||(md.result!=="V"&&!intTypes.has(md.result)))return fail("unsupported static-call descriptor at "+x.pc);
+    if(x.member.owner==="java/lang/Math"){
+     if(md.result!=="I")return fail("unsupported java.lang.Math return descriptor at "+x.pc);
+     const valid=(x.member.name==="abs"&&md.args.length===1)||((x.member.name==="min"||x.member.name==="max")&&md.args.length===2);
+     if(!valid)return fail("unsupported java.lang.Math method at "+x.pc);
+    }else{
+     const targetKey=x.member.owner+"."+x.member.name+x.member.descriptor;
+     if(!callTargets||!callTargets.has(targetKey))return fail("internal static helper is not in the verified translation set: "+targetKey);
+    }
+    need=md.args.length;delta=(md.result==="V"?0:1)-md.args.length;
    }else if(n==="pop"){need=1;delta=-1;}
    else if(n==="pop2"){need=2;delta=-2;}
    else if(n==="dup"){need=1;delta=1;}
@@ -105,13 +111,14 @@
    else if(n==="goto"||n==="goto_w"){targets=[x.target];terminal=true;}
    else if(n==="tableswitch"){need=1;delta=-1;targets=[x.pc+x.defaultOffset,...(x.targets||[])];terminal=true;}
    else if(n==="lookupswitch"){need=1;delta=-1;targets=[x.pc+x.defaultOffset,...(x.pairs||[]).map(p=>p.target)];terminal=true;}
-   else if(n==="ireturn"){need=1;delta=-1;terminal=true;}
+   else if(n==="ireturn"){if(d.result==="V")return fail("ireturn used by a void method at "+x.pc);need=1;delta=-1;terminal=true;}
+   else if(n==="return"){if(d.result!=="V")return fail("return used by a non-void method at "+x.pc);terminal=true;}
    else return fail("unsupported opcode "+n+" at "+x.pc);
    if(state.height<need)return fail("operand-stack underflow at bytecode offset "+x.pc);
    const after=state.height+delta;
    if(after<0||after>c.maxStack)return fail("operand-stack height exceeds max_stack at bytecode offset "+x.pc);
    observedMax=Math.max(observedMax,after);
-   if(n==="ireturn"&&after!==0)return fail("ireturn leaves values on the operand stack at "+x.pc);
+   if((n==="ireturn"||n==="return")&&after!==0)return fail("return leaves values on the operand stack at "+x.pc);
    for(const target of targets){const err=enqueue(target,after,initialized);if(err)return fail(err);}
    if(!terminal){
     if(fall==null)return fail("execution falls off the end of the method at "+x.pc);
@@ -120,16 +127,16 @@
   }
   return {valid:true,observedMaxStack:observedMax,reachableInstructions:states.size};
  }
- function pureHelper(clazz,m){
+ function pureHelper(clazz,m,callTargets){
   const d=descriptor(m.descriptor),c=m.code;
   const intTypes=new Set(["Z","B","C","S","I"]);
-  if(!(m.accessFlags&8)||!d||!intTypes.has(d.result)||d.args.some(x=>!intTypes.has(x))||!c||c.decodeError)return null;
+  if(!(m.accessFlags&8)||!d||(d.result!=="V"&&!intTypes.has(d.result))||d.args.some(x=>!intTypes.has(x))||!c||c.decodeError)return null;
   if(c.exceptions&&c.exceptions.length)return null;
   if(m.name.startsWith("<")||RESTRICTED.test(clazz.className+"."+m.name))return null;
   if((c.fieldAccesses||[]).length)return null;
   const ins=c.instructions||[];
   if(!ins.length||ins.length>5000||c.codeLength>20000)return null;
-  const verification=verifyIntBytecode(m,d,c);
+  const verification=verifyIntBytecode(m,d,c,callTargets);
   if(!verification.valid)return null;
   const pcs=new Set(ins.map(x=>x.pc));
   for(const target of c.branchTargets||[])if(!pcs.has(target))return null;
@@ -141,11 +148,14 @@
   }
   const invocationInstructions=ins.filter(x=>/^invoke/.test(x.name));
   for(const x of invocationInstructions){
-   if(x.name!=="invokestatic"||!x.member||x.member.owner!=="java/lang/Math")return null;
+   if(x.name!=="invokestatic"||!x.member)return null;
    const md=descriptor(x.member.descriptor);
-   if(!md||md.args.some(t=>t!=="I")||md.result!=="I")return null;
-   const valid=(x.member.name==="abs"&&md.args.length===1)||((x.member.name==="min"||x.member.name==="max")&&md.args.length===2);
-   if(!valid)return null;
+   if(!md||md.args.some(t=>!intTypes.has(t))||(md.result!=="V"&&!intTypes.has(md.result)))return null;
+   if(x.member.owner==="java/lang/Math"){
+    if(md.result!=="I")return null;
+    const valid=(x.member.name==="abs"&&md.args.length===1)||((x.member.name==="min"||x.member.name==="max")&&md.args.length===2);
+    if(!valid)return null;
+   }else if(!callTargets||!callTargets.has(x.member.owner+"."+x.member.name+x.member.descriptor))return null;
   }
   const params=[];
   for(let i=0;i<d.args.length;i++)params.push("arg"+i);
