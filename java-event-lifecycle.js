@@ -37,7 +37,7 @@
    while(c==="[")c=desc[p++];
    if(c==="L"){
     const end=desc.indexOf(";",p);if(end<0)return null;
-    const name=desc.slice(p,end);if(!name||/[.\\[\\s]/.test(name))return null;
+    const name=desc.slice(p,end);if(!name||name.includes(".")||name.includes("[")||/\\s/.test(name))return null;
     p=end+1;
    }else if(!"ZBCSIJFD".includes(c)&&!(allowVoid&&c==="V"&&p===start+1))return null;
    return desc.slice(start,p);
