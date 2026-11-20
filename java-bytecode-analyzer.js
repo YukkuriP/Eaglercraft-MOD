@@ -200,6 +200,7 @@
      if(x.name==="ldc"||x.name==="ldc_w"||x.name==="ldc2_w"){
       if(typeof x.constant==="string")strings.push(x.constant);
      }
+     x.length=q-pc;
      ins.push(x);
     }
     if(q!==code.length)throw new Error("bytecode decoder did not consume the method");

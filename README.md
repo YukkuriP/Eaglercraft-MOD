@@ -14,6 +14,7 @@
    - `definition-converter.js`
    - `entity-model-converter.js`
    - `bytecode-verifier.js`
+   - `bytecode-analysis.js`
    - `generic-mod-analyzer.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
@@ -48,7 +49,9 @@ JSZipをCDNから読み込むため初回利用時にインターネット接続
 
 ## JVMバイトコード構造検証
 
-`bytecode-verifier.js` はデコード済みメソッドについて、命令オフセットの重複・順序、分岐先とswitch分岐先の命令境界、例外テーブルの範囲、ローカル変数スロット、メソッド引数の `max_locals` 収容を検査します。パーサー側では定数プール参照、`invokeinterface` / `invokedynamic` の形式、switch padding・lookup key順序、Code属性長、クラスファイル末尾も検査します。
+`bytecode-verifier.js` はデコード済みメソッドについて、命令バイト範囲の連続性、命令オフセットの重複・順序、分岐先とswitch分岐先の命令境界、例外テーブルの範囲、ローカル変数スロット、引数のlong/double 2スロットを含む `max_locals` 収容、戻り命令とメソッド戻り値descriptorの整合性を検査します。基本ブロック、通常分岐・switch分岐・例外辺、ループ候補、到達不能ブロックも構築します。
+
+`bytecode-analysis.js` はクラス全体の命令頻度、分岐・ループ数、メソッド複雑度の目安、JAR内部呼び出し関係、外部クラス呼び出し、`invokedynamic` の出現数を集計します。結果は `bytecode-analysis.json` と `diagnostics/bytecode-analysis.json` に出力します。パーサー側では定数プール参照、`invokeinterface` / `invokedynamic` の形式、switch padding・lookup key順序、Code属性長、クラスファイル末尾も検査します。
 
 これはクラスファイルと命令配置の構造検査です。JVM仕様の全ての型検証（Verifierの完全なデータフロー型推論）、全属性の意味検証、Java仮想マシンの実行互換性を保証するものではありません。各メソッドの結果は `code.verification` に記録され、未検証・不正なメソッドは再実装エンジンでの変換成功と見なさないよう、個別の結果を確認する必要があります。
 
@@ -67,6 +70,7 @@ JSZipをCDNから読み込むため初回利用時にインターネット接続
 - `<mod-id>-zeus-mod.zip`: ZeusへインポートするMOD本体。`metadata.json` と `main.lua` がZIP直下にあります。
 - `diagnostics/report.json`: JAR・変換・パッケージ全体の診断。
 - `diagnostics/archive-preflight-report.json`: 展開前のZIP/JAR検査結果。
+- `diagnostics/bytecode-analysis.json`: JVM命令・制御フロー・呼び出し関係の集計。
 - `diagnostics/reimplementation-report.json`: Javaメソッドごとの変換状況。
 - `diagnostics/reimplementation-plan.json`: 未実装機能の再実装タスク。
 - `diagnostics/entity-model-report.json`: 3D形状・ボーン・モーションの変換結果と未対応アニメーション。
