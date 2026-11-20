@@ -53,7 +53,7 @@
   return {valid:true,used:Array.from(dedup.values())};
  }
  function convert(entries,modNamespace){
-  const files=new Map(entries.filter(e=>safe(e.path)).map(e=>[e.path,e.content]));
+  const files=new Map(entries.filter(e=>safe(e.path)&&(!e.pngInfo||e.pngInfo.valid===true)).map(e=>[e.path,e.content]));
   const json=new Map(),langs={},parentModelIds=new Set();
   for(const [path,raw] of files){
    if(typeof raw!=="string"||!path.endsWith(".json"))continue;
