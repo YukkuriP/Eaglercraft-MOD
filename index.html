@@ -175,6 +175,7 @@ $("build").onclick=async function(){
  if(apiValidation.requiredApis.some(function(x){return x.startsWith("rtc.")}))permissions.add("webrtc");
  if(apiValidation.requiredApis.some(function(x){return x.startsWith("gl.")}))permissions.add("gl");
  if(entityModels.machineRuntimeRequired)permissions.add("gl");
+ if(machineRuntimeApiValidation&&machineRuntimeApiValidation.requiredApis.some(function(x){return x.startsWith("commands.")}))permissions.add("commands");
  meta.permissions=Array.from(permissions).sort();
  if(!replacePackageFile("metadata.json",JSON.stringify(meta,null,2)))throw Error("metadata.jsonの権限情報を更新できません");
  generatedMain=window.Jar2ZeusApiValidator.guardLua(generatedMain,apiValidation);
