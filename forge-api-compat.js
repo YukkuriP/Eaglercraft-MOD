@@ -71,6 +71,18 @@
     return null;
   }
 
+  function descriptorOwners(descriptor) {
+    const owners = [];
+    if (typeof descriptor !== "string") return owners;
+    const pattern = /L([^;]+);/g;
+    let match;
+    while ((match = pattern.exec(descriptor))) {
+      const owner = normalizeName(match[1]);
+      if (owner.startsWith(FORGE_PREFIX)) owners.push(owner);
+    }
+    return owners;
+  }
+
   function safeLimit(value) {
     const n = Number(value);
     return Number.isInteger(n) && n > 0 ? Math.min(n, DEFAULT_DETAIL_LIMIT) : DEFAULT_DETAIL_LIMIT;
@@ -143,6 +155,8 @@
       report.totals.classesAnalyzed++;
 
       const localReferences = new Set([].concat(info.references || [], info.superName || [], info.interfaces || []).filter(Boolean));
+      for (const field of info.fields || []) for (const owner of descriptorOwners(field && field.descriptor)) localReferences.add(owner);
+      for (const method of info.methods || []) for (const owner of descriptorOwners(method && method.descriptor)) localReferences.add(owner);
       for (const method of info.methods || []) {
         for (const inv of method && method.code && method.code.invocations || []) {
           const hit = recordOwner(inv.owner, sourceClass, sourcePath);
@@ -203,7 +217,7 @@
         report.totals.classReferenceSites++;
         pushBounded(referenceRows, {
           sourcePath, sourceClass, apiClass: owner, category,
-          confidence: "medium", evidence: "Forge class appears in the parsed class-reference set",
+          confidence: "medium", evidence: "Forge class appears in parsed class references, field/method descriptors or bytecode member owners",
           usageResolved: false, portStatus: "unverified", autoConverted: false
         });
       }
