@@ -89,7 +89,8 @@
    Number(eventLifecycle.totals&&eventLifecycle.totals.annotationBearingMethods||0)+
    Number(eventLifecycle.totals&&eventLifecycle.totals.eventRegistrationSites||0)+
    Number(eventLifecycle.totals&&eventLifecycle.totals.eventReferenceCandidates||0)+
-   Number(eventLifecycle.totals&&eventLifecycle.totals.timerSites||0);
+   Number(eventLifecycle.totals&&eventLifecycle.totals.timerSites||0)+
+   Number(eventLifecycle.totals&&eventLifecycle.totals.blockingWaitSites||0);
   if(eventLifecycle.schema==="jar2zeus.java-event-lifecycle.v1"&&lifecyclePending>0)
    warnings.push(lifecyclePending+" Java lifecycle, event or timer candidates still need an explicit Zeus-side rewrite; none were auto-wired");
   if(eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1")
