@@ -20,12 +20,12 @@
   return {args,result};
  }
  function q(s){return '"'+String(s).replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/\r/g,"\\r").replace(/\n/g,"\\n")+'"';}
- function verifyIntBytecode(m,d,c){
+ function verifyIntBytecode(m,d,c,callTargets){
   const fail=reason=>({valid:false,reason});
   if(!d||!c||c.decodeError)return fail(c&&c.decodeError||"missing method descriptor or Code attribute");
   if(c.verification&&c.verification.valid!==true)return fail("bytecode structural verification failed: "+(c.verification.errors||[]).join("; "));
   const intTypes=new Set(["Z","B","C","S","I"]);
-  if(!intTypes.has(d.result)||d.args.some(x=>!intTypes.has(x)))return fail("only primitive int-like arguments and return values are supported");
+  if((d.result!=="V"&&!intTypes.has(d.result))||d.args.some(x=>!intTypes.has(x)))return fail("only primitive int-like arguments and void/int-like return values are supported");
   if(!Number.isInteger(c.maxLocals)||!Number.isInteger(c.maxStack)||c.maxLocals<d.args.length)return fail("invalid max_locals/max_stack or parameter slots exceed max_locals");
   const ins=c.instructions||[];
   if(!ins.length)return fail("empty bytecode");
@@ -85,12 +85,18 @@
    }else if(["iadd","isub","imul","idiv","irem","iand","ior","ixor","ishl","ishr","iushr"].includes(n)){need=2;delta=-1;}
    else if(n==="ineg"||n==="i2b"||n==="i2s"||n==="i2c"){need=1;}
    else if(n==="invokestatic"){
-    if(!x.member||x.member.owner!=="java/lang/Math")return fail("only approved java.lang.Math static calls are supported at "+x.pc);
+    if(!x.member)return fail("invokestatic has no resolved method reference at "+x.pc);
     const md=descriptor(x.member.descriptor);
-    if(!md||md.args.some(t=>t!=="I")||md.result!=="I")return fail("unsupported Math method descriptor at "+x.pc);
-    const valid=(x.member.name==="abs"&&md.args.length===1)||((x.member.name==="min"||x.member.name==="max")&&md.args.length===2);
-    if(!valid)return fail("unsupported java.lang.Math method at "+x.pc);
-    need=md.args.length;delta=1-md.args.length;
+    if(!md||md.args.some(t=>!intTypes.has(t))||(md.result!=="V"&&!intTypes.has(md.result)))return fail("unsupported static-call descriptor at "+x.pc);
+    if(x.member.owner==="java/lang/Math"){
+     if(md.result!=="I")return fail("unsupported java.lang.Math return descriptor at "+x.pc);
+     const valid=(x.member.name==="abs"&&md.args.length===1)||((x.member.name==="min"||x.member.name==="max")&&md.args.length===2);
+     if(!valid)return fail("unsupported java.lang.Math method at "+x.pc);
+    }else{
+     const targetKey=x.member.owner+"."+x.member.name+x.member.descriptor;
+     if(!callTargets||!callTargets.has(targetKey))return fail("internal static helper is not in the verified translation set: "+targetKey);
+    }
+    need=md.args.length;delta=(md.result==="V"?0:1)-md.args.length;
    }else if(n==="pop"){need=1;delta=-1;}
    else if(n==="pop2"){need=2;delta=-2;}
    else if(n==="dup"){need=1;delta=1;}
@@ -105,13 +111,14 @@
    else if(n==="goto"||n==="goto_w"){targets=[x.target];terminal=true;}
    else if(n==="tableswitch"){need=1;delta=-1;targets=[x.pc+x.defaultOffset,...(x.targets||[])];terminal=true;}
    else if(n==="lookupswitch"){need=1;delta=-1;targets=[x.pc+x.defaultOffset,...(x.pairs||[]).map(p=>p.target)];terminal=true;}
-   else if(n==="ireturn"){need=1;delta=-1;terminal=true;}
+   else if(n==="ireturn"){if(d.result==="V")return fail("ireturn used by a void method at "+x.pc);need=1;delta=-1;terminal=true;}
+   else if(n==="return"){if(d.result!=="V")return fail("return used by a non-void method at "+x.pc);terminal=true;}
    else return fail("unsupported opcode "+n+" at "+x.pc);
    if(state.height<need)return fail("operand-stack underflow at bytecode offset "+x.pc);
    const after=state.height+delta;
    if(after<0||after>c.maxStack)return fail("operand-stack height exceeds max_stack at bytecode offset "+x.pc);
    observedMax=Math.max(observedMax,after);
-   if(n==="ireturn"&&after!==0)return fail("ireturn leaves values on the operand stack at "+x.pc);
+   if((n==="ireturn"||n==="return")&&after!==0)return fail("return leaves values on the operand stack at "+x.pc);
    for(const target of targets){const err=enqueue(target,after,initialized);if(err)return fail(err);}
    if(!terminal){
     if(fall==null)return fail("execution falls off the end of the method at "+x.pc);
@@ -120,16 +127,16 @@
   }
   return {valid:true,observedMaxStack:observedMax,reachableInstructions:states.size};
  }
- function pureHelper(clazz,m){
+ function pureHelper(clazz,m,callTargets){
   const d=descriptor(m.descriptor),c=m.code;
   const intTypes=new Set(["Z","B","C","S","I"]);
-  if(!(m.accessFlags&8)||!d||!intTypes.has(d.result)||d.args.some(x=>!intTypes.has(x))||!c||c.decodeError)return null;
+  if(!(m.accessFlags&8)||!d||(d.result!=="V"&&!intTypes.has(d.result))||d.args.some(x=>!intTypes.has(x))||!c||c.decodeError)return null;
   if(c.exceptions&&c.exceptions.length)return null;
   if(m.name.startsWith("<")||RESTRICTED.test(clazz.className+"."+m.name))return null;
   if((c.fieldAccesses||[]).length)return null;
   const ins=c.instructions||[];
   if(!ins.length||ins.length>5000||c.codeLength>20000)return null;
-  const verification=verifyIntBytecode(m,d,c);
+  const verification=verifyIntBytecode(m,d,c,callTargets);
   if(!verification.valid)return null;
   const pcs=new Set(ins.map(x=>x.pc));
   for(const target of c.branchTargets||[])if(!pcs.has(target))return null;
@@ -141,11 +148,14 @@
   }
   const invocationInstructions=ins.filter(x=>/^invoke/.test(x.name));
   for(const x of invocationInstructions){
-   if(x.name!=="invokestatic"||!x.member||x.member.owner!=="java/lang/Math")return null;
+   if(x.name!=="invokestatic"||!x.member)return null;
    const md=descriptor(x.member.descriptor);
-   if(!md||md.args.some(t=>t!=="I")||md.result!=="I")return null;
-   const valid=(x.member.name==="abs"&&md.args.length===1)||((x.member.name==="min"||x.member.name==="max")&&md.args.length===2);
-   if(!valid)return null;
+   if(!md||md.args.some(t=>!intTypes.has(t))||(md.result!=="V"&&!intTypes.has(md.result)))return null;
+   if(x.member.owner==="java/lang/Math"){
+    if(md.result!=="I")return null;
+    const valid=(x.member.name==="abs"&&md.args.length===1)||((x.member.name==="min"||x.member.name==="max")&&md.args.length===2);
+    if(!valid)return null;
+   }else if(!callTargets||!callTargets.has(x.member.owner+"."+x.member.name+x.member.descriptor))return null;
   }
   const params=[];
   for(let i=0;i<d.args.length;i++)params.push("arg"+i);
@@ -216,13 +226,19 @@
      let expr=n==="i2c"?"("+v+" & 65535)":n==="i2b"?"((("+v+" & 255) >= 128) and ("+v+" & 255) - 256 or ("+v+" & 255))":"((("+v+" & 65535) >= 32768) and ("+v+" & 65535) - 65536 or ("+v+" & 65535))";
      code.push(push("__jar2zeus_i32("+expr+")"),fall);
     }else if(n==="invokestatic"){
-     const md=descriptor(x.member.descriptor),args=[];
-     for(let z=0;z<md.args.length;z++)args.unshift(pop());
-     let expr;
-     if(x.member.name==="abs")expr="math.abs("+args[0]+")";
-     else if(x.member.name==="min")expr="math.min("+args.join(", ")+")";
-     else expr="math.max("+args.join(", ")+")";
-     code.push(push("__jar2zeus_i32("+expr+")"),fall);
+     const md=descriptor(x.member.descriptor),args=new Array(md.args.length);
+     for(let z=md.args.length-1;z>=0;z--){const variable="__call_arg_"+z;code.push("local "+variable+" = "+pop());args[z]=variable;}
+     if(x.member.owner==="java/lang/Math"){
+      let expr;
+      if(x.member.name==="abs")expr="math.abs("+args[0]+")";
+      else if(x.member.name==="min")expr="math.min("+args.join(", ")+")";
+      else expr="math.max("+args.join(", ")+")";
+      code.push(push("__jar2zeus_i32("+expr+")"),fall);
+     }else{
+      const targetKey=x.member.owner+"."+x.member.name+x.member.descriptor;
+      const call="__jar2zeus_call("+q(targetKey)+(args.length?", "+args.join(", "):"")+")";
+      if(md.result==="V")code.push(call,fall);else code.push(push(call),fall);
+     }
     }else if(n==="pop")code.push(pop(),fall);
     else if(n==="pop2")code.push(pop(),pop(),fall);
     else if(n==="dup"){
@@ -258,7 +274,8 @@
      code.push("else __pc = "+(x.pc+x.defaultOffset)+" end");
     }else if(n==="ireturn"){
      const v=pop();code.push("return "+integerReturn(v));
-    }else return null;
+    }else if(n==="return")code.push("return");
+    else return null;
    }
    cases.push((i===0?"if":"elseif")+" __pc == "+x.pc+" then\n      "+code.join("\n      "));
   }
@@ -305,14 +322,77 @@
  }
  function run(input){
   const classes=Array.isArray(input&&input.classes)?input.classes:[];
-  const report={schema:"jar2zeus.reimplementation.v1",engine:"integer-control-flow-subset",status:"analysis-only",classesSeen:classes.length,methodsSeen:0,utilityMethodsTranslated:0,controlFlowMethodsTranslated:0,methodsPending:0,methodsSkipped:0,translated:[],pending:[],skipped:[],warnings:[]};
+  const report={schema:"jar2zeus.reimplementation.v1",engine:"integer-control-flow-and-internal-static-call-subset",status:"analysis-only",classesSeen:classes.length,methodsSeen:0,utilityMethodsTranslated:0,controlFlowMethodsTranslated:0,internalCallMethodsTranslated:0,internalCallsTranslated:0,voidMethodsTranslated:0,methodsPending:0,methodsSkipped:0,callGraph:{nodes:[],edges:[],recursiveEdges:[]},translated:[],pending:[],skipped:[],warnings:[]};
   const plan={schema:"jar2zeus.reimplementation-plan.v1",tasks:[],featureCounts:{},notes:[
    "自動翻訳は整数系static補助メソッドの限定的なJVM命令に限ります。",
    "対応する条件分岐・switch・ループは命令予算を設けたLua実行関数へ変換します。",
+   "同じJAR内で検証に合格したstatic補助メソッド間の呼び出しのみ接続します。",
+   "Java側メソッドの呼び出し深度には安全上限を設け、例外はLua側へ伝播します。",
    "Minecraft/Forge/Fabricの状態・イベント処理はZeus APIアダプターによる再設計が必要です。",
    "生成した補助関数はJava側の呼び出し経路やゲームイベントへ自動接続されるわけではありません。"
   ]};
-  const lua=["-- Conservative Java-to-Lua reimplementation generated by Jar2Zeus.","local __jar2zeus_java_helpers = {}","local function __jar2zeus_i32(v) v = math.tointeger(v) or error('Java int conversion overflow'); v = v & 0xffffffff; if v >= 0x80000000 then return v - 0x100000000 end; return v end","local function __jar2zeus_idiv(a,b) if b == 0 then error('java.lang.ArithmeticException: / by zero') end; if a == -2147483648 and b == -1 then return -2147483648 end; local q = math.abs(a) // math.abs(b); if (a < 0) ~= (b < 0) then return -q end; return q end","local function __jar2zeus_irem(a,b) if b == 0 then error('java.lang.ArithmeticException: / by zero') end; return a - __jar2zeus_idiv(a,b) * b end"];
+  const lua=["-- Conservative Java-to-Lua reimplementation generated by Jar2Zeus.","local __jar2zeus_java_helpers = {}","local __jar2zeus_call_depth = 0","local function __jar2zeus_call(key, ...) if __jar2zeus_call_depth >= 128 then error('Java helper call-depth limit exceeded', 2) end; local fn = __jar2zeus_java_helpers[key]; if type(fn) ~= 'function' then error('unresolved Java helper: ' .. tostring(key), 2) end; __jar2zeus_call_depth = __jar2zeus_call_depth + 1; local result = table.pack(pcall(fn, ...)); __jar2zeus_call_depth = __jar2zeus_call_depth - 1; if not result[1] then error(result[2], 0) end; return table.unpack(result, 2, result.n) end","local function __jar2zeus_i32(v) v = math.tointeger(v) or error('Java int conversion overflow'); v = v & 0xffffffff; if v >= 0x80000000 then return v - 0x100000000 end; return v end","local function __jar2zeus_idiv(a,b) if b == 0 then error('java.lang.ArithmeticException: / by zero') end; if a == -2147483648 and b == -1 then return -2147483648 end; local q = math.abs(a) // math.abs(b); if (a < 0) ~= (b < 0) then return -q end; return q end","local function __jar2zeus_irem(a,b) if b == 0 then error('java.lang.ArithmeticException: / by zero') end; return a - __jar2zeus_idiv(a,b) * b end"];
+  const candidates=new Map(),candidateKeys=new Set();
+  for(const clazz of classes){
+   if(!clazz||!clazz.valid||isRestrictedClass(clazz))continue;
+   for(const method of clazz.methods||[]){
+    const d=descriptor(method.descriptor),code=method.code,intTypes=new Set(["Z","B","C","S","I"]);
+    if(!(method.accessFlags&8)||!d||(d.result!=="V"&&!intTypes.has(d.result))||d.args.some(x=>!intTypes.has(x))||!code||code.decodeError||method.name.startsWith("<")||RESTRICTED.test(clazz.className+"."+method.name)||(code.exceptions||[]).length||(code.fieldAccesses||[]).length)continue;
+    const key=clazz.className+"."+method.name+method.descriptor;
+    candidates.set(key,{clazz,method});candidateKeys.add(key);
+   }
+  }
+  // Remove methods whose dependencies are outside the same verified helper subset.
+  let candidatesChanged=true,candidatePasses=0;
+  while(candidatesChanged&&candidatePasses++<=candidates.size){
+   candidatesChanged=false;
+   for(const [key,entry] of Array.from(candidates.entries())){
+    if(!pureHelper(entry.clazz,entry.method,candidateKeys)){
+     candidates.delete(key);candidateKeys.delete(key);candidatesChanged=true;
+    }
+   }
+  }
+  report.callGraph.nodes=Array.from(candidates.keys()).sort();
+  for(const [key,entry] of candidates){
+   for(const call of (entry.method.code.invocations||[])){
+    if((call.kind==="method"||call.kind==="interface-method")&&candidates.has(call.owner+"."+call.name+call.descriptor)){
+     const target=call.owner+"."+call.name+call.descriptor;
+     report.callGraph.edges.push({from:key,to:target});
+     report.internalCallsTranslated++;
+    }
+   }
+  }
+  // Iterative Kosaraju SCC pass: O(V + E), avoids recursive JS stack growth on large JARs.
+  const graphAdj=new Map(report.callGraph.nodes.map(key=>[key,[]]));
+  const reverseAdj=new Map(report.callGraph.nodes.map(key=>[key,[]]));
+  for(const edge of report.callGraph.edges){graphAdj.get(edge.from).push(edge.to);reverseAdj.get(edge.to).push(edge.from);}
+  const visited=new Set(),finishOrder=[];
+  for(const start of report.callGraph.nodes){
+   if(visited.has(start))continue;
+   visited.add(start);
+   const stack=[{node:start,index:0}];
+   while(stack.length){
+    const top=stack[stack.length-1],neighbors=graphAdj.get(top.node)||[];
+    if(top.index<neighbors.length){
+     const next=neighbors[top.index++];
+     if(!visited.has(next)){visited.add(next);stack.push({node:next,index:0});}
+    }else{finishOrder.push(top.node);stack.pop();}
+   }
+  }
+  const componentByNode=new Map(),componentSizes=[];
+  for(let i=finishOrder.length-1;i>=0;i--){
+   const start=finishOrder[i];if(componentByNode.has(start))continue;
+   const component=componentSizes.length,stack=[start];let size=0;componentByNode.set(start,component);
+   while(stack.length){
+    const node=stack.pop();size++;
+    for(const next of reverseAdj.get(node)||[])if(!componentByNode.has(next)){componentByNode.set(next,component);stack.push(next);}
+   }
+   componentSizes.push(size);
+  }
+  for(const edge of report.callGraph.edges){
+   const component=componentByNode.get(edge.from);
+   if(component===componentByNode.get(edge.to)&&(componentSizes[component]>1||edge.from===edge.to))report.callGraph.recursiveEdges.push(edge);
+  }
   for(const clazz of classes){
    if(!clazz||!clazz.valid)continue;
    if(isRestrictedClass(clazz)){
@@ -324,15 +404,18 @@
     if(!m.code)continue;
     report.methodsSeen++;
     if(RESTRICTED.test(m.name||"")){report.methodsSkipped++;continue;}
-    const verification=verifyIntBytecode(m,descriptor(m.descriptor),m.code);
-    const converted=pureHelper(clazz,m);
+    const verification=verifyIntBytecode(m,descriptor(m.descriptor),m.code,candidateKeys);
+    const converted=pureHelper(clazz,m,candidateKeys);
     if(converted){
      const key=clazz.className+"."+m.name+m.descriptor;
      lua.push("__jar2zeus_java_helpers["+q(key)+"] = function("+converted.params.join(", ")+")");
      lua.push(converted.lua);
      lua.push("end");
      report.utilityMethodsTranslated++;
-     report.translated.push({className:clazz.className,method:m.name,descriptor:m.descriptor,kind:"pure-static-primitive-helper",symbol:key,controlFlow:converted.controlFlow===true});
+     const internalCalls=(m.code.invocations||[]).filter(x=>(x.kind==="method"||x.kind==="interface-method")&&candidateKeys.has(x.owner+"."+x.name+x.descriptor)).length;
+     if(internalCalls)report.internalCallMethodsTranslated++;
+     if(descriptor(m.descriptor).result==="V")report.voidMethodsTranslated++;
+     report.translated.push({className:clazz.className,method:m.name,descriptor:m.descriptor,kind:internalCalls?"static-primitive-helper-with-internal-calls":"pure-static-primitive-helper",symbol:key,controlFlow:converted.controlFlow===true,internalCalls});
      if(converted.controlFlow)report.controlFlowMethodsTranslated++;
     }else{
      const feature=role(m),calls=(m.code.invocations||[]).slice(0,60).map(x=>({owner:x.owner,name:x.name,descriptor:x.descriptor}));
@@ -351,6 +434,8 @@
   report.status=report.methodsPending?"partial-reimplementation":report.utilityMethodsTranslated?"utility-subset-translated":"no-translatable-methods";
   if(!report.methodsSeen)report.warnings.push("解析可能なJavaメソッド本体が見つかりませんでした。");
   if(report.methodsPending)report.warnings.push("未再実装のJavaメソッドが残っています。完全移植とは判定しません。");
+  if(report.internalCallsTranslated)report.warnings.push("同一JAR内で検証済みのstatic補助メソッド呼び出しのみ接続しました。対象ゲームのイベントやJavaライフサイクルへの接続は別途必要です。");
+  if(report.callGraph.recursiveEdges.length)report.warnings.push("再帰呼び出しを検出しました。Lua側の呼び出し深度上限128で停止します。");
   if(!report.utilityMethodsTranslated)report.warnings.push("自動翻訳できる単純なint型補助メソッドは見つかりませんでした。");
   return {lua:lua.join("\n")+"\n",report,plan};
  }
