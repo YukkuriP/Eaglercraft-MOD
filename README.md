@@ -8,6 +8,7 @@
 
 1. `index.html` と次のJavaScriptファイルを同じフォルダに置きます。
    - `converter.js`
+   - `config-converter.js`
    - `resource-converter.js`
    - `definition-converter.js`
    - `entity-model-converter.js`
