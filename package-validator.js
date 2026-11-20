@@ -50,6 +50,12 @@
   if(packageLimits.bytes!==listedBytes)errors.push("package byte count does not match the output file list");
   if(!packagePaths.has("metadata.json"))errors.push("metadata.json missing from package root");
   if(!packagePaths.has("main.lua"))errors.push("main.lua missing from package root");
+  const machineRuntimePath="lib/jar2zeus/machine_runtime.lua";
+  if(input.machineRuntimeRequired===true){
+   if(input.machineRuntimeIncluded!==true)errors.push("machine runtime was required but not marked as included");
+   if(!packagePaths.has(machineRuntimePath))errors.push("machine runtime module is missing from the package");
+   if(!metadata||!Array.isArray(metadata.permissions)||!metadata.permissions.includes("gl"))errors.push("machine runtime requires the documented gl permission");
+  }
   if(metadata&&typeof metadata.main==="string"&&!packagePaths.has(metadata.main))errors.push("metadata.main points to a file missing from the package");
   const available=new Set(input.availableTextures||[]);
   for(const m of mappings){
@@ -87,7 +93,9 @@
    (input.entityReport&&Array.isArray(input.entityReport.machineAssetsUnmapped)?input.entityReport.machineAssetsUnmapped.length:0);
   const restrictedResources=!!(input.analysis&&input.analysis.featureReview&&input.analysis.featureReview.restrictedPathCount>0);
   const unsupportedRuntime=!!(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length);
-  const conversionComplete=valid&&!skipped&&!incompleteJava&&skippedResources===0&&!restrictedResources&&!unsupportedRuntime;
+  const machineRuntimeComplete=input.machineRuntimeRequired!==true||
+   (input.machineRuntimeIncluded===true&&packagePaths.has("lib/jar2zeus/machine_runtime.lua")&&Array.isArray(metadata&&metadata.permissions)&&metadata.permissions.includes("gl"));
+  const conversionComplete=valid&&!skipped&&!incompleteJava&&skippedResources===0&&!restrictedResources&&!unsupportedRuntime&&machineRuntimeComplete;
   if(!conversionComplete)warnings.push("The generated package is a partial port; review skipped resources, restricted-content exclusions, Java reimplementation tasks and runtime indicators");
   const readyToImport=conversionComplete&&runtimeTested&&gameplayVerified&&targetEvidence.apiPresenceVerified===true&&targetEvidence.versionVerified===true;
   return {
