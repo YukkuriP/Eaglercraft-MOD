@@ -132,6 +132,8 @@ ZeusのLuaランタイムは公式資料に記載されたLua 5.4を前提にし
 
 出力は `forge-api-compatibility.json` と `diagnostics/forge-api-compatibility.json` です。詳細配列は種類ごとに最大5,000件で、切り詰めた場合も観測総数を保持します。未変換Forge API呼び出し・フィールド・クラス参照が残る場合、パッケージ検証は `conversionComplete=false` とし、手作業での再実装が必要であることを警告します。Forge MODの完全移植を保証する機能ではありません。
 
+参照する公式資料: [Forge Events](https://docs.minecraftforge.net/en/latest/concepts/events/)、[Registries](https://docs.minecraftforge.net/en/latest/concepts/registries/)、[Mod Lifecycle](https://docs.minecraftforge.net/en/latest/concepts/lifecycle/)。ForgeのバージョンごとにAPIやdescriptorが変わるため、検出した呼び出しのdescriptorは保存しますが、利用Forgeバージョンとの互換性までは自動確定しません。
+
 ## Javaイベント・ライフサイクル解析
 
 `java-event-lifecycle.js` は、クラスファイルとFabric / Forge / NeoForge等のローダーメタデータを静的に照合し、初期化メソッド名、宣言されたentrypoint、既知のイベント型参照、イベントバス登録呼び出し、Javaタイマー呼び出しを診断します。Zeus側の候補として記録するイベントは `tick` / `frame` / `resize` / `hud` / `screen_render` / `overlay` / `screen_open` / `screen_close` / `chat_receive` / `chat_send` / `world_join` / `world_leave` / `mod_loaded` / `mod_unloaded` / `unload` に限定しています。イベント名が似ているだけでは互換と判定せず、既知のソースイベント型を参照した場合も「候補」にとどめます。
