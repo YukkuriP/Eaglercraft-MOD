@@ -19,6 +19,7 @@
    - `java-type-compat.js`
    - `generic-mod-analyzer.js`
    - `fabric-api-compat.js`
+   - `minecraft-internal-api-compat.js`
    - `java-event-lifecycle.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
@@ -79,6 +80,7 @@ JSZipをCDNから読み込むため初回利用時にインターネット接続
 - `diagnostics/java-call-graph.json`: Luaへ再実装したstatic補助メソッド間の呼び出しグラフと再帰辺。
 - `diagnostics/java-event-lifecycle.json`: Javaローダー初期化候補、イベント登録候補、Zeus側の候補イベント、タイマー候補、未対応理由。
 - `diagnostics/forge-api-compatibility.json`: Forge APIのクラス参照・メソッド呼び出し・フィールドアクセス、分類根拠、操作候補、未変換状態。
+- `diagnostics/minecraft-internal-api-compatibility.json`: Minecraft本体APIのブロック・アイテム・インベントリ・BlockEntity・ワールド・レシピ等の参照と未変換箇所の診断。
 - `diagnostics/reimplementation-plan.json`: 未実装機能の再実装タスク。
 - `diagnostics/entity-model-report.json`: 3D形状・ボーン・モーションの変換結果と未対応アニメーション。
 - `diagnostics/api-validation.json`: 使用したZeus APIの静的検証結果。
@@ -146,6 +148,18 @@ ZeusのLuaランタイムは公式資料に記載されたLua 5.4を前提にし
 **操作候補は変換済みAPIではありません。** Fabric API／Loader APIをZeus Lua APIへ自動置換する機能ではなく、呼び出しはすべて `unmapped`、クラス参照は `unverified` として残します。Mixin変換、Access Widenerによる可視性変更、Nested JARの実行、lambdaのBootstrapMethods / MethodHandle、コールバックの実装、イベントpayload、APIバージョン差は未解決です。未解決のFabric API呼び出し・クラス参照・entrypoint・変換メタデータが残る場合、パッケージ検証は `conversionComplete=false` として手作業の再実装・確認を要求します。
 
 出力は `fabric-api-compatibility.json` と `diagnostics/fabric-api-compatibility.json` です。呼び出し／フィールド／クラス参照の詳細配列は各5,000件、entrypoint詳細は1,000件までとし、切り詰めても観測総数を保持します。Fabric MODの完全移植やゲーム内動作を保証する機能ではありません。
+## Minecraft本体API互換性インベントリ
+
+`minecraft-internal-api-compat.js` は、MODのクラスファイルから `net.minecraft.*` の型参照、field／method descriptor、メソッド呼び出し、フィールドアクセスを静的に抽出します。ブロック・BlockState、アイテム・ItemStack、インベントリ／コンテナ、BlockEntity（機械の状態管理を含む）、エンティティ・プレイヤー、Level／ワールド、レジストリ・リソースID、レシピ、ワールド生成、コマンド、GUI、描画、音声・パーティクル、ネットワーク、座標・幾何APIを分類します。
+
+既知の `Level.getBlockState/setBlock/getBlockEntity`、`ItemStack` の数量・状態操作、`Container` のスロット操作、`BlockEntity` の位置・変更通知、`Registry` の参照・登録、`ResourceLocation` の生成、`Entity`／`Player`／`Level` の状態参照、`RecipeManager` の検索などは、正確な所有クラスとメソッド名が一致した場合に操作候補として記録します。これはZeus Lua APIへの変換ではありません。候補はすべて `unmapped`、クラス参照は `unverified` のままです。
+
+Minecraft本体の内部APIはバージョン・マッピング・難読化でクラス名やdescriptorが変わります。Mixin、Access Transformer／Widener、reflection、invokedynamic、実行時状態、クライアント／サーバー差は完全には復元できません。したがって、API参照や呼び出しが残るJava MODはパッケージ検証で `conversionComplete=false` になります。対象のクラス名・メソッド名が一致しただけで互換性を保証しません。
+
+制限対象の武器関連クラス・参照は解析対象から除外し、それ以外の建築・装飾・農業・収納・工業・ワールド生成などのAPI参照を調べます。詳細配列は各5,000件、APIクラス一覧は1,000件までで、切り詰めても観測総数を保持します。
+
+出力は `minecraft-internal-api-compatibility.json` と `diagnostics/minecraft-internal-api-compatibility.json` です。完全移植やゲーム内動作を保証する機能ではありません。
+
 ## Javaイベント・ライフサイクル解析
 
 `java-event-lifecycle.js` は、クラスファイルとFabric / Forge / NeoForge等のローダーメタデータを静的に照合し、初期化メソッド名、宣言されたentrypoint、既知のイベント型参照、イベントバス登録呼び出し、Javaタイマー呼び出しを診断します。Zeus側の候補として記録するイベントは `tick` / `frame` / `resize` / `hud` / `screen_render` / `overlay` / `screen_open` / `screen_close` / `chat_receive` / `chat_send` / `world_join` / `world_leave` / `mod_loaded` / `mod_unloaded` / `unload` に限定しています。イベント名が似ているだけでは互換と判定せず、既知のソースイベント型を参照した場合も「候補」にとどめます。
