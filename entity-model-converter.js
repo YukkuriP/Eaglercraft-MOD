@@ -192,7 +192,10 @@
       if(cubes.length)part.cubes=cubes;
      }catch(error){report.skipped.push({path,id,bone:bone.name,reason:error.message});bad=true;break}
      const machineMotion=classifyMachineMotion(bone.name,entityAnimations);
-     const motion=machineMotion?(machineMotion.animation||null):(machineKind(bone.name)?null:classifyMotion(bone.name,entityAnimationNames));
+     const hasRuntimeTrack=!!(machineKind(bone.name)&&entityAnimations.some(animation=>
+      animation.boneTracks&&animation.boneTracks[bone.name]&&(animation.boneTracks[bone.name].supportedChannels||[]).length>0
+     ));
+     const motion=hasRuntimeTrack?null:(machineMotion?(machineMotion.animation||null):(machineKind(bone.name)?null:classifyMotion(bone.name,entityAnimationNames)));
      if(motion){
       part.animation=motion;
       if(/left|_l$|^l_/.test(bone.name.toLowerCase())&&(motion==="leg"||motion==="arm"||motion==="wing"))part.phase=180;
@@ -201,7 +204,7 @@
        report.machineAnimationsMapped.push({entity:id,bone:bone.name,motion:"spin",sourceAnimations:machineMotion.sourceAnimations,approximate:true,limitations:["uses continuous built-in spin","source keyframe timing and exact rotation curve are not preserved"]});
       }
      }
-     if(machineMotion&&!machineMotion.animation){
+     if(machineMotion&&!machineMotion.animation&&!hasRuntimeTrack){
       report.machineAnimationsUnmapped.push({entity:id,bone:bone.name,kind:machineMotion.kind,sourceAnimations:machineMotion.sourceAnimations,reason:machineMotion.reason});
      }
      partByName.set(bone.name,part);rawParts.push({bone,part});
@@ -244,7 +247,7 @@
      }
      for(const error of animation.trackErrors||[]){
       if(machineBoneNames.some(part=>part.name===error.bone)){
-       report.machineAnimationsUnmapped.push({entity:id,bone:error.bone,animation:animation.name,reason:error.reason});
+       report.machineAnimationsUnmapped.push({entity:id,bone:error.bone,animation:animation.name,channel:error.channel,reason:error.reason});
       }
      }
     }
