@@ -120,7 +120,7 @@ $("analyze").onclick=async function(){
    genericEntries.push(ge);
   }
   var genericAnalysis=window.Jar2ZeusGenericAnalyzer.analyze(genericEntries);
-  var bytecodeAnalysis=window.Jar2ZeusBytecodeAnalysis.analyze(javaClassRecords);
+  var bytecodeAnalysis=window.Jar2ZeusBytecodeAnalysis.analyze(genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return entry.classInfo;}));
   genericAnalysis.bytecodeAnalysis=bytecodeAnalysis;
   genericAnalysis.migrationAssessment.bytecodeAnalysis={methodsSeen:bytecodeAnalysis.totals.methodsSeen,methodsVerified:bytecodeAnalysis.totals.methodsVerified,methodsRejected:bytecodeAnalysis.totals.methodsRejected,branches:bytecodeAnalysis.totals.branches,loops:bytecodeAnalysis.totals.loopBackEdges,internalCalls:bytecodeAnalysis.totals.internalInvocations,externalCalls:bytecodeAnalysis.totals.externalInvocations};
   genericAnalysis.migrationAssessment.javaLogicPort="Java bytecode is analyzed and a conservative subset is reimplemented; remaining methods are emitted as explicit adapter tasks.";
