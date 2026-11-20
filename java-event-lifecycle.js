@@ -54,7 +54,7 @@
   const executorOwner=owner==="java/util/concurrent/ScheduledExecutorService"||owner==="java/util/concurrent/ScheduledThreadPoolExecutor";
   const args=signature&&signature.arguments||[];
   if(owner==="java/util/concurrent/CompletableFuture"&&name==="delayedExecutor"&&signature&&((args.length===2&&args[0]==="J"&&args[1]==="Ljava/util/concurrent/TimeUnit;")||(args.length===3&&args[0]==="J"&&args[1]==="Ljava/util/concurrent/TimeUnit;"&&args[2]==="Ljava/util/concurrent/Executor;")))
-   return {recognizedOwner:"java.util.concurrent.CompletableFuture",periodicity:"one-shot",delayKind:"relative-time-unit",delayArgumentIndices:[0],timeUnitArgumentIndex:1,callbackDescriptor:args[2]||null,futureSemantics:"delayed-executor",signatureValid:true,returnDescriptor:signature.returns,zeusApiCandidates:[],status:"candidate-only"};
+   return {recognizedOwner:"java.util.concurrent.CompletableFuture",periodicity:"one-shot",delayKind:"relative-time-unit",delayArgumentIndices:[0],timeUnitArgumentIndex:1,executorDescriptor:args[2]||null,callbackDescriptor:null,futureSemantics:"delayed-executor",signatureValid:true,returnDescriptor:signature.returns,zeusApiCandidates:[],status:"candidate-only"};
   if(owner==="java/util/concurrent/CompletableFuture"&&(name==="orTimeout"||name==="completeOnTimeout")&&signature&&((name==="orTimeout"&&args.length===2&&args[0]==="J"&&args[1]==="Ljava/util/concurrent/TimeUnit;")||(name==="completeOnTimeout"&&args.length===3&&args[1]==="J"&&args[2]==="Ljava/util/concurrent/TimeUnit;")))
    return {recognizedOwner:"java.util.concurrent.CompletableFuture",periodicity:"future-timeout",delayKind:"relative-time-unit",delayArgumentIndices:[name==="orTimeout"?0:1],timeUnitArgumentIndex:name==="orTimeout"?1:2,callbackDescriptor:null,futureSemantics:name,signatureValid:true,returnDescriptor:signature.returns,zeusApiCandidates:[],status:"candidate-only"};
   if(!timerOwner&&!executorOwner||!["schedule","scheduleAtFixedRate","scheduleWithFixedDelay"].includes(name))return null;
@@ -80,7 +80,7 @@
   if(owner==="java/util/Timer"&&name==="cancel"&&args.length===0)return {kind:"timer-cancel",scope:"all-tasks-on-timer",targetResolved:false};
   if(owner==="java/util/Timer"&&name==="purge"&&args.length===0)return {kind:"timer-purge",scope:"remove-cancelled-tasks",targetResolved:false};
   if(owner==="java/util/TimerTask"&&name==="cancel"&&args.length===0)return {kind:"timer-task-cancel",scope:"single-task",targetResolved:false};
-  if((owner==="java/util/concurrent/Future"||owner==="java/util/concurrent/ScheduledFuture")&&name==="cancel"&&args.length===1&&args[0]==="Z")return {kind:"future-cancel",scope:"single-future",interruptFlagRecovered:false,targetResolved:false};
+  if((owner==="java/util/concurrent/Future"||owner==="java/util/concurrent/ScheduledFuture"||owner==="java/util/concurrent/RunnableScheduledFuture")&&name==="cancel"&&args.length===1&&args[0]==="Z")return {kind:"future-cancel",scope:"single-future",interruptFlagRecovered:false,targetResolved:false};
   return null;
  }
  function classifyBlockingWait(call){
