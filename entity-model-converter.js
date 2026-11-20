@@ -112,11 +112,13 @@
  function classifyMachineMotion(boneName,records){
   const kind=machineKind(boneName);
   if(!kind)return null;
-  const related=(records||[]).filter(record=>record.boneTracks&&record.boneTracks[boneName]&&record.boneTracks[boneName].channels.length);
-  if(!related.length)return null;
-  const hasRotation=related.some(record=>record.boneTracks[boneName].hasRotation);
-  const hasPosition=related.some(record=>record.boneTracks[boneName].hasPosition);
-  const loopingRotations=related.filter(record=>record.looping&&record.boneTracks[boneName].hasRotation);
+  const sourceRelated=(records||[]).filter(record=>record.boneTracks&&record.boneTracks[boneName]&&record.boneTracks[boneName].channels.length);
+  if(!sourceRelated.length)return null;
+  const related=sourceRelated.filter(record=>(record.boneTracks[boneName].supportedChannels||record.boneTracks[boneName].channels).length>0);
+  if(!related.length)return {kind,animation:null,sourceAnimations:sourceRelated.map(record=>record.name),reason:"all source keyframes for this part use unsupported values or interpolation"};
+  const hasRotation=related.some(record=>(record.boneTracks[boneName].supportedChannels||record.boneTracks[boneName].channels).includes("rotation"));
+  const hasPosition=related.some(record=>(record.boneTracks[boneName].supportedChannels||record.boneTracks[boneName].channels).includes("position"));
+  const loopingRotations=related.filter(record=>record.looping&&(record.boneTracks[boneName].supportedChannels||record.boneTracks[boneName].channels).includes("rotation"));
   if(kind==="rotary"&&loopingRotations.length){
    return {kind:"rotary",animation:"spin",sourceAnimations:loopingRotations.map(record=>record.name),approximate:true};
   }
@@ -247,7 +249,7 @@
      }
     }
     const animatedMachineBones=machineBoneNames.filter(part=>entityAnimations.some(animation=>
-     animation.boneTracks&&animation.boneTracks[part.name]&&animation.boneTracks[part.name].channels.length>0
+     animation.boneTracks&&animation.boneTracks[part.name]&&(animation.boneTracks[part.name].supportedChannels||[]).length>0
     ));
     if(animatedMachineBones.length&&Object.keys(runtimeAnimations).length){
      const runtimeModel={
@@ -271,7 +273,7 @@
      machineTypes.push(machineType);
      machineLua.push("__j2z_machine_runtime:registerType("+lua(id)+", "+lua(machineType)+")");
      for(const part of animatedMachineBones){
-      const animationNames=entityAnimations.filter(animation=>animation.boneTracks[part.name]&&animation.boneTracks[part.name].channels.length).map(animation=>animation.name);
+      const animationNames=entityAnimations.filter(animation=>animation.boneTracks[part.name]&&(animation.boneTracks[part.name].supportedChannels||[]).length).map(animation=>animation.name);
       report.machineAnimationsMapped.push({entity:id,bone:part.name,animations:animationNames,backend:"lua-machine-runtime",channels:uniqueChannels(animationNames,entityAnimations,part.name)});
      }
      report.machineTypesGenerated.push({id,source:path,parts:runtimeModel.parts.length,animations:Object.keys(runtimeAnimations),animatedMachineParts:animatedMachineBones.map(part=>part.name),note:"Rendered as an independent local virtual machine; not a vanilla block entity"});
