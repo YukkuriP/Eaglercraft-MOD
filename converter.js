@@ -70,6 +70,10 @@
     if(Array.isArray(value.terms))return value.terms.length>0&&value.terms.length<=32&&value.terms.every(item=>validIngredient(item,depth+1));
     return false;
   }
+  function isBlocked(path,parsed){
+    const source=String(path||"")+" "+JSON.stringify(parsed);
+    return BLOCKED.test(source);
+  }
   function validResult(value){
     if(typeof value==="string")return validResourceId(value,false);
     if(!value||typeof value!=="object"||Array.isArray(value))return false;
