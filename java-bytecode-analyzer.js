@@ -64,6 +64,19 @@
    function utf(i){const x=cp[i];return x&&x.tag===1?x.value:null;}
    function cls(i){const x=cp[i];return x&&x.tag===7?utf(x.index):null;}
    function nameType(i){const x=cp[i];return x&&x.tag===12?{name:utf(x.a),descriptor:utf(x.b)}:null;}
+   function methodArgumentSlots(desc){
+    if(typeof desc!=="string"||desc[0]!=="(")return null;
+    let p=1,slots=0;
+    while(p<desc.length&&desc[p]!==")"){
+     let c=desc[p++],array=false;
+     while(c==="["){array=true;c=desc[p++];}
+     if(c==="L"){const end=desc.indexOf(";",p);if(end<0)return null;p=end+1;slots++;}
+     else if("ZBCSIF".includes(c))slots++;
+     else if(c==="J"||c==="D")slots+=array?1:2;
+     else return null;
+    }
+    return desc[p]===")"?slots:null;
+   }
    function member(i){
     const x=cp[i];if(!x||(x.tag!==9&&x.tag!==10&&x.tag!==11))return null;
     const nt=nameType(x.b);return {kind:x.tag===9?"field":x.tag===11?"interface-method":"method",owner:cls(x.a),name:nt&&nt.name,descriptor:nt&&nt.descriptor};
@@ -75,6 +88,32 @@
     if(x.tag===7)return {class:cls(i)};
     return null;
    }
+   const cpErrors=[];
+   function cpCheck(ok,message){if(!ok)cpErrors.push(message);}
+   for(let ci=1;ci<cp.length;ci++){
+    const x=cp[ci];if(!x)continue;
+    if(x.tag===7)cpCheck(!!utf(x.index),"CONSTANT_Class has an invalid name_index at #"+ci);
+    else if(x.tag===8)cpCheck(!!utf(x.index),"CONSTANT_String has an invalid string_index at #"+ci);
+    else if(x.tag===16){cpCheck(out.major>=51,"CONSTANT_MethodType requires class-file version 51 or newer");cpCheck(!!utf(x.index),"CONSTANT_MethodType has an invalid descriptor_index at #"+ci);}
+    else if(x.tag===19||x.tag===20){cpCheck(out.major>=53,"module/package constants require class-file version 53 or newer");cpCheck(!!utf(x.index),"module/package constant has an invalid name_index at #"+ci);}
+    else if(x.tag===9||x.tag===10||x.tag===11){
+     cpCheck(!!cls(x.a),"member reference has an invalid class_index at #"+ci);
+     const nt=nameType(x.b);cpCheck(!!nt&&!!nt.name&&!!nt.descriptor,"member reference has an invalid NameAndType at #"+ci);
+    }else if(x.tag===12)cpCheck(!!utf(x.a)&&!!utf(x.b),"NameAndType has an invalid UTF-8 reference at #"+ci);
+    else if(x.tag===15){
+     cpCheck(out.major>=51,"CONSTANT_MethodHandle requires class-file version 51 or newer");
+     const ref=cp[x.index],kind=x.kind;
+     const allowed=kind>=1&&kind<=4?ref&&ref.tag===9:
+      kind===5||kind===8?ref&&ref.tag===10:
+      kind===6||kind===7?ref&&(ref.tag===10||(out.major>=52&&ref.tag===11)):
+      kind===9?ref&&ref.tag===11:false;
+     cpCheck(!!allowed,"MethodHandle has an invalid reference_kind/reference_index at #"+ci);
+    }else if(x.tag===17||x.tag===18){
+     cpCheck(x.tag===17?out.major>=55:out.major>=51,"Dynamic/InvokeDynamic constant is not supported by this class-file version");
+     const nt=nameType(x.b);cpCheck(!!nt&&!!nt.name&&!!nt.descriptor,"Dynamic constant has an invalid NameAndType at #"+ci);
+    }
+   }
+   if(cpErrors.length)throw new Error(cpErrors.slice(0,8).join("; "));
    function decodeCode(code){
     const ins=[],counts={},calls=[],fieldRefs=[],strings=[],branches=[];
     let q=0;
@@ -90,26 +129,67 @@
      const x={pc,opcode:op,name};counts[name]=(counts[name]||0)+1;
      if(op===0x10)x.operand=signedByte();
      else if(op===0x11)x.operand=signedShort();
-     else if(op===0x12){x.cpIndex=byte();x.constant=constant(x.cpIndex);x.constantTag=cp[x.cpIndex]&&cp[x.cpIndex].tag;}
-     else if(op===0x13||op===0x14){x.cpIndex=short();x.constant=constant(x.cpIndex);x.constantTag=cp[x.cpIndex]&&cp[x.cpIndex].tag;}
+     else if(op===0x12||op===0x13||op===0x14){
+      x.cpIndex=op===0x12?byte():short();const entry=cp[x.cpIndex];x.constant=constant(x.cpIndex);x.constantTag=entry&&entry.tag;
+      if(!entry)throw new Error("ldc instruction has an invalid constant-pool index");
+      if(op===0x14){
+       if(entry.tag!==5&&entry.tag!==6&&!(entry.tag===17&&["J","D"].includes(nameType(entry.b)?.descriptor)))
+        throw new Error("ldc2_w requires a long, double or category-2 dynamic constant");
+      }else if(![3,4,7,8,15,16,17].includes(entry.tag)){
+       throw new Error("ldc/ldc_w references an unsupported constant-pool tag "+entry.tag);
+      }else if(entry.tag===17&&["J","D"].includes(nameType(entry.b)?.descriptor)){
+       throw new Error("ldc/ldc_w cannot load a category-2 dynamic constant");
+      }
+     }
      else if((op>=0x15&&op<=0x19)||(op>=0x36&&op<=0x3a)||op===0xa9||op===0xbc)x.operand=byte();
      else if(op===0x84){x.local=byte();x.increment=signedByte();}
      else if((op>=0x99&&op<=0xa8)||op===0xc6||op===0xc7){x.offset=signedShort();x.target=pc+x.offset;branches.push(x.target);}
      else if(op===0xc8||op===0xc9){x.offset=signedInt();x.target=pc+x.offset;branches.push(x.target);}
-     else if((op>=0xb2&&op<=0xb8)||op===0xbb||op===0xbd||op===0xc0||op===0xc1){x.cpIndex=short();x.member=member(x.cpIndex);x.className=cls(x.cpIndex);if(x.member){if(op>=0xb2&&op<=0xb5)fieldRefs.push(x.member);else calls.push(x.member);}}
-     else if(op===0xb9){x.cpIndex=short();x.count=byte();x.zero=byte();x.member=member(x.cpIndex);if(x.member)calls.push(x.member);}
-     else if(op===0xba){x.cpIndex=short();x.zero=short();const dyn=cp[x.cpIndex],nt=dyn&&dyn.tag===18?nameType(dyn.b):null;x.dynamic=nt||null;}
-     else if(op===0xc5){x.cpIndex=short();x.dimensions=byte();x.className=cls(x.cpIndex);}
+     else if((op>=0xb2&&op<=0xb8)||op===0xbb||op===0xbd||op===0xc0||op===0xc1){
+      x.cpIndex=short();const entry=cp[x.cpIndex];x.member=member(x.cpIndex);x.className=cls(x.cpIndex);
+      if(!entry)throw new Error("member/type instruction has an invalid constant-pool index");
+      if(op>=0xb2&&op<=0xb5){
+       if(entry.tag!==9)throw new Error("field access must reference CONSTANT_Fieldref");
+       if(x.member)fieldRefs.push(x.member);
+      }else if(op===0xb6){
+       if(entry.tag!==10)throw new Error("invokevirtual must reference CONSTANT_Methodref");
+       if(x.member)calls.push(x.member);
+      }else if(op===0xb7||op===0xb8){
+       if(entry.tag!==10&&!(out.major>=52&&entry.tag===11))throw new Error("invokespecial/invokestatic has an invalid method reference tag");
+       if(x.member)calls.push(x.member);
+      }else{
+       if(entry.tag!==7||!x.className)throw new Error("type instruction must reference CONSTANT_Class");
+      }
+     }
+     else if(op===0xb9){
+      x.cpIndex=short();x.count=byte();x.zero=byte();x.member=member(x.cpIndex);
+      if(!x.member||x.member.kind!=="interface-method")throw new Error("invokeinterface must reference CONSTANT_InterfaceMethodref");
+      const argumentSlots=x.member?methodArgumentSlots(x.member.descriptor):null;
+      if(x.count===0||x.zero!==0||argumentSlots===null||x.count!==argumentSlots+1)throw new Error("invalid invokeinterface count, method descriptor or trailing byte");
+      if(x.member)calls.push(x.member);
+     }
+     else if(op===0xba){
+      x.cpIndex=short();x.zero=short();const dyn=cp[x.cpIndex],nt=dyn&&dyn.tag===18?nameType(dyn.b):null;
+      if(!dyn||dyn.tag!==18||x.zero!==0||methodArgumentSlots(nt&&nt.descriptor)===null)throw new Error("invokedynamic must reference a valid CONSTANT_InvokeDynamic method descriptor and have zero trailing bytes");
+      x.dynamic=nt||null;
+     }
+     else if(op===0xc5){
+      x.cpIndex=short();x.dimensions=byte();x.className=cls(x.cpIndex);
+      let arrayDepth=0;if(x.className)while(x.className[arrayDepth]==="[")arrayDepth++;
+      if(!x.className||cp[x.cpIndex].tag!==7||arrayDepth===0||x.dimensions<1||x.dimensions>arrayDepth)
+       throw new Error("invalid multianewarray class or dimensions");
+     }
      else if(op===0xaa){
-      while(q%4!==0)byte();
+      while(q%4!==0){if(byte()!==0)throw new Error("non-zero switch padding");}
       x.defaultOffset=signedInt();x.low=signedInt();x.high=signedInt();x.targets=[];
-      const count=x.high-x.low+1;if(count<0||count>100000)throw new Error("invalid tableswitch range");
+      const count=x.high-x.low+1;if(count<1||count>Math.floor((code.length-q)/4))throw new Error("invalid tableswitch range or truncated target table");
       for(let k=0;k<count;k++)x.targets.push(pc+signedInt());
       branches.push(pc+x.defaultOffset,...x.targets);
      }else if(op===0xab){
-      while(q%4!==0)byte();
-      x.defaultOffset=signedInt();const count=signedInt();if(count<0||count>100000)throw new Error("invalid lookupswitch size");
-      x.pairs=[];for(let k=0;k<count;k++)x.pairs.push({key:signedInt(),target:pc+signedInt()});
+      while(q%4!==0){if(byte()!==0)throw new Error("non-zero switch padding");}
+      x.defaultOffset=signedInt();const count=signedInt();if(count<0||count>Math.floor((code.length-q)/8))throw new Error("invalid lookupswitch size or truncated pair table");
+      x.pairs=[];let previousKey=-Infinity;
+      for(let k=0;k<count;k++){const key=signedInt(),target=pc+signedInt();if(key<=previousKey)throw new Error("lookupswitch keys are not strictly increasing");previousKey=key;x.pairs.push({key,target});}
       branches.push(pc+x.defaultOffset,...x.pairs.map(z=>z.target));
      }else if(op===0xc4){
       x.wideOpcode=byte();x.name=OPCODES[x.wideOpcode];
@@ -127,28 +207,37 @@
    }
    out.accessFlags=u2();const thisIndex=u2(),superIndex=u2();
    out.className=cls(thisIndex);out.superName=superIndex?cls(superIndex):null;
-   const intCount=u2();for(let i=0;i<intCount;i++)out.interfaces.push(cls(u2()));
+   if(!out.className)throw new Error("this_class does not reference a valid CONSTANT_Class");
+   if(superIndex&&!out.superName)throw new Error("super_class does not reference a valid CONSTANT_Class");
+   const intCount=u2();for(let i=0;i<intCount;i++){const interfaceName=cls(u2());if(!interfaceName)throw new Error("interface index does not reference a valid CONSTANT_Class");out.interfaces.push(interfaceName);}
    function readMembers(target,isMethod){
     const count=u2();
     for(let i=0;i<count;i++){
      const access=u2(),name=utf(u2()),descriptor=utf(u2()),record={accessFlags:access,name,descriptor,attributes:[]};
+     if(!name||!descriptor)throw new Error("member name or descriptor does not reference CONSTANT_Utf8");
      const ac=u2();
      for(let j=0;j<ac;j++){
       const attrName=utf(u2()),length=u4(),end=p+length;
+      if(!attrName)throw new Error("attribute name is not CONSTANT_Utf8");
       if(end>view.byteLength)throw new Error("attribute exceeds class file boundary");
       if(isMethod&&attrName==="Code"){
+       if(record.code)throw new Error("method has more than one Code attribute");
        const maxStack=u2(),maxLocals=u2(),codeLength=u4();
-       if(codeLength>65535)throw new Error("Code.code_length exceeds JVM class-file limit");
+       if(codeLength===0||codeLength>65535)throw new Error("Code.code_length must be between 1 and 65535");
        const codeBytes=take(codeLength);
        const exceptionCount=u2(),exceptions=[];
-       for(let z=0;z<exceptionCount;z++)exceptions.push({start:u2(),end:u2(),handler:u2(),catchType:cls(u2())});
+       for(let z=0;z<exceptionCount;z++){const start=u2(),end=u2(),handler=u2(),catchIndex=u2(),catchType=catchIndex?cls(catchIndex):null;if(catchIndex&&!catchType)throw new Error("exception catch_type does not reference CONSTANT_Class");exceptions.push({start,end,handler,catchType});}
        const nested=u2();
-       for(let z=0;z<nested;z++){u2();const n=u4();take(n);}
+       for(let z=0;z<nested;z++){const nestedName=utf(u2()),n=u4();if(!nestedName)throw new Error("Code nested attribute name is not CONSTANT_Utf8");take(n);}
        let decoded;
        try{decoded=decodeCode(codeBytes);}catch(error){decoded={instructions:[],opcodeCounts:{},invocations:[],fieldAccesses:[],stringConstants:[],branchTargets:[],decodeError:error.message};}
        record.code={maxStack,maxLocals,codeLength,instructions:decoded.instructions,opcodeCounts:decoded.opcodeCounts,invocations:decoded.invocations,fieldAccesses:decoded.fieldAccesses,stringConstants:decoded.stringConstants,branchTargets:decoded.branchTargets,exceptions,decodeError:decoded.decodeError||null};
+       record.code.verification=root.Jar2ZeusBytecodeVerifier?
+        root.Jar2ZeusBytecodeVerifier.verify({code:record.code,descriptor,isStatic:!!(access&8)}):
+        {valid:false,structuralOnly:true,errors:["bytecode-verifier.js was not loaded"],warnings:[]};
       }else take(length);
       if(p>end)throw new Error("method attribute overread: "+attrName);
+      if(attrName==="Code"&&p!==end)throw new Error("Code attribute length does not match its parsed contents");
       if(p!==end) p=end;
       record.attributes.push(attrName);
      }
@@ -157,7 +246,8 @@
    }
    readMembers(out.fields,false);readMembers(out.methods,true);
    const attrCount=u2();
-   for(let i=0;i<attrCount;i++){u2();const n=u4();take(n);}
+   for(let i=0;i<attrCount;i++){const attributeName=utf(u2());if(!attributeName)throw new Error("class attribute name is not CONSTANT_Utf8");const n=u4();take(n);}
+   if(p!==view.byteLength)throw new Error("trailing bytes remain after the class-file structure");
    const refs=new Set([out.className,out.superName,...out.interfaces].filter(Boolean));
    for(let ci=1;ci<cp.length;ci++){if(cp[ci]&&cp[ci].tag===7){const v=cls(ci);if(v)refs.add(v);}}
    for(const m of out.methods)if(m.code)for(const inv of m.code.invocations)if(inv.owner)refs.add(inv.owner);
