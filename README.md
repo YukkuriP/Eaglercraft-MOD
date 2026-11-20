@@ -14,6 +14,7 @@
    - `machine-runtime-data-0.js`
    - `machine-runtime-data-1.js`
    - `machine-runtime-data-2.js`
+   - `machine-runtime-data-3.js`
    - `machine-runtime-source.js`
    - `generic-mod-analyzer.js`
    - `java-bytecode-analyzer.js`
@@ -76,6 +77,7 @@ Lua機械ランタイムは、ギアだけでなく、対応するanimation JSON
 - `diagnostics/entity-model-report.json`: 3D形状・ボーン・モーションの変換結果と未対応アニメーション。
 - `diagnostics/machine-animation-report.json`: 機械パーツごとの変換・未対応チャネル。
 - `diagnostics/machine-runtime-report.json`: 同梱したLua機械ランタイムの機能と制限。
+- `diagnostics/machine-runtime-api-validation.json`: 同梱ランタイムが呼び出すAPI名の静的検査結果。
 - `lib/jar2zeus/machine_runtime.lua`: 機械アニメーションが検出された場合に同梱されるLua実行モジュール。
 - `diagnostics/api-validation.json`: 使用したZeus APIの静的検証結果。
 - `diagnostics/zeus-runtime-probe.lua`: 対象ゲーム内でAPIの存在を確認する読み取り専用プローブ。
