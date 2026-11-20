@@ -28,6 +28,60 @@
   for(const api of REGISTRATION_APIS)if(api.owners.has(owner)&&api.methods.has(name))return {framework:api.framework,owner,name};
   return null;
  }
+ function parseMethodDescriptor(value){
+  const desc=String(value||"");
+  if(desc[0]!=="(")return null;
+  let p=1;const args=[];
+  function readType(allowVoid){
+   const start=p;let c=desc[p++];
+   while(c==="[")c=desc[p++];
+   if(c==="L"){
+    const end=desc.indexOf(";",p);if(end<0)return null;
+    const name=desc.slice(p,end);if(!name||/[.\\[\\s]/.test(name))return null;
+    p=end+1;
+   }else if(!"ZBCSIJFD".includes(c)&&!(allowVoid&&c==="V"&&p===start+1))return null;
+   return desc.slice(start,p);
+  }
+  while(p<desc.length&&desc[p]!==")"){const type=readType(false);if(!type)return null;args.push(type);}
+  if(desc[p++]!==")")return null;
+  const result=readType(true);if(!result||p!==desc.length)return null;
+  return {arguments:args,returns:result};
+ }
+ function classifyTimerCall(call){
+  const owner=String(call&&call.owner||""),name=String(call&&call.name||"");
+  const signature=parseMethodDescriptor(call&&call.descriptor);
+  const timerOwner=owner==="java/util/Timer";
+  const executorOwner=owner==="java/util/concurrent/ScheduledExecutorService"||owner==="java/util/concurrent/ScheduledThreadPoolExecutor";
+  if(!timerOwner&&!executorOwner||!["schedule","scheduleAtFixedRate","scheduleWithFixedDelay"].includes(name))return null;
+  const args=signature&&signature.arguments||[];
+  let periodicity="unresolved-signature",delayKind="unresolved",delayArgumentIndices=[],timeUnitArgumentIndex=null,dateBased=false;
+  if(timerOwner&&args[0]==="Ljava/util/TimerTask;"){
+   if(name==="schedule"&&args.length===2&&args[1]==="J"){periodicity="one-shot";delayKind="relative-milliseconds";delayArgumentIndices=[1];}
+   else if(name==="schedule"&&args.length===2&&args[1]==="Ljava/util/Date;"){periodicity="one-shot";delayKind="absolute-date";delayArgumentIndices=[1];dateBased=true;}
+   else if(name==="schedule"&&args.length===3&&args[1]==="J"&&args[2]==="J"){periodicity="fixed-delay";delayKind="relative-milliseconds";delayArgumentIndices=[1,2];}
+   else if(name==="schedule"&&args.length===3&&args[1]==="Ljava/util/Date;"&&args[2]==="J"){periodicity="fixed-delay";delayKind="absolute-date-plus-period-milliseconds";delayArgumentIndices=[1,2];dateBased=true;}
+   else if(name==="scheduleAtFixedRate"&&args.length===3&&args[1]==="J"&&args[2]==="J"){periodicity="fixed-rate";delayKind="relative-milliseconds";delayArgumentIndices=[1,2];}
+   else if(name==="scheduleAtFixedRate"&&args.length===3&&args[1]==="Ljava/util/Date;"&&args[2]==="J"){periodicity="fixed-rate";delayKind="absolute-date-plus-period-milliseconds";delayArgumentIndices=[1,2];dateBased=true;}
+  }else if(executorOwner&&(args[0]==="Ljava/lang/Runnable;"||args[0]==="Ljava/util/concurrent/Callable;")){
+   if(name==="schedule"&&args.length===3&&args[1]==="J"&&args[2]==="Ljava/util/concurrent/TimeUnit;"){periodicity="one-shot";delayKind="relative-time-unit";delayArgumentIndices=[1];timeUnitArgumentIndex=2;}
+   else if((name==="scheduleAtFixedRate"||name==="scheduleWithFixedDelay")&&args.length===4&&args[1]==="J"&&args[2]==="J"&&args[3]==="Ljava/util/concurrent/TimeUnit;"){
+    periodicity=name==="scheduleAtFixedRate"?"fixed-rate":"fixed-delay";delayKind="relative-time-unit";delayArgumentIndices=[1,2];timeUnitArgumentIndex=3;
+   }
+  }
+  return {recognizedOwner:timerOwner?"java.util.Timer":"java.util.concurrent.ScheduledExecutorService",periodicity,delayKind,delayArgumentIndices,timeUnitArgumentIndex,callbackDescriptor:args[0]||null,dateBased,signatureValid:!!signature,returnDescriptor:signature&&signature.returns||null,zeusApiCandidates:periodicity==="one-shot"?["timer.after"]:periodicity==="fixed-rate"||periodicity==="fixed-delay"?["timer.every"]:[],status:periodicity==="unresolved-signature"?"unresolved-signature":"candidate-only"};
+ }
+ function classifyBlockingWait(call){
+  const owner=String(call&&call.owner||""),name=String(call&&call.name||""),d=parseMethodDescriptor(call&&call.descriptor),args=d&&d.arguments||[];
+  if(owner==="java/lang/Thread"&&name==="sleep"&&((args.length===1&&args[0]==="J")||(args.length===2&&args[0]==="J"&&args[1]==="I")))
+   return {kind:"thread-sleep",delayKind:"milliseconds-plus-optional-nanoseconds",durationValueRecovered:false,zeusTimerEquivalent:false};
+  if(owner==="java/lang/Object"&&name==="wait"&&(args.length===0||(args.length===1&&args[0]==="J")||(args.length===2&&args[0]==="J"&&args[1]==="I")))
+   return {kind:"monitor-wait",delayKind:args.length?"milliseconds-plus-optional-nanoseconds":"indefinite-until-notified",durationValueRecovered:false,zeusTimerEquivalent:false};
+  if(owner==="java/util/concurrent/locks/LockSupport"&&["park","parkNanos","parkUntil"].includes(name))
+   return {kind:"lock-support-"+name,delayKind:name==="park"?"indefinite-or-unpark":name==="parkNanos"?"nanoseconds":"absolute-time",durationValueRecovered:false,zeusTimerEquivalent:false};
+  if(owner==="java/util/concurrent/TimeUnit"&&name==="sleep"&&args.length===1&&args[0]==="J")
+   return {kind:"time-unit-sleep",delayKind:"receiver-selected-time-unit",durationValueRecovered:false,zeusTimerEquivalent:false};
+  return null;
+ }
  const DETAIL_LIMIT=5000;
  function appendDetail(report,key,value){
   report.observed[key]=(report.observed[key]||0)+1;
@@ -114,15 +168,16 @@
    scope:"static class-file and loader metadata inspection only; Java callbacks are never executed or auto-wired",
    status:"analysis-only",
    loaders:Array.isArray(loaderAnalysis.loaders)?loaderAnalysis.loaders.slice():[],
-   totals:{classesSeen:classes.length,classesAnalyzed:accepted.length,restrictedClassesSkipped:excluded.length,loaderEntrypoints:0,entrypointsResolved:0,entrypointsUnresolved:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrationSites:0,ambiguousEventRegistrationSites:0,unclassifiedEventRegistrationSites:0,timerSites:0,annotationBearingMethods:0,autoWiredHandlers:0},
-   observed:{loaderEntrypoints:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrations:0,timerSites:0,annotationCandidates:0},
-   truncation:{loaderEntrypoints:false,lifecycleCandidates:false,eventReferenceCandidates:false,eventRegistrations:false,timerSites:false,annotationCandidates:false},
+   totals:{classesSeen:classes.length,classesAnalyzed:accepted.length,restrictedClassesSkipped:excluded.length,loaderEntrypoints:0,entrypointsResolved:0,entrypointsUnresolved:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrationSites:0,ambiguousEventRegistrationSites:0,unclassifiedEventRegistrationSites:0,timerSites:0,oneShotTimerSites:0,fixedRateTimerSites:0,fixedDelayTimerSites:0,unresolvedTimerSignatures:0,blockingWaitSites:0,annotationBearingMethods:0,autoWiredHandlers:0},
+   observed:{loaderEntrypoints:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrations:0,timerSites:0,blockingWaitSites:0,annotationCandidates:0},
+   truncation:{loaderEntrypoints:false,lifecycleCandidates:false,eventReferenceCandidates:false,eventRegistrations:false,timerSites:false,blockingWaitSites:false,annotationCandidates:false},
    loaderEntrypoints:[],
    lifecycleCandidates:[],
    eventRegistrations:[],
    eventReferenceCandidates:[],
    annotationCandidates:[],
    timerSites:[],
+   blockingWaitSites:[],
    zeusEventCatalog:Array.from(ZEUS_SAFE_EVENTS),
    warnings:[],
    limitations:[
@@ -209,19 +264,26 @@
     }
     for(const call of calls){
      const owner=String(call.owner||""),name=String(call.name||"");
-     const isTimerOwner=/^java\/util\/(?:Timer|concurrent\/(?:ScheduledExecutorService|ScheduledThreadPoolExecutor))$/.test(owner);
-     const isTimerMethod=["schedule","scheduleAtFixedRate","scheduleWithFixedDelay"].includes(name);
-     if(!isTimerOwner||!isTimerMethod)continue;
-     const recurring=name==="scheduleAtFixedRate"||name==="scheduleWithFixedDelay";
-     appendDetail(report,"timerSites",{
+     const timer=classifyTimerCall(call);
+     if(timer){
+      if(timer.periodicity==="one-shot")report.totals.oneShotTimerSites++;
+      else if(timer.periodicity==="fixed-rate")report.totals.fixedRateTimerSites++;
+      else if(timer.periodicity==="fixed-delay")report.totals.fixedDelayTimerSites++;
+      else report.totals.unresolvedTimerSignatures++;
+      appendDetail(report,"timerSites",Object.assign({
+       className:clazz.className,method:method.name,descriptor:method.descriptor,pc:Number.isInteger(call.pc)?call.pc:null,
+       javaOwner:owner,javaMethod:name,javaDescriptor:call.descriptor||null,
+       delayValuesRecovered:false,timeUnitValueRecovered:false,callbackResolved:false,autoWired:false,
+       cancellationSemanticsRecovered:false,exceptionPolicyRecovered:false,threadingSemanticsRecovered:false,
+       reason:"Method descriptor identifies the scheduling overload, but bytecode stack arguments do not recover delay values, TimeUnit enum constants, callback target, cancellation or exception/thread behavior. Zeus timers use seconds and are checked once per frame; fixed-delay timing may differ from timer.every."
+      },timer));
+     }
+     const wait=classifyBlockingWait(call);
+     if(wait)appendDetail(report,"blockingWaitSites",Object.assign({
       className:clazz.className,method:method.name,descriptor:method.descriptor,pc:Number.isInteger(call.pc)?call.pc:null,
-      javaOwner:owner,javaMethod:name,javaDescriptor:call.descriptor||null,
-      periodicity:name==="scheduleAtFixedRate"?"fixed-rate":name==="scheduleWithFixedDelay"?"fixed-delay":"unknown-single-or-periodic",
-      hasTimeUnitParameter:/Ljava\/util\/concurrent\/TimeUnit;/.test(call.descriptor||""),
-      zeusApiCandidates:recurring?["timer.every"]:["timer.after","timer.every"],
-      status:"candidate-only",callbackResolved:false,autoWired:false,
-      reason:"Java scheduler callback, actual delay values and units, cancellation, exception policy and threading are not reconstructed. Zeus timer.after/every use seconds and timers are checked once per frame; choose and implement the equivalent explicitly."
-     });
+      javaOwner:owner,javaMethod:name,javaDescriptor:call.descriptor||null,autoWired:false,
+      reason:"This is a blocking or monitor wait, not an event timer. Its control-flow, wake-up and thread semantics are not converted to a Zeus timer."
+     },wait));
     }
    }
    for(const rule of matches){
@@ -239,11 +301,13 @@
   report.totals.eventReferenceCandidates=report.observed.eventReferenceCandidates;
   report.totals.eventRegistrationSites=report.observed.eventRegistrations;
   report.totals.timerSites=report.observed.timerSites;
-  report.reportedCounts={loaderEntrypoints:report.loaderEntrypoints.length,lifecycleCandidates:report.lifecycleCandidates.length,eventReferenceCandidates:report.eventReferenceCandidates.length,eventRegistrations:report.eventRegistrations.length,timerSites:report.timerSites.length,annotationCandidates:report.annotationCandidates.length};
+  report.totals.blockingWaitSites=report.observed.blockingWaitSites;
+  report.reportedCounts={loaderEntrypoints:report.loaderEntrypoints.length,lifecycleCandidates:report.lifecycleCandidates.length,eventReferenceCandidates:report.eventReferenceCandidates.length,eventRegistrations:report.eventRegistrations.length,timerSites:report.timerSites.length,blockingWaitSites:report.blockingWaitSites.length,annotationCandidates:report.annotationCandidates.length};
   report.detailLimit=DETAIL_LIMIT;
   if(report.eventRegistrations.length)report.warnings.push("Event registration sites were found, but no Java callback was connected to a Zeus listener.");
   if(report.eventReferenceCandidates.length)report.warnings.push("Known source event classes were referenced without a proven registration site; these are not confirmed listeners.");
-  if(report.timerSites.length)report.warnings.push("Java timer/scheduler calls were found, but no timer callback was converted.");
+  if(report.timerSites.length)report.warnings.push("Java timer/scheduler overloads were classified by descriptor, but delay values, callback targets and cancellation semantics were not converted.");
+  if(report.blockingWaitSites.length)report.warnings.push("Blocking sleep/wait calls were found; they are not equivalent to Zeus event timers and remain unconverted.");
   if(report.totals.annotationBearingMethods)report.warnings.push("Annotation-bearing methods exist; annotation values are not decoded, so annotation-based event subscriptions may be missing.");
   if(report.loaderEntrypoints.length)report.warnings.push("Loader metadata contains entrypoint declarations. Entrypoint classes and execution behavior require a loader-specific rewrite.");
   if(!report.totals.eventRegistrationSites&&!report.totals.eventReferenceCandidates&&!report.totals.timerSites)report.warnings.push("No supported event-registration or timer pattern was confirmed from the available class-file evidence.");
@@ -252,9 +316,9 @@
    {task:"review-lifecycle-methods",pending:report.totals.lifecycleCandidates+report.totals.annotationBearingMethods,requiredWork:"Confirm whether name-based or annotation-bearing methods are real loader/event entrypoints; decode annotations and verify execution before rewriting."},
    {task:"resolve-loader-entrypoints",pending:report.totals.loaderEntrypoints,requiredWork:"Resolve the declared loader entrypoint and replace it with safe top-level Lua initialization."},
    {task:"rewrite-event-listeners",pending:report.totals.eventRegistrationSites+report.totals.eventReferenceCandidates,requiredWork:"Resolve the Java callback and port its behavior manually to an equivalent documented Zeus listener."},
-   {task:"rewrite-timers",pending:report.totals.timerSites,requiredWork:"Reimplement supported timing behavior with documented Zeus timer APIs and explicit cancellation handling."}
+   {task:"rewrite-timers",pending:report.totals.timerSites+report.totals.blockingWaitSites,requiredWork:"Resolve timer overloads, delay values and units; distinguish one-shot, fixed-rate, fixed-delay, absolute-date and blocking waits before any manual Zeus-side rewrite."}
   ].filter(task=>task.pending>0);
-  report.status=report.totals.eventRegistrationSites||report.totals.eventReferenceCandidates||report.totals.timerSites||report.totals.loaderEntrypoints||report.totals.lifecycleCandidates||report.totals.annotationBearingMethods?"partial-analysis":"no-event-hooks-detected";
+  report.status=report.totals.eventRegistrationSites||report.totals.eventReferenceCandidates||report.totals.timerSites||report.totals.blockingWaitSites||report.totals.loaderEntrypoints||report.totals.lifecycleCandidates||report.totals.annotationBearingMethods?"partial-analysis":"no-event-hooks-detected";
   // No generated Lua is returned by design: this stage is evidence and planning only.
   return report;
  }
