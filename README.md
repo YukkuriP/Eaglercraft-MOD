@@ -13,6 +13,7 @@
    - `resource-converter.js`
    - `definition-converter.js`
    - `entity-model-converter.js`
+   - `bytecode-verifier.js`
    - `generic-mod-analyzer.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
@@ -37,13 +38,19 @@ JSZipをCDNから読み込むため初回利用時にインターネット接続
 ## 変換パイプライン
 
 - **JAR解析:** Fabric / Forge / NeoForge / Quiltのメタデータ、依存関係、Mixin、Access Transformer、Jar-in-Jar等を検出します。
-- **Java解析:** クラスファイルの定数プール、メソッド、JVM命令、分岐、フィールド参照、メソッド呼び出しを解析します。整数定数は定数プールの型タグまで確認し、float/doubleを整数として誤変換しません。アップロードされたJavaコードは実行しません。
+- **Java解析:** クラスファイルの定数プール参照整合性、メソッド、JVM命令、分岐先、switch表、例外テーブル、ローカル変数インデックス、メソッド呼び出し形式を静的検査します。命令の分岐先が命令境界にあるか、`max_locals` とメソッド引数スロットが整合するかも検証します。整数定数は定数プールの型タグまで確認し、float/doubleを整数として誤変換しません。アップロードされたJavaコードは実行しません。
 - **リソース移植:** 対応するレシピ、ブロック状態、ブロック・アイテムモデル、テクスチャ等をZeus形式に変換します。標準レシピJSONは元のgroup/category/show_notification等を保持して `recipes.add` で登録します。
 - **設定データ:** 単純なJSON/TOML/propertiesのスカラー設定をZeusの設定画面と `mod.export.jar2zeus.config.get()` に移します。秘密情報らしいキーは除外し、元Javaの設定読み取りAPIは自動置換しません。対応するモデルJSONは簡易テクスチャへ潰さず、ZIP内に保持してZeusの `model` 定義から参照します。MOD IDと異なる素材名前空間は誤登録を防ぐため未対応としてレポートします。
 - **3Dエンティティモデル:** 対応するBlockbench/Bedrock形式のgeometry JSONをZeusの `entities.register` 用モデル定義へ変換します。ボーン階層、パーツ、キューブ、UV、ピボット、回転、ミラー、inflateを扱い、対応するPNGテクスチャを同梱します。
 - **モーション:** Zeus公式仕様にある `head` / `leg` / `arm` / `spin` / `bob` / `wing` のパーツモーションへ、ボーン名とアニメーション名から安全に対応付けられる範囲を変換します。独自キーフレームの時刻・補間・任意ボーン曲線は同じ意味で再現できないため、アニメーション診断に未移植として記録します。
 - **Java処理の再実装:** 安全な限定範囲のJavaメソッドをLuaへ変換します。残りは機能別の再実装タスクとして整理し、未対応理由と参照したJava APIをレポートします。
 - **検証と梱包:** 生成LuaのZeus API呼び出しを静的検査し、`metadata.json` と `main.lua` を含むMOD ZIPを生成します。
+
+## JVMバイトコード構造検証
+
+`bytecode-verifier.js` はデコード済みメソッドについて、命令オフセットの重複・順序、分岐先とswitch分岐先の命令境界、例外テーブルの範囲、ローカル変数スロット、メソッド引数の `max_locals` 収容を検査します。パーサー側では定数プール参照、`invokeinterface` / `invokedynamic` の形式、switch padding・lookup key順序、Code属性長、クラスファイル末尾も検査します。
+
+これはクラスファイルと命令配置の構造検査です。JVM仕様の全ての型検証（Verifierの完全なデータフロー型推論）、全属性の意味検証、Java仮想マシンの実行互換性を保証するものではありません。各メソッドの結果は `code.verification` に記録され、未検証・不正なメソッドは再実装エンジンでの変換成功と見なさないよう、個別の結果を確認する必要があります。
 
 ## Java再実装の現在の対応範囲
 
