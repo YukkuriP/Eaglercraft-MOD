@@ -225,6 +225,8 @@
         if (flags & ENCRYPTION_FLAGS) throw new Error("encrypted ZIP entries are not supported: entry " + i);
         if (flags & 0x0020) throw new Error("patched-data ZIP entries are not supported: entry " + i);
         if (method !== 0 && method !== 8) throw new Error("unsupported ZIP compression method " + method + " at entry " + i);
+        if (method === 0 && compressedSize !== uncompressedSize)
+          throw new Error("stored ZIP entry has inconsistent compressed/uncompressed sizes at entry " + i);
         const path = decodeName(nameBytes, flags, extras);
         const canonical = canonicalPath(path);
         if (!canonical) throw new Error("unsafe or non-canonical archive path: " + JSON.stringify(path));
