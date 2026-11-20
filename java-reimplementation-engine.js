@@ -320,7 +320,6 @@
   if(/event|tick|init|setup/.test(s))return "events-and-timers";
   return "general-java-logic";
  }
- function hasPath(graph,start,target){const seen=new Set(),stack=[start];while(stack.length){const node=stack.pop();if(node===target)return true;if(seen.has(node))continue;seen.add(node);for(const next of graph.get(node)||[])stack.push(next);}return false;}
  function run(input){
   const classes=Array.isArray(input&&input.classes)?input.classes:[];
   const report={schema:"jar2zeus.reimplementation.v1",engine:"integer-control-flow-and-internal-static-call-subset",status:"analysis-only",classesSeen:classes.length,methodsSeen:0,utilityMethodsTranslated:0,controlFlowMethodsTranslated:0,internalCallMethodsTranslated:0,internalCallsTranslated:0,voidMethodsTranslated:0,methodsPending:0,methodsSkipped:0,callGraph:{nodes:[],edges:[],recursiveEdges:[]},translated:[],pending:[],skipped:[],warnings:[]};
@@ -356,16 +355,44 @@
   report.callGraph.nodes=Array.from(candidates.keys()).sort();
   for(const [key,entry] of candidates){
    for(const call of (entry.method.code.invocations||[])){
-    if(call.kind==="method"&&candidates.has(call.owner+"."+call.name+call.descriptor)){
+    if((call.kind==="method"||call.kind==="interface-method")&&candidates.has(call.owner+"."+call.name+call.descriptor)){
      const target=call.owner+"."+call.name+call.descriptor;
      report.callGraph.edges.push({from:key,to:target});
      report.internalCallsTranslated++;
     }
    }
   }
+  // Iterative Kosaraju SCC pass: O(V + E), avoids recursive JS stack growth on large JARs.
   const graphAdj=new Map(report.callGraph.nodes.map(key=>[key,[]]));
-  for(const edge of report.callGraph.edges)graphAdj.get(edge.from).push(edge.to);
-  for(const edge of report.callGraph.edges)if(edge.from===edge.to||hasPath(graphAdj,edge.to,edge.from))report.callGraph.recursiveEdges.push(edge);
+  const reverseAdj=new Map(report.callGraph.nodes.map(key=>[key,[]]));
+  for(const edge of report.callGraph.edges){graphAdj.get(edge.from).push(edge.to);reverseAdj.get(edge.to).push(edge.from);}
+  const visited=new Set(),finishOrder=[];
+  for(const start of report.callGraph.nodes){
+   if(visited.has(start))continue;
+   visited.add(start);
+   const stack=[{node:start,index:0}];
+   while(stack.length){
+    const top=stack[stack.length-1],neighbors=graphAdj.get(top.node)||[];
+    if(top.index<neighbors.length){
+     const next=neighbors[top.index++];
+     if(!visited.has(next)){visited.add(next);stack.push({node:next,index:0});}
+    }else{finishOrder.push(top.node);stack.pop();}
+   }
+  }
+  const componentByNode=new Map(),componentSizes=[];
+  for(let i=finishOrder.length-1;i>=0;i--){
+   const start=finishOrder[i];if(componentByNode.has(start))continue;
+   const component=componentSizes.length,stack=[start];let size=0;componentByNode.set(start,component);
+   while(stack.length){
+    const node=stack.pop();size++;
+    for(const next of reverseAdj.get(node)||[])if(!componentByNode.has(next)){componentByNode.set(next,component);stack.push(next);}
+   }
+   componentSizes.push(size);
+  }
+  for(const edge of report.callGraph.edges){
+   const component=componentByNode.get(edge.from);
+   if(component===componentByNode.get(edge.to)&&(componentSizes[component]>1||edge.from===edge.to))report.callGraph.recursiveEdges.push(edge);
+  }
   for(const clazz of classes){
    if(!clazz||!clazz.valid)continue;
    if(isRestrictedClass(clazz)){
@@ -385,7 +412,7 @@
      lua.push(converted.lua);
      lua.push("end");
      report.utilityMethodsTranslated++;
-     const internalCalls=(m.code.invocations||[]).filter(x=>x.kind==="method"&&candidateKeys.has(x.owner+"."+x.name+x.descriptor)).length;
+     const internalCalls=(m.code.invocations||[]).filter(x=>(x.kind==="method"||x.kind==="interface-method")&&candidateKeys.has(x.owner+"."+x.name+x.descriptor)).length;
      if(internalCalls)report.internalCallMethodsTranslated++;
      if(descriptor(m.descriptor).result==="V")report.voidMethodsTranslated++;
      report.translated.push({className:clazz.className,method:m.name,descriptor:m.descriptor,kind:internalCalls?"static-primitive-helper-with-internal-calls":"pure-static-primitive-helper",symbol:key,controlFlow:converted.controlFlow===true,internalCalls});
