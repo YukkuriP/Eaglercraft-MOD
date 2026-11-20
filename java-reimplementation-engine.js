@@ -448,10 +448,6 @@
    lua.push("mod.export.jar2zeus.version = 1");
    lua.push("mod.export.jar2zeus.helpers = __jar2zeus_java_helpers");
   }
-  if(report.utilityMethodsTranslated){
-   lua.push("mod.export = mod.export or {}");
-   lua.push("mod.export.jar2zeus = { version = 1, helpers = __jar2zeus_java_helpers }");
-  }
   report.status=report.methodsPending?"partial-reimplementation":report.utilityMethodsTranslated?"utility-subset-translated":"no-translatable-methods";
   if(!report.methodsSeen)report.warnings.push("解析可能なJavaメソッド本体が見つかりませんでした。");
   if(report.methodsPending)report.warnings.push("未再実装のJavaメソッドが残っています。完全移植とは判定しません。");
