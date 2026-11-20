@@ -106,4 +106,4 @@ ZeusのLuaランタイムは公式資料に記載されたLua 5.4を前提にし
 
 生成される主なLua補助関数は `__j2z_java_types` の `is_assignable` / `instanceof` / `checkcast` / `convert_primitive` / `new_object_record` / `get_field` / `set_field` / `get_static` / `set_static` / `resolve_virtual` です。レポートは `java-type-compatibility.json` と `diagnostics/java-type-compatibility.json` に出力します。
 
-この機能はJava VMではありません。オブジェクト生成はJavaコンストラクタや `<clinit>` を実行せず、既定値を持つ空の記録を作るだけです。仮想メソッド解決はメタデータを返すだけで、Javaメソッド本体を実行しません。private/protected/packageアクセス制御、リフレクション、非null配列の完全な実行時型検査、インターフェースdefault methodの競合解決、外部クラスの未知の継承定義、static初期化値の実行は未対応です。Java longは対象Lua 5.4の整数表現範囲に制約されます。したがって、型互換レイヤーの出力だけで任意のMODのオブジェクト動作が移植されるわけではありません。
+この機能はJava VMではありません。オブジェクト生成はJavaコンストラクタや `<clinit>` を実行せず、既定値を持つ空の記録を作るだけです。仮想メソッド解決はメタデータを返すだけで、Javaメソッド本体を実行しません。private/protected/packageアクセス制御、リフレクション、非null配列の完全な実行時型検査、インターフェースdefault methodの競合解決、外部クラスの未知の継承定義、static初期化値の実行は未対応です。Java longは対象Lua 5.4の整数表現範囲に制約されます。したがって、型互換レイヤーの出力だけで任意のMODのオブジェクト動作が移植されるわけではありません。パッケージ検証にもこの未実装状態を渡し、Javaクラス構造を含む出力を誤って完全移植扱いにしないようにしています。
