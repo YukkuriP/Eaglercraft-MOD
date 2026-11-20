@@ -7,7 +7,7 @@
  const SAFE_ID=/^[a-z0-9_]{1,48}$/;
  function lua(v){
   if(v===null||v===undefined)return "nil";
-  if(typeof v==="string")return '"'+v.replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/[\r\n\t]/g,c=>c==="\n"?"\\n":c==="\r"?"\\r":"\\t")+'"';
+  if(typeof v==="string")return '"'+v.replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/[\r\n\t]/g,c=>c==="\n"?"\\n":c==="\r"?"\\r":"\\t").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g,c=>"\\"+String(c.charCodeAt(0)).padStart(3,"0"))+'"';
   if(typeof v==="number")return Number.isFinite(v)?String(v):"nil";
   if(typeof v==="boolean")return String(v);
   if(Array.isArray(v))return "{ "+v.map(lua).join(", ")+" }";
@@ -57,7 +57,10 @@
    let value=frame,interpolation="linear";
    if(frame&&typeof frame==="object"&&!Array.isArray(frame)){
     interpolation=String(frame.lerp_mode||frame.interpolation||"linear").toLowerCase();
-    value=frame.post!==undefined?frame.post:frame.value;
+    if(frame.pre!==undefined&&frame.post!==undefined&&JSON.stringify(frame.pre)!==JSON.stringify(frame.post)){
+     return {keys:[],error:"keyframe has distinct pre/post values; discontinuous keyframes are not supported"};
+    }
+    value=frame.post!==undefined?frame.post:(frame.value!==undefined?frame.value:frame.pre);
    }
    if(!Array.isArray(value)||value.length!==3||!value.every(v=>typeof v==="number"&&Number.isFinite(v))){
     return {keys:[],error:"keyframe is not a finite three-number vector"};
@@ -281,6 +284,8 @@
        value.cubes=(part.cubes||[]).map((cube,index)=>{
         const sourceCube=sourceCubes[index]||{};
         const item={origin:cube.origin,size:cube.size,color:[0.68,0.72,0.78]};
+        if(Array.isArray(cube.uv))item.uv=cube.uv.slice();
+        if(cube.mirror===true)item.mirror=true;
         if(cube.inflate!==undefined)item.inflate=cube.inflate;
         if(sourceCube.rotation!==undefined)item.rotation=vec(sourceCube.rotation,3,"runtime cube rotation");
         if(sourceCube.pivot!==undefined)item.pivot=vec(sourceCube.pivot,3,"runtime cube pivot");
@@ -290,7 +295,7 @@
       })
      };
      const defaultAnimation=Object.keys(runtimeAnimations)[0]||null;
-     const machineType={id,model:runtimeModel,animations:runtimeAnimations,defaultAnimation};
+     const machineType={id,model:runtimeModel,texture:targetTexture,textureWidth:textureWidth,textureHeight:textureHeight,animations:runtimeAnimations,defaultAnimation};
      machineTypes.push(machineType);
      machineLua.push("__j2z_machine_runtime:registerType("+lua(id)+", "+lua(machineType)+")");
      for(const part of animatedMachineBones){
