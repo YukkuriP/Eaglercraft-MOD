@@ -186,7 +186,7 @@
       for(let k=0;k<count;k++)x.targets.push(pc+signedInt());
       branches.push(pc+x.defaultOffset,...x.targets);
      }else if(op===0xab){
-      while(q%4!==0)byte();
+      while(q%4!==0){if(byte()!==0)throw new Error("non-zero switch padding");}
       x.defaultOffset=signedInt();const count=signedInt();if(count<0||count>Math.floor((code.length-q)/8))throw new Error("invalid lookupswitch size or truncated pair table");
       x.pairs=[];let previousKey=-Infinity;
       for(let k=0;k<count;k++){const key=signedInt(),target=pc+signedInt();if(key<=previousKey)throw new Error("lookupswitch keys are not strictly increasing");previousKey=key;x.pairs.push({key,target});}
@@ -221,8 +221,9 @@
       if(!attrName)throw new Error("attribute name is not CONSTANT_Utf8");
       if(end>view.byteLength)throw new Error("attribute exceeds class file boundary");
       if(isMethod&&attrName==="Code"){
+       if(record.code)throw new Error("method has more than one Code attribute");
        const maxStack=u2(),maxLocals=u2(),codeLength=u4();
-       if(codeLength>65535)throw new Error("Code.code_length exceeds JVM class-file limit");
+       if(codeLength===0||codeLength>65535)throw new Error("Code.code_length must be between 1 and 65535");
        const codeBytes=take(codeLength);
        const exceptionCount=u2(),exceptions=[];
        for(let z=0;z<exceptionCount;z++){const start=u2(),end=u2(),handler=u2(),catchIndex=u2(),catchType=catchIndex?cls(catchIndex):null;if(catchIndex&&!catchType)throw new Error("exception catch_type does not reference CONSTANT_Class");exceptions.push({start,end,handler,catchType});}
@@ -245,7 +246,7 @@
    }
    readMembers(out.fields,false);readMembers(out.methods,true);
    const attrCount=u2();
-   for(let i=0;i<attrCount;i++){u2();const n=u4();take(n);}
+   for(let i=0;i<attrCount;i++){const attributeName=utf(u2());if(!attributeName)throw new Error("class attribute name is not CONSTANT_Utf8");const n=u4();take(n);}
    if(p!==view.byteLength)throw new Error("trailing bytes remain after the class-file structure");
    const refs=new Set([out.className,out.superName,...out.interfaces].filter(Boolean));
    for(let ci=1;ci<cp.length;ci++){if(cp[ci]&&cp[ci].tag===7){const v=cls(ci);if(v)refs.add(v);}}
