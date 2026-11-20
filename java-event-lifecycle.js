@@ -114,7 +114,7 @@
    scope:"static class-file and loader metadata inspection only; Java callbacks are never executed or auto-wired",
    status:"analysis-only",
    loaders:Array.isArray(loaderAnalysis.loaders)?loaderAnalysis.loaders.slice():[],
-   totals:{classesSeen:classes.length,classesAnalyzed:accepted.length,restrictedClassesSkipped:excluded.length,loaderEntrypoints:0,entrypointsResolved:0,entrypointsUnresolved:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrationSites:0,timerSites:0,annotationBearingMethods:0,autoWiredHandlers:0},
+   totals:{classesSeen:classes.length,classesAnalyzed:accepted.length,restrictedClassesSkipped:excluded.length,loaderEntrypoints:0,entrypointsResolved:0,entrypointsUnresolved:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrationSites:0,ambiguousEventRegistrationSites:0,unclassifiedEventRegistrationSites:0,timerSites:0,annotationBearingMethods:0,autoWiredHandlers:0},
    observed:{loaderEntrypoints:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrations:0,timerSites:0},
    truncation:{loaderEntrypoints:false,lifecycleCandidates:false,eventReferenceCandidates:false,eventRegistrations:false,timerSites:false},
    loaderEntrypoints:[],
@@ -187,6 +187,8 @@
      const sourceFrameworkCandidates=Array.from(new Set(matches.map(rule=>rule.framework)));
      const candidateRules=matches.filter(rule=>rule.events.every(event=>ZEUS_SAFE_EVENTS.has(event)));
      const eventCandidates=Array.from(new Set(candidateRules.flatMap(rule=>rule.events)));
+     if(matches.length>1)report.totals.ambiguousEventRegistrationSites++;
+     if(!eventCandidates.length)report.totals.unclassifiedEventRegistrationSites++;
      for(const rule of candidateRules)classRegistrationRules.add(rule.id);
      appendDetail(report,"eventRegistrations",{
       id,className:clazz.className,method:method.name,descriptor:method.descriptor,pc:Number.isInteger(call.pc)?call.pc:null,
