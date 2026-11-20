@@ -162,11 +162,14 @@
    }
    out.accessFlags=u2();const thisIndex=u2(),superIndex=u2();
    out.className=cls(thisIndex);out.superName=superIndex?cls(superIndex):null;
-   const intCount=u2();for(let i=0;i<intCount;i++)out.interfaces.push(cls(u2()));
+   if(!out.className)throw new Error("this_class does not reference a valid CONSTANT_Class");
+   if(superIndex&&!out.superName)throw new Error("super_class does not reference a valid CONSTANT_Class");
+   const intCount=u2();for(let i=0;i<intCount;i++){const interfaceName=cls(u2());if(!interfaceName)throw new Error("interface index does not reference a valid CONSTANT_Class");out.interfaces.push(interfaceName);}
    function readMembers(target,isMethod){
     const count=u2();
     for(let i=0;i<count;i++){
      const access=u2(),name=utf(u2()),descriptor=utf(u2()),record={accessFlags:access,name,descriptor,attributes:[]};
+     if(!name||!descriptor)throw new Error("member name or descriptor does not reference CONSTANT_Utf8");
      const ac=u2();
      for(let j=0;j<ac;j++){
       const attrName=utf(u2()),length=u4(),end=p+length;
@@ -176,7 +179,7 @@
        if(codeLength>65535)throw new Error("Code.code_length exceeds JVM class-file limit");
        const codeBytes=take(codeLength);
        const exceptionCount=u2(),exceptions=[];
-       for(let z=0;z<exceptionCount;z++)exceptions.push({start:u2(),end:u2(),handler:u2(),catchType:cls(u2())});
+       for(let z=0;z<exceptionCount;z++){const start=u2(),end=u2(),handler=u2(),catchIndex=u2(),catchType=catchIndex?cls(catchIndex):null;if(catchIndex&&!catchType)throw new Error("exception catch_type does not reference CONSTANT_Class");exceptions.push({start,end,handler,catchType});}
        const nested=u2();
        for(let z=0;z<nested;z++){u2();const n=u4();take(n);}
        let decoded;
