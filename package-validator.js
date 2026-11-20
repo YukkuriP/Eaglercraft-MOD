@@ -79,7 +79,11 @@
   const configReport=input.configReport||{};
   const configNotWired=(Number(configReport.settingsGenerated)||0)>0&&configReport.sourceReadersRewritten!==true;
   if(configNotWired)warnings.push("Simple config values were exposed as Zeus settings, but original Java config readers were not redirected.");
-  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired;
+  const javaTypeCompatibility=input.javaTypeCompatibility||{};
+  const hasJavaClasses=(Number(javaTypeCompatibility.totals&&javaTypeCompatibility.totals.classesRegistered)||0)>0;
+  const typeLayerIncomplete=hasJavaClasses&&(!Array.isArray(javaTypeCompatibility.limitations)||javaTypeCompatibility.limitations.length>0);
+  if(typeLayerIncomplete)warnings.push("Java type compatibility is only a scaffold: constructors, class initializers and complete JVM object semantics remain unimplemented.");
+  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete;
   const skippedResources=(Array.isArray(recipeReport.skipped)?recipeReport.skipped.length:0)+
    (Array.isArray(recipeReport.excluded)?recipeReport.excluded.length:0)+
    (Array.isArray(definitionReport.skipped)?definitionReport.skipped.length:0)+
