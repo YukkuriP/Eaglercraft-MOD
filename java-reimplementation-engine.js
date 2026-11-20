@@ -31,22 +31,37 @@
   const byPc=new Map(ins.map((x,i)=>[x.pc,{x,i}]));
   if(byPc.size!==ins.length)return fail("duplicate bytecode instruction offsets");
   const next=i=>i+1<ins.length?ins[i+1].pc:null;
-  const queue=[{pc:ins[0].pc,height:0}],heights=new Map();
-  let observedMax=0,visited=0;
+  const states=new Map(),queue=[],queued=new Set();
   function local(x,n){
    if(x.wideOpcode!=null)return x.local;
    const match=n.match(/_(\d)$/);
    return match?Number(match[1]):x.operand;
   }
+  function enqueue(pc,height,initialized){
+   if(!byPc.has(pc))return "control flow targets a non-instruction offset: "+pc;
+   const old=states.get(pc);
+   if(old){
+    if(old.height!==height)return "inconsistent operand-stack height at bytecode offset "+pc;
+    const merged=new Set(Array.from(old.initialized).filter(slot=>initialized.has(slot)));
+    if(merged.size!==old.initialized.size){
+     states.set(pc,{height,initialized:merged});
+     if(!queued.has(pc)){queue.push(pc);queued.add(pc);}
+    }
+   }else{
+    states.set(pc,{height,initialized:new Set(initialized)});
+    if(!queued.has(pc)){queue.push(pc);queued.add(pc);}
+   }
+   return null;
+  }
+  const initial=new Set();for(let i=0;i<d.args.length;i++)initial.add(i);
+  const firstError=enqueue(ins[0].pc,0,initial);if(firstError)return fail(firstError);
+  let observedMax=0,visited=0;
   while(queue.length){
-   const state=queue.shift(),entry=byPc.get(state.pc);
-   if(!entry)return fail("control flow targets a non-instruction offset: "+state.pc);
-   const old=heights.get(state.pc);
-   if(old!=null){if(old!==state.height)return fail("inconsistent operand-stack height at bytecode offset "+state.pc);continue;}
-   heights.set(state.pc,state.height);
-   if(++visited>ins.length*4)return fail("control-flow verification exceeded its safety limit");
-   const x=entry.x,n=x.name,i=entry.i,fall=next(i);
+   const pc=queue.shift();queued.delete(pc);
+   const state=states.get(pc),entry=byPc.get(pc),x=entry.x,n=x.name,i=entry.i,fall=next(i);
+   if(++visited>ins.length*16)return fail("control-flow verification exceeded its safety limit");
    let need=0,delta=0,targets=[],terminal=false;
+   const initialized=new Set(state.initialized);
    if(n==="nop"){ }
    else if(n==="iconst_m1"||/^iconst_[0-5]$/.test(n)||n==="bipush"||n==="sipush"){delta=1;}
    else if(n==="ldc"||n==="ldc_w"){
@@ -54,11 +69,18 @@
     delta=1;
    }else if(n==="ldc2_w")return fail("long/double constants are outside the integer-only translator");
    else if(/^iload(?:_[0-3])?$/.test(n)){
-    const slot=local(x,n);if(!Number.isInteger(slot)||slot<0||slot>=c.maxLocals)return fail("iload local index exceeds max_locals at "+x.pc);delta=1;
+    const slot=local(x,n);
+    if(!Number.isInteger(slot)||slot<0||slot>=c.maxLocals)return fail("iload local index exceeds max_locals at "+x.pc);
+    if(!initialized.has(slot))return fail("iload reads an uninitialized local slot "+slot+" at "+x.pc);
+    delta=1;
    }else if(/^istore(?:_[0-3])?$/.test(n)){
-    const slot=local(x,n);if(!Number.isInteger(slot)||slot<0||slot>=c.maxLocals)return fail("istore local index exceeds max_locals at "+x.pc);need=1;delta=-1;
+    const slot=local(x,n);
+    if(!Number.isInteger(slot)||slot<0||slot>=c.maxLocals)return fail("istore local index exceeds max_locals at "+x.pc);
+    need=1;delta=-1;initialized.add(slot);
    }else if(n==="iinc"){
-    const slot=x.local!=null?x.local:x.operand;if(!Number.isInteger(slot)||slot<0||slot>=c.maxLocals||!Number.isInteger(x.increment))return fail("invalid iinc local index or increment at "+x.pc);
+    const slot=x.local!=null?x.local:x.operand;
+    if(!Number.isInteger(slot)||slot<0||slot>=c.maxLocals||!Number.isInteger(x.increment))return fail("invalid iinc local index or increment at "+x.pc);
+    if(!initialized.has(slot))return fail("iinc reads an uninitialized local slot "+slot+" at "+x.pc);
    }else if(["iadd","isub","imul","idiv","irem","iand","ior","ixor","ishl","ishr","iushr"].includes(n)){need=2;delta=-1;}
    else if(n==="ineg"||n==="i2b"||n==="i2s"||n==="i2c"){need=1;}
    else if(n==="invokestatic"){
@@ -89,14 +111,13 @@
    if(after<0||after>c.maxStack)return fail("operand-stack height exceeds max_stack at bytecode offset "+x.pc);
    observedMax=Math.max(observedMax,after);
    if(n==="ireturn"&&after!==0)return fail("ireturn leaves values on the operand stack at "+x.pc);
-   for(const target of targets){if(!byPc.has(target))return fail("branch target is not an instruction at "+x.pc);queue.push({pc:target,height:after});}
+   for(const target of targets){const err=enqueue(target,after,initialized);if(err)return fail(err);}
    if(!terminal){
     if(fall==null)return fail("execution falls off the end of the method at "+x.pc);
-    queue.push({pc:fall,height:after});
+    const err=enqueue(fall,after,initialized);if(err)return fail(err);
    }
   }
-  if(observedMax>c.maxStack)return fail("computed operand-stack height exceeds max_stack");
-  return {valid:true,observedMaxStack:observedMax,reachableInstructions:visited};
+  return {valid:true,observedMaxStack:observedMax,reachableInstructions:states.size};
  }
  function pureHelper(clazz,m){
   const d=descriptor(m.descriptor),c=m.code;
