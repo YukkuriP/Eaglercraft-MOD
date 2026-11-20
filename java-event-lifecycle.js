@@ -245,11 +245,12 @@
   if(!report.totals.eventRegistrationSites&&!report.totals.eventReferenceCandidates&&!report.totals.timerSites)report.warnings.push("No supported event-registration or timer pattern was confirmed from the available class-file evidence.");
   if(Object.values(report.truncation).some(Boolean))report.warnings.push("Some detail arrays reached the 5,000-entry reporting cap; observed totals remain accurate, but not every detail row is stored.");
   report.plan=[
+   {task:"review-lifecycle-methods",pending:report.totals.lifecycleCandidates+report.totals.annotationBearingMethods,requiredWork:"Confirm whether name-based or annotation-bearing methods are real loader/event entrypoints; decode annotations and verify execution before rewriting."},
    {task:"resolve-loader-entrypoints",pending:report.totals.loaderEntrypoints,requiredWork:"Resolve the declared loader entrypoint and replace it with safe top-level Lua initialization."},
    {task:"rewrite-event-listeners",pending:report.totals.eventRegistrationSites+report.totals.eventReferenceCandidates,requiredWork:"Resolve the Java callback and port its behavior manually to an equivalent documented Zeus listener."},
    {task:"rewrite-timers",pending:report.totals.timerSites,requiredWork:"Reimplement supported timing behavior with documented Zeus timer APIs and explicit cancellation handling."}
   ].filter(task=>task.pending>0);
-  report.status=report.totals.eventRegistrationSites||report.totals.eventReferenceCandidates||report.totals.timerSites||report.totals.loaderEntrypoints?"partial-analysis":"no-event-hooks-detected";
+  report.status=report.totals.eventRegistrationSites||report.totals.eventReferenceCandidates||report.totals.timerSites||report.totals.loaderEntrypoints||report.totals.lifecycleCandidates||report.totals.annotationBearingMethods?"partial-analysis":"no-event-hooks-detected";
   // No generated Lua is returned by design: this stage is evidence and planning only.
   return report;
  }
