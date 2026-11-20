@@ -190,7 +190,7 @@
    scope:"static class-file and loader metadata inspection only; Java callbacks are never executed or auto-wired",
    status:"analysis-only",
    loaders:Array.isArray(loaderAnalysis.loaders)?loaderAnalysis.loaders.slice():[],
-   totals:{classesSeen:classes.length,classesAnalyzed:accepted.length,restrictedClassesSkipped:excluded.length,loaderEntrypoints:0,entrypointsResolved:0,entrypointsUnresolved:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrationSites:0,ambiguousEventRegistrationSites:0,unclassifiedEventRegistrationSites:0,timerSites:0,oneShotTimerSites:0,fixedRateTimerSites:0,fixedDelayTimerSites:0,unresolvedTimerSignatures:0,blockingWaitSites:0,cancellationSites:0,annotationBearingMethods:0,autoWiredHandlers:0},
+   totals:{classesSeen:classes.length,classesAnalyzed:accepted.length,restrictedClassesSkipped:excluded.length,loaderEntrypoints:0,entrypointsResolved:0,entrypointsUnresolved:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrationSites:0,ambiguousEventRegistrationSites:0,unclassifiedEventRegistrationSites:0,timerSites:0,oneShotTimerSites:0,fixedRateTimerSites:0,fixedDelayTimerSites:0,futureTimeoutSites:0,delayedExecutorSites:0,unresolvedTimerSignatures:0,blockingWaitSites:0,cancellationSites:0,annotationBearingMethods:0,autoWiredHandlers:0},
    observed:{loaderEntrypoints:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrations:0,timerSites:0,blockingWaitSites:0,cancellationSites:0,annotationCandidates:0},
    truncation:{loaderEntrypoints:false,lifecycleCandidates:false,eventReferenceCandidates:false,eventRegistrations:false,timerSites:false,blockingWaitSites:false,cancellationSites:false,annotationCandidates:false},
    loaderEntrypoints:[],
@@ -289,7 +289,9 @@
      const owner=String(call.owner||""),name=String(call.name||"");
      const timer=classifyTimerCall(call);
      if(timer){
-      if(timer.periodicity==="one-shot")report.totals.oneShotTimerSites++;
+      if(timer.futureSemantics==="orTimeout"||timer.futureSemantics==="completeOnTimeout")report.totals.futureTimeoutSites++;
+      else if(timer.futureSemantics==="delayed-executor")report.totals.delayedExecutorSites++;
+      else if(timer.periodicity==="one-shot")report.totals.oneShotTimerSites++;
       else if(timer.periodicity==="fixed-rate")report.totals.fixedRateTimerSites++;
       else if(timer.periodicity==="fixed-delay")report.totals.fixedDelayTimerSites++;
       else report.totals.unresolvedTimerSignatures++;
