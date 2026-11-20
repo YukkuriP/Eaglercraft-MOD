@@ -98,7 +98,7 @@
    status:"analysis-only",
    loaders:Array.isArray(loaderAnalysis.loaders)?loaderAnalysis.loaders.slice():[],
    totals:{classesSeen:classes.length,classesAnalyzed:accepted.length,restrictedClassesSkipped:excluded.length,loaderEntrypoints:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrationSites:0,timerSites:0,annotationBearingMethods:0,autoWiredHandlers:0},
-   loaderEntrypoints:loaderEntrypoints(loaderAnalysis),
+   loaderEntrypoints:[],
    lifecycleCandidates:[],
    eventRegistrations:[],
    eventReferenceCandidates:[],
