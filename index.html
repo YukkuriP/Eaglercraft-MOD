@@ -168,7 +168,7 @@ $("build").onclick=async function(){
  var apiValidation=window.Jar2ZeusApiValidator.scan(generatedMain);
  if(!apiValidation.valid)throw Error("未確認のZeus API呼び出しを検出: "+apiValidation.unsupportedApis.join(", "));
  var permissions=new Set();
- if(apiValidation.requiredApis.includes("commands.run"))permissions.add("commands");
+ if(apiValidation.requiredApis.some(function(x){return x.startsWith("commands.")}))permissions.add("commands");
  if(apiValidation.requiredApis.some(function(x){return x.startsWith("http.")}))permissions.add("network");
  if(apiValidation.requiredApis.includes("clipboard.get"))permissions.add("clipboard");
  if(apiValidation.requiredApis.some(function(x){return x.startsWith("mic.")}))permissions.add("microphone");
