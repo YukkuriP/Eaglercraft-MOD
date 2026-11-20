@@ -180,7 +180,7 @@
     for(const call of calls){
      const registration=registrationInfo(call);
      if(!registration)continue;
-     const id=clazz.className+"."+method.name+method.descriptor+"@"+call.pc+":"+call.owner+"."+name;
+     const id=clazz.className+"."+method.name+method.descriptor+"@"+call.pc+":"+registration.owner+"."+registration.name;
      if(registrationIds.has(id))continue;
      registrationIds.add(id);
      const sourceFramework=registration.framework;
