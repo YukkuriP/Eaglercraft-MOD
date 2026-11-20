@@ -35,8 +35,8 @@
 <button id="build" disabled>Zeus MOD ZIP＋再実装レポートを出力</button>
 </section>
 <section class="card"><h2>このツールが行うこと</h2>
-<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Javaクラスの定数プール・メソッド・バイトコード・API呼び出しを解析</li><li>Javaメソッドの安全な限定範囲をLuaへ変換し、未対応ロジックは再実装タスクに整理</li><li>クラスのメソッド・命令・呼び出し先を解析し、対応できるJava処理をLuaへ再実装</li><li>JAR内のassets/dataを解析し、変換可能なテクスチャ・モデル・レシピ等を抽出</li><li>ブロック・アイテム・レシピ等のJSON資産をZeus形式へ変換し、Javaコード由来の機能と統合</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>Zeusが直接読み込める、metadata.jsonがZIP直下にある単体MOD ZIPを生成</li></ul>
-<p class="warn">重要：任意のJava MODを100%自動で完全移植できるわけではありません。現在は限定されたプリミティブ型staticメソッド（条件分岐・ループを含む）をLuaへ再実装し、Java/Minecraft/ローダーAPIに依存する処理は機能別の再実装タスクとして出力します。未対応コードを動くふりで置き換えることはしません。危険な武器関連機能は変換対象にしません。</p>
+<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>単純なJSON/TOML/properties設定をZeus設定画面へ移行し、秘密情報らしいキーを除外</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Javaクラスの定数プール・メソッド・バイトコード・API呼び出しを解析</li><li>Javaメソッドの安全な限定範囲をLuaへ変換し、未対応ロジックは再実装タスクに整理</li><li>クラスのメソッド・命令・呼び出し先を解析し、対応できるJava処理をLuaへ再実装</li><li>JAR内のassets/dataを解析し、変換可能なテクスチャ・モデル・レシピ等を抽出</li><li>ブロック・アイテム・レシピ等のJSON資産をZeus形式へ変換し、Javaコード由来の機能と統合</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>Zeusが直接読み込める、metadata.jsonがZIP直下にある単体MOD ZIPを生成</li></ul>
+<p class="warn">重要：任意のJava MODを100%自動で完全移植できるわけではありません。現在は限定されたプリミティブ型staticメソッド（条件分岐・ループを含む）をLuaへ再実装し、Java/Minecraft/ローダーAPIに依存する処理は機能別の再実装タスクとして出力します。設定移行はZeus設定値の公開までで、元Javaの設定読み取りを自動接続しません。未対応コードを動くふりで置き換えることはしません。危険な武器関連機能は変換対象にしません。</p>
 </section>
 <p class="muted">JARの解析と変換はブラウザ内で処理し、サーバーへ送信しません。ZIP作成時のみJSZipを読み込みます。</p>
 </main>
