@@ -23,6 +23,7 @@
  function verifyIntBytecode(m,d,c){
   const fail=reason=>({valid:false,reason});
   if(!d||!c||c.decodeError)return fail(c&&c.decodeError||"missing method descriptor or Code attribute");
+  if(c.verification&&c.verification.valid!==true)return fail("bytecode structural verification failed: "+(c.verification.errors||[]).join("; "));
   const intTypes=new Set(["Z","B","C","S","I"]);
   if(!intTypes.has(d.result)||d.args.some(x=>!intTypes.has(x)))return fail("only primitive int-like arguments and return values are supported");
   if(!Number.isInteger(c.maxLocals)||!Number.isInteger(c.maxStack)||c.maxLocals<d.args.length)return fail("invalid max_locals/max_stack or parameter slots exceed max_locals");
