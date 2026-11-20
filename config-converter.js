@@ -129,7 +129,7 @@
    lines.push("  local values = {}");
    for(const field of fields){
     let expr;
-    if(field.valueType==="boolean")expr="settings.get("+lua(field.settingKey)+")";
+    if(field.valueType==="boolean")expr="(function() local v = settings.get("+lua(field.settingKey)+"); if v == nil then return "+lua(field.default)+" end; return v end)()";
     else if(field.valueType==="number"){
      const fallback=lua(field.default);
      const key=lua(field.settingKey);
