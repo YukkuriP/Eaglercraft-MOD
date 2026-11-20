@@ -99,3 +99,11 @@ ZeusのLuaランタイムは公式資料に記載されたLua 5.4を前提にし
 `class-object-analyzer.js` は、既存のクラスファイル解析結果からクラス名・親クラス・実装インターフェース・アクセス修飾子・フィールド・メソッド・コンストラクタ・フィールド参照・メソッド呼び出し関係をまとめます。フィールドはstatic/instance、final、synthetic等を区別し、メソッドdescriptorから引数と戻り値の型・スロット数を復元します。クラス内外の参照や、初期化・登録らしい名前のメソッド候補もレポートします。
 
 出力は `class-object-model.json` と `diagnostics/class-object-model.json` です。これは静的メタデータの構造モデルであり、実行時のオブジェクト値・ヒープ・ジェネリック型情報・注釈の意味・パラメータ名・record component・reflectionの結果を復元するものではありません。初期化メソッド候補は名前によるヒントで、Forge/Fabricの登録や実行順序を証明しません。Javaオブジェクトの挙動をLuaへ自動移植する段階ではありません。
+
+## Java型・継承・インターフェース互換レイヤー
+
+`java-type-compat.js` は、クラス構造モデルからZeus Lua向けの型メタデータと補助関数を生成します。クラス／インターフェースの割り当て可能性判定、`instanceof` 相当、nullセンチネル、参照キャスト、Javaの基本数値型変換、JVM既定値で初期化した空のオブジェクト記録、instance/staticフィールドの読み書き、クラス階層上の仮想メソッド候補解決を出力します。
+
+生成される主なLua補助関数は `__j2z_java_types` の `is_assignable` / `instanceof` / `checkcast` / `convert_primitive` / `new_object_record` / `get_field` / `set_field` / `get_static` / `set_static` / `resolve_virtual` です。レポートは `java-type-compatibility.json` と `diagnostics/java-type-compatibility.json` に出力します。
+
+この機能はJava VMではありません。オブジェクト生成はJavaコンストラクタや `<clinit>` を実行せず、既定フィールド値を持つ空の記録を作るだけです。仮想メソッド解決はメタデータを返すだけで、Javaメソッド本体を実行しません。private/protected/packageアクセス制御、リフレクション、非null配列の完全な実行時型検査、外部クラスの未知の継承定義、static初期化値の実行は未対応です。Java longは対象Lua 5.4の整数表現範囲に制約されます。したがって、型互換レイヤーの出力だけで任意のMODのオブジェクト動作が移植されるわけではありません。
