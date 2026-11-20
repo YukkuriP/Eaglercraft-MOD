@@ -57,7 +57,7 @@
    let value=frame,interpolation="linear";
    if(frame&&typeof frame==="object"&&!Array.isArray(frame)){
     interpolation=String(frame.lerp_mode||frame.interpolation||"linear").toLowerCase();
-    value=frame.post!==undefined?frame.post:(frame.value!==undefined?frame.value:frame.pre);
+    value=frame.post!==undefined?frame.post:frame.value;
    }
    if(!Array.isArray(value)||value.length!==3||!value.every(v=>typeof v==="number"&&Number.isFinite(v))){
     return {keys:[],error:"keyframe is not a finite three-number vector"};
@@ -87,9 +87,10 @@
       if(result.error)trackErrors.push({bone,channel,reason:result.error});
       else if(result.keys.length)normalized[channel]=result.keys;
      }
+     const sourceChannels=["position","rotation","scale"].filter(key=>raw[key]!==undefined);
      const channelNames=Object.keys(normalized);
      tracks[bone]=normalized;
-     boneTracks[bone]={channels:channelNames,hasPosition:channelNames.includes("position"),hasRotation:channelNames.includes("rotation"),hasScale:channelNames.includes("scale")};
+     boneTracks[bone]={channels:sourceChannels,supportedChannels:channelNames,hasPosition:sourceChannels.includes("position"),hasRotation:sourceChannels.includes("rotation"),hasScale:sourceChannels.includes("scale")};
     }
     const bones=Object.keys(boneTracks),hasTimeline=Object.values(boneTracks).some(track=>track.channels.length>0);
     const rawLoop=anim&&anim.loop!==undefined?anim.loop:false;
@@ -268,7 +269,7 @@
      const defaultAnimation=Object.keys(runtimeAnimations)[0]||null;
      const machineType={id,model:runtimeModel,animations:runtimeAnimations,defaultAnimation};
      machineTypes.push(machineType);
-     machineLua.push("__j2z_machine_runtime:registerType("+lua(id)+", "+lua(machineType).replace(/\\[\"model\"] = /g,"[\"model\"] = ")+")");
+     machineLua.push("__j2z_machine_runtime:registerType("+lua(id)+", "+lua(machineType)+")");
      for(const part of animatedMachineBones){
       const animationNames=entityAnimations.filter(animation=>animation.boneTracks[part.name]&&animation.boneTracks[part.name].channels.length).map(animation=>animation.name);
       report.machineAnimationsMapped.push({entity:id,bone:part.name,animations:animationNames,backend:"lua-machine-runtime",channels:uniqueChannels(animationNames,entityAnimations,part.name)});
@@ -283,9 +284,11 @@
    }
   }
   for(const animation of animations){
+   const runtimeMapped=machineTypes.some(type=>!!(type.animations&&type.animations[animation.name]));
    const mapped=report.animationsMapped.some(m=>animation.bones.includes(m.bone));
-   if(animation.hasTimeline&&!mapped)report.animationsUnmapped.push({name:animation.name,path:animation.path,bones:animation.bones,reason:"custom keyframe curves cannot be expressed by the documented Zeus built-in part-motion labels"});
-   else if(animation.hasTimeline)report.animationsUnmapped.push({name:animation.name,path:animation.path,bones:animation.bones,reason:"only compatible built-in motion labels were mapped; exact keyframe timing and curves are not preserved"});
+   if(runtimeMapped&&!(animation.trackErrors||[]).length)continue;
+   if(animation.hasTimeline&&!mapped&&!runtimeMapped)report.animationsUnmapped.push({name:animation.name,path:animation.path,bones:animation.bones,reason:"custom keyframe curves cannot be expressed by the documented Zeus built-in part-motion labels or the Lua runtime"});
+   else if(animation.hasTimeline&&(mapped||runtimeMapped))report.animationsUnmapped.push({name:animation.name,path:animation.path,bones:animation.bones,reason:(animation.trackErrors||[]).length?"some keyframe channels use unsupported values or interpolation; see trackErrors":"only compatible built-in motions were mapped; exact keyframe timing and curves are not preserved"});
   }
   report.counts.converted=report.entitiesConverted.length;
   report.counts.skipped=report.skipped.length;
