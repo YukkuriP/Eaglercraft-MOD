@@ -2,7 +2,7 @@
 (function(root){
  "use strict";
  const DATA=(root.Jar2ZeusMachineRuntimeChunks||[]).join("");
- if(DATA.length!==10456)throw new Error("machine runtime data is incomplete: "+DATA.length+" / 10456");
+ if(DATA.length!==10620)throw new Error("machine runtime data is incomplete: "+DATA.length+" / 10620");
  async function load(){
   if(typeof DecompressionStream!=="function")throw new Error("gzip decompression is unavailable in this browser");
   const binary=atob(DATA),bytes=new Uint8Array(binary.length);
