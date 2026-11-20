@@ -100,7 +100,7 @@
   }
 
   function canonicalPath(path) {
-    if (typeof path !== "string" || !path || path.includes("\0") || path.includes("\\") ||
+    if (typeof path !== "string" || !path || /[\x00-\x1f\x7f]/.test(path) || path.includes("\\") ||
         path.startsWith("/") || /^[A-Za-z]:/.test(path) || path.startsWith("//")) return null;
     const directory = path.endsWith("/");
     const parts = path.split("/");
