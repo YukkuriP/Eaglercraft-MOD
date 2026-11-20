@@ -77,6 +77,7 @@ JSZipをCDNから読み込むため初回利用時にインターネット接続
 - `diagnostics/reimplementation-report.json`: Javaメソッドごとの変換状況。
 - `diagnostics/java-call-graph.json`: Luaへ再実装したstatic補助メソッド間の呼び出しグラフと再帰辺。
 - `diagnostics/java-event-lifecycle.json`: Javaローダー初期化候補、イベント登録候補、Zeus側の候補イベント、タイマー候補、未対応理由。
+- `diagnostics/forge-api-compatibility.json`: Forge APIのクラス参照・メソッド呼び出し・フィールドアクセス、分類根拠、操作候補、未変換状態。
 - `diagnostics/reimplementation-plan.json`: 未実装機能の再実装タスク。
 - `diagnostics/entity-model-report.json`: 3D形状・ボーン・モーションの変換結果と未対応アニメーション。
 - `diagnostics/api-validation.json`: 使用したZeus APIの静的検証結果。
@@ -120,6 +121,16 @@ ZeusのLuaランタイムは公式資料に記載されたLua 5.4を前提にし
 変換前に候補メソッドの依存先を反復検査し、対象外のメソッドを呼ぶものは呼び出し元も変換候補から外します。生成Luaではメソッドシンボル表を経由して呼び出し、呼び出し深度は128で制限します。各メソッドの命令ループには既存の100,000命令予算があります。引数を一度ローカル変数へ取り出してから呼ぶため、複数引数のスタック順を保持します。レポートの `callGraph.nodes` / `edges` / `recursiveEdges` に変換された補助メソッドと依存関係を記録します。
 
 **未対応:** インスタンスメソッド、Javaオブジェクト／staticフィールドへのアクセス、コンストラクタ、例外ハンドラー、外部Java/Minecraft/Forge/Fabric API呼び出し、`invokedynamic`、参照型・配列型の実行時意味、ゲームイベントやローダーのライフサイクルへの自動接続は対象外です。未対応の呼び出しを含むメソッドはpendingとしてレポートに残します。これはJava仮想マシンではなく、任意のJava MODの完全移植を保証しません。
+
+## Forge API互換性インベントリ
+
+`forge-api-compat.js` は、Javaクラス解析で得たForge名前空間のクラス参照・メソッド呼び出し・フィールドアクセスを調べ、API領域別に分類します。呼び出しの詳細には、JAR内のパス、呼び出し元クラス／メソッド／メソッドdescriptor、バイトコード位置（PC）、Forge側の所有クラス・メンバー名・descriptor、分類根拠を記録します。単なる文字列一致ではなく、パーサーが復元したクラス／メンバー参照を対象にします。
+
+分類領域はModエントリポイント、イベントバス、ライフサイクル、レジストリ、Capability、ネットワーク、設定、ブロック／アイテム拡張、レシピ、描画、コマンド、ワールド生成、データ生成、その他のForge APIです。既知の `IEventBus.addListener/register`、`DeferredRegister.create/register`、`RegistryObject.get`、`RegisterEvent.register`、`NetworkRegistry.newSimpleChannel`、`SimpleChannel` の一部操作、Capability関連操作、設定登録・定義操作、`ForgeRegistries` のフィールドアクセスは「操作候補」として識別します。
+
+**操作候補は変換済みAPIではありません。** 現段階ではForge API呼び出しをZeus Lua APIに置き換えず、全て `unmapped` または `unverified` として記録します。APIのバージョン差、ジェネリック型・イベント引数・コールバックの意味、アノテーションの型と値、登録順序、反射・Mixin等は未解決です。アノテーション属性の存在をイベント購読やModエントリポイントの確定証拠として扱いません。
+
+出力は `forge-api-compatibility.json` と `diagnostics/forge-api-compatibility.json` です。詳細配列は種類ごとに最大5,000件で、切り詰めた場合も観測総数を保持します。未変換Forge API呼び出し・フィールド・クラス参照が残る場合、パッケージ検証は `conversionComplete=false` とし、手作業での再実装が必要であることを警告します。Forge MODの完全移植を保証する機能ではありません。
 
 ## Javaイベント・ライフサイクル解析
 
