@@ -118,7 +118,14 @@
    (Array.isArray(fabricMetadata.nestedJars)?fabricMetadata.nestedJars.length:0):0;
   if(fabricApiPending>0)warnings.push(fabricApiPending+" Fabric API, Loader, entrypoint or metadata candidates still require explicit Zeus-side review; none were auto-wired.");
   if(fabricApiReportMissing)warnings.push("Fabric API compatibility analysis is missing; Fabric API and Loader use has not been reviewed.");
-  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing;
+  const minecraftInternalApiCompatibility=input.minecraftInternalApiCompatibility||{};
+  const minecraftInternalApiReportMissing=hasJavaClasses&&minecraftInternalApiCompatibility.schema!=="jar2zeus.minecraft-internal-api-compatibility.v1";
+  const minecraftInternalApiPending=minecraftInternalApiCompatibility.schema==="jar2zeus.minecraft-internal-api-compatibility.v1"?
+   (Number(minecraftInternalApiCompatibility.totals&&minecraftInternalApiCompatibility.totals.unmappedSites)||0)+
+   (Number(minecraftInternalApiCompatibility.totals&&minecraftInternalApiCompatibility.totals.classReferenceSites)||0):0;
+  if(minecraftInternalApiPending>0)warnings.push(minecraftInternalApiPending+" Minecraft internal API call, field or class-reference candidates remain unmapped; version-specific manual porting is required.");
+  if(minecraftInternalApiReportMissing)warnings.push("Minecraft internal API compatibility analysis is missing; vanilla game API references have not been reviewed.");
+  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing||minecraftInternalApiPending>0||minecraftInternalApiReportMissing;
   const skippedResources=(Array.isArray(recipeReport.skipped)?recipeReport.skipped.length:0)+
    (Array.isArray(recipeReport.excluded)?recipeReport.excluded.length:0)+
    (Array.isArray(definitionReport.skipped)?definitionReport.skipped.length:0)+
