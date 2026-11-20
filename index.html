@@ -11,6 +11,7 @@
 <script src="resource-converter.js"></script>
 <script src="definition-converter.js"></script>
 <script src="entity-model-converter.js"></script>
+<script src="machine-runtime-source.js"></script>
 <script src="java-bytecode-analyzer.js"></script>
 <script src="generic-mod-analyzer.js"></script>
 <script src="java-reimplementation-engine.js"></script>
@@ -143,13 +144,22 @@ $("build").onclick=async function(){
  var pipeline=window.Jar2ZeusPipeline.create();
  pipeline.register({id:"recipes",run:function(ctx){var r=window.Jar2ZeusConverter.convert(ctx.recipeEntries);return {lua:r.mainLua,report:r.report}}});
  pipeline.register({id:"definitions",run:function(ctx){var r=window.Jar2ZeusDefinitions.convert(ctx.resourceEntries,ctx.namespace);return {lua:r.lua,report:r.report,copied:r.copied}}});
- pipeline.register({id:"entity-models",run:function(ctx){var r=window.Jar2ZeusEntityModels.convert(ctx.resourceEntries,ctx.namespace);return {lua:r.lua,files:r.files,report:r.report}}});
+ pipeline.register({id:"entity-models",run:function(ctx){var r=window.Jar2ZeusEntityModels.convert(ctx.resourceEntries,ctx.namespace);return {lua:r.lua,files:r.files,report:r.report,machineTypes:r.machineTypes,machineRuntimeRequired:r.machineRuntimeRequired}}});
  pipeline.register({id:"java-reimplementation",run:function(ctx){var r=window.Jar2ZeusReimplementation.run({classes:ctx.javaClasses,analysis:ctx.analysis});return {lua:r.lua,report:r.report,plan:r.plan}}});
  var pipelineResult=await pipeline.run({recipeEntries:recipeEntries,resourceEntries:resourceEntries,namespace:jarReport.jar.mod.id,javaClasses:javaClassRecords,analysis:jarReport.generic_analysis});
  var converted=pipelineResult.results.recipes||{report:{},mainLua:""};
  var definitions=pipelineResult.results.definitions||{report:{},copied:[],lua:""};
- var entityModels=pipelineResult.results["entity-models"]||{report:{schema:"jar2zeus.entity-models.v1",skipped:[{reason:"entity model adapter unavailable"}],animationsUnmapped:[],machineAnimationsMapped:[],machineAnimationsUnmapped:[],machineAssetsUnmapped:[]},files:{},lua:""};
+ var entityModels=pipelineResult.results["entity-models"]||{report:{schema:"jar2zeus.entity-models.v1",skipped:[{reason:"entity model adapter unavailable"}],animationsUnmapped:[],machineAnimationsMapped:[],machineAnimationsUnmapped:[],machineAssetsUnmapped:[],machineTypesGenerated:[]},files:{},lua:"",machineTypes:[],machineRuntimeRequired:false};
  var entityFileCount=0;for(var entityPath in entityModels.files){if(addPackageFile(entityPath,entityModels.files[entityPath],true))entityFileCount++;else entityModels.report.skipped.push({path:entityPath,reason:"entity texture could not be added to Zeus package"});}
+ var machineRuntimeLua="",machineRuntimeApiValidation=null;
+ if(entityModels.machineRuntimeRequired){
+  if(!window.Jar2ZeusMachineRuntimeSource||typeof window.Jar2ZeusMachineRuntimeSource.load!=="function")throw Error("機械ランタイムのソースローダーがありません");
+  machineRuntimeLua=await window.Jar2ZeusMachineRuntimeSource.load();
+  if(!machineRuntimeLua.trim()||!machineRuntimeLua.startsWith("-- Jar2Zeus reusable local machine simulation runtime."))throw Error("機械ランタイムの検証に失敗しました");
+  if(!addPackageFile("lib/jar2zeus/machine_runtime.lua",machineRuntimeLua,true))throw Error("Lua機械ランタイムをMODパッケージへ追加できません");
+  machineRuntimeApiValidation=window.Jar2ZeusApiValidator.scan(machineRuntimeLua);
+  if(!machineRuntimeApiValidation.valid)throw Error("機械ランタイムに未確認のZeus APIがあります: "+machineRuntimeApiValidation.unsupportedApis.join(", "));
+ }
  var javaReimplementation=pipelineResult.results["java-reimplementation"]||{report:{schema:"jar2zeus.reimplementation.v1",status:"failed",warnings:["Java再実装エンジンが実行できませんでした。"]},plan:{schema:"jar2zeus.reimplementation-plan.v1",tasks:[]},lua:""};
  var generatedMain='-- name: '+String(jarReport.jar.mod.name).replace(/[\r\n]/g,' ').slice(0,80)+' (Zeus port)\n-- id: '+id+'\n-- version: 0.1.0\n-- Java methods are conservatively reimplemented where supported; pending work is reported.\n\n'+pipelineResult.lua;
  var apiValidation=window.Jar2ZeusApiValidator.scan(generatedMain);
@@ -161,6 +171,7 @@ $("build").onclick=async function(){
  if(apiValidation.requiredApis.some(function(x){return x.startsWith("mic.")}))permissions.add("microphone");
  if(apiValidation.requiredApis.some(function(x){return x.startsWith("rtc.")}))permissions.add("webrtc");
  if(apiValidation.requiredApis.some(function(x){return x.startsWith("gl.")}))permissions.add("gl");
+ if(entityModels.machineRuntimeRequired)permissions.add("gl");
  meta.permissions=Array.from(permissions).sort();
  if(!replacePackageFile("metadata.json",JSON.stringify(meta,null,2)))throw Error("metadata.jsonの権限情報を更新できません");
  generatedMain=window.Jar2ZeusApiValidator.guardLua(generatedMain,apiValidation);
@@ -171,6 +182,9 @@ $("build").onclick=async function(){
  addPackageFile("definition-report.json",JSON.stringify(definitions.report,null,2),true);
  addPackageFile("entity-model-report.json",JSON.stringify(entityModels.report,null,2),true);
  addPackageFile("machine-animation-report.json",JSON.stringify({schema:"jar2zeus.machine-animation-report.v1",mapped:entityModels.report.machineAnimationsMapped||[],unmapped:entityModels.report.machineAnimationsUnmapped||[],staticAssets:entityModels.report.machineAssetsUnmapped||[],counts:{mapped:(entityModels.report.machineAnimationsMapped||[]).length,unmapped:(entityModels.report.machineAnimationsUnmapped||[]).length,staticAssets:(entityModels.report.machineAssetsUnmapped||[]).length}},null,2),true);
+ var machineRuntimeReport={schema:"jar2zeus.machine-runtime-report.v1",runtimeIncluded:!!entityModels.machineRuntimeRequired,modulePath:entityModels.machineRuntimeRequired?"lib/jar2zeus/machine_runtime.lua":null,machineTypes:entityModels.report.machineTypesGenerated||[],features:["20 Hz machine updates","persistent local state","linear and step keyframe interpolation","hierarchical part transforms","WebGL2 3D cube rendering","abstract inventory and item transport","abstract power networks"],limitations:["local virtual machines only, not native Minecraft block entities","no multiplayer/server synchronization","solid-color cube renderer; texture UV sampling is not implemented","not connected to vanilla inventories, world blocks or redstone","only supported finite vector keyframes are translated"]};
+ addPackageFile("machine-runtime-report.json",JSON.stringify(machineRuntimeReport,null,2),true);
+ if(machineRuntimeApiValidation)addPackageFile("machine-runtime-api-validation.json",JSON.stringify(machineRuntimeApiValidation,null,2),true);
  addPackageFile("reimplementation-report.json",JSON.stringify(javaReimplementation.report,null,2),true);
  addPackageFile("reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2),true);
  addPackageFile("generic-analysis.json",JSON.stringify(jarReport.generic_analysis,null,2),true);
@@ -197,12 +211,14 @@ $("build").onclick=async function(){
    textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,
    packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},
    packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,
+   machineRuntimeRequired:!!entityModels.machineRuntimeRequired,machineRuntimeIncluded:!!(entityModels.machineRuntimeRequired&&packagePathSet.has("lib/jar2zeus/machine_runtime.lua")),
    reimplementation:javaReimplementation.report,recipeReport:converted.report,definitionReport:definitions.report,entityReport:entityModels.report,
    apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}
   });
   jarReport.package_validation=validation;
   jarReport.entity_model_report=entityModels.report;
   jarReport.machine_animation_report={schema:"jar2zeus.machine-animation-report.v1",mapped:entityModels.report.machineAnimationsMapped||[],unmapped:entityModels.report.machineAnimationsUnmapped||[],staticAssets:entityModels.report.machineAssetsUnmapped||[],counts:{mapped:(entityModels.report.machineAnimationsMapped||[]).length,unmapped:(entityModels.report.machineAnimationsUnmapped||[]).length,staticAssets:(entityModels.report.machineAssetsUnmapped||[]).length}};
+  jarReport.machine_runtime_report=machineRuntimeReport;
   var reportText=JSON.stringify(jarReport,null,2);
   var validationText=JSON.stringify(validation,null,2);
   if(!replacePackageFile("report.json",reportText))throw Error("report.jsonを上限内で更新できません");
@@ -235,6 +251,9 @@ $("build").onclick=async function(){
  out.file("diagnostics/reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2));
  out.file("diagnostics/entity-model-report.json",JSON.stringify(entityModels.report,null,2));
  out.file("diagnostics/machine-animation-report.json",JSON.stringify(jarReport.machine_animation_report,null,2));
+ jarReport.machine_runtime_report=machineRuntimeReport;
+ out.file("diagnostics/machine-runtime-report.json",JSON.stringify(machineRuntimeReport,null,2));
+ if(machineRuntimeApiValidation)out.file("diagnostics/machine-runtime-api-validation.json",JSON.stringify(machineRuntimeApiValidation,null,2));
  out.file("diagnostics/target-zeus.json",JSON.stringify(jarReport.target_zeus,null,2));
  out.file("README.txt","Jar2Zeus output\n\nIMPORT THIS FILE: "+id+"-zeus-mod.zip\n\nStandalone Zeus MOD ZIP for Eaglercraft "+targetVersion+". The uploaded JAR is analyzed locally in this browser; no game HTML is required.\n\nThe Java reimplementation engine translates a conservative subset of primitive static helper methods, including bounded integer branches and loops, when no Java object state or external API calls are involved. Remaining Java/loader behavior is listed in reimplementation-report.json and reimplementation-plan.json for feature-specific Zeus adapters. Resource converters handle supported recipes, block/item definitions and preserve compatible model JSON and textures. This output is a partial port unless its remaining tasks are completed and the exact target game is tested.\n\nThe generated main.lua includes preflight guards for documented Zeus APIs. The bundled runtime probe checks API presence only and does not prove gameplay behavior. See diagnostics/report.json, diagnostics/reimplementation-report.json, diagnostics/reimplementation-plan.json, diagnostics/entity-model-report.json, diagnostics/api-validation.json and validation-report.json.\n\nPackage files: "+packageFiles.length+"\nUnpacked package size: "+packageBytes+" bytes\nZeus limits: 4096 files / 64 MiB\nOmitted package files: "+packageSkipped.length+"\nExtracted source resources: "+copied+"\n");
  var blob=await out.generateAsync({type:"blob",compression:"DEFLATE"});var a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download=id+"-migration.zip";a.click();setTimeout(function(){URL.revokeObjectURL(url)},1500);
