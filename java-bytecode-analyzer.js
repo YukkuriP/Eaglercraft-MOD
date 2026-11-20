@@ -75,6 +75,31 @@
     if(x.tag===7)return {class:cls(i)};
     return null;
    }
+   const cpErrors=[];
+   function cpCheck(ok,message){if(!ok)cpErrors.push(message);}
+   for(let ci=1;ci<cp.length;ci++){
+    const x=cp[ci];if(!x)continue;
+    if(x.tag===7)cpCheck(!!utf(x.index),"CONSTANT_Class has an invalid name_index at #"+ci);
+    else if(x.tag===8)cpCheck(!!utf(x.index),"CONSTANT_String has an invalid string_index at #"+ci);
+    else if(x.tag===16)cpCheck(!!utf(x.index),"CONSTANT_MethodType has an invalid descriptor_index at #"+ci);
+    else if(x.tag===19||x.tag===20)cpCheck(!!utf(x.index),"module/package constant has an invalid name_index at #"+ci);
+    else if(x.tag===9||x.tag===10||x.tag===11){
+     cpCheck(!!cls(x.a),"member reference has an invalid class_index at #"+ci);
+     const nt=nameType(x.b);cpCheck(!!nt&&!!nt.name&&!!nt.descriptor,"member reference has an invalid NameAndType at #"+ci);
+    }else if(x.tag===12)cpCheck(!!utf(x.a)&&!!utf(x.b),"NameAndType has an invalid UTF-8 reference at #"+ci);
+    else if(x.tag===15){
+     const ref=cp[x.index],kind=x.kind;
+     const allowed=kind>=1&&kind<=4?ref&&ref.tag===9:
+      kind===5||kind===8?ref&&ref.tag===10:
+      kind===6||kind===7?ref&&(ref.tag===10||(out.major>=52&&ref.tag===11)):
+      kind===9?ref&&ref.tag===11:false;
+     cpCheck(!!allowed,"MethodHandle has an invalid reference_kind/reference_index at #"+ci);
+    }else if(x.tag===17||x.tag===18){
+     cpCheck(out.major>=55,"Dynamic/InvokeDynamic constants require class-file version 55 or newer");
+     const nt=nameType(x.b);cpCheck(!!nt&&!!nt.name&&!!nt.descriptor,"Dynamic constant has an invalid NameAndType at #"+ci);
+    }
+   }
+   if(cpErrors.length)throw new Error(cpErrors.slice(0,8).join("; "));
    function decodeCode(code){
     const ins=[],counts={},calls=[],fieldRefs=[],strings=[],branches=[];
     let q=0;
@@ -97,19 +122,29 @@
      else if((op>=0x99&&op<=0xa8)||op===0xc6||op===0xc7){x.offset=signedShort();x.target=pc+x.offset;branches.push(x.target);}
      else if(op===0xc8||op===0xc9){x.offset=signedInt();x.target=pc+x.offset;branches.push(x.target);}
      else if((op>=0xb2&&op<=0xb8)||op===0xbb||op===0xbd||op===0xc0||op===0xc1){x.cpIndex=short();x.member=member(x.cpIndex);x.className=cls(x.cpIndex);if(x.member){if(op>=0xb2&&op<=0xb5)fieldRefs.push(x.member);else calls.push(x.member);}}
-     else if(op===0xb9){x.cpIndex=short();x.count=byte();x.zero=byte();x.member=member(x.cpIndex);if(x.member)calls.push(x.member);}
-     else if(op===0xba){x.cpIndex=short();x.zero=short();const dyn=cp[x.cpIndex],nt=dyn&&dyn.tag===18?nameType(dyn.b):null;x.dynamic=nt||null;}
+     else if(op===0xb9){
+      x.cpIndex=short();x.count=byte();x.zero=byte();x.member=member(x.cpIndex);
+      if(!x.member||x.member.kind!=="interface-method")throw new Error("invokeinterface must reference CONSTANT_InterfaceMethodref");
+      if(x.count===0||x.zero!==0)throw new Error("invalid invokeinterface count or trailing byte");
+      if(x.member)calls.push(x.member);
+     }
+     else if(op===0xba){
+      x.cpIndex=short();x.zero=short();const dyn=cp[x.cpIndex],nt=dyn&&dyn.tag===18?nameType(dyn.b):null;
+      if(!dyn||dyn.tag!==18||x.zero!==0)throw new Error("invokedynamic must reference CONSTANT_InvokeDynamic and have zero trailing bytes");
+      x.dynamic=nt||null;
+     }
      else if(op===0xc5){x.cpIndex=short();x.dimensions=byte();x.className=cls(x.cpIndex);}
      else if(op===0xaa){
-      while(q%4!==0)byte();
+      while(q%4!==0){if(byte()!==0)throw new Error("non-zero switch padding");}
       x.defaultOffset=signedInt();x.low=signedInt();x.high=signedInt();x.targets=[];
-      const count=x.high-x.low+1;if(count<0||count>100000)throw new Error("invalid tableswitch range");
+      const count=x.high-x.low+1;if(count<1||count>Math.floor((code.length-q)/4))throw new Error("invalid tableswitch range or truncated target table");
       for(let k=0;k<count;k++)x.targets.push(pc+signedInt());
       branches.push(pc+x.defaultOffset,...x.targets);
      }else if(op===0xab){
       while(q%4!==0)byte();
-      x.defaultOffset=signedInt();const count=signedInt();if(count<0||count>100000)throw new Error("invalid lookupswitch size");
-      x.pairs=[];for(let k=0;k<count;k++)x.pairs.push({key:signedInt(),target:pc+signedInt()});
+      x.defaultOffset=signedInt();const count=signedInt();if(count<0||count>Math.floor((code.length-q)/8))throw new Error("invalid lookupswitch size or truncated pair table");
+      x.pairs=[];let previousKey=-Infinity;
+      for(let k=0;k<count;k++){const key=signedInt(),target=pc+signedInt();if(key<=previousKey)throw new Error("lookupswitch keys are not strictly increasing");previousKey=key;x.pairs.push({key,target});}
       branches.push(pc+x.defaultOffset,...x.pairs.map(z=>z.target));
      }else if(op===0xc4){
       x.wideOpcode=byte();x.name=OPCODES[x.wideOpcode];
@@ -147,8 +182,12 @@
        let decoded;
        try{decoded=decodeCode(codeBytes);}catch(error){decoded={instructions:[],opcodeCounts:{},invocations:[],fieldAccesses:[],stringConstants:[],branchTargets:[],decodeError:error.message};}
        record.code={maxStack,maxLocals,codeLength,instructions:decoded.instructions,opcodeCounts:decoded.opcodeCounts,invocations:decoded.invocations,fieldAccesses:decoded.fieldAccesses,stringConstants:decoded.stringConstants,branchTargets:decoded.branchTargets,exceptions,decodeError:decoded.decodeError||null};
+       record.code.verification=root.Jar2ZeusBytecodeVerifier?
+        root.Jar2ZeusBytecodeVerifier.verify({code:record.code,descriptor,isStatic:!!(access&8)}):
+        {valid:false,structuralOnly:true,errors:["bytecode-verifier.js was not loaded"],warnings:[]};
       }else take(length);
       if(p>end)throw new Error("method attribute overread: "+attrName);
+      if(attrName==="Code"&&p!==end)throw new Error("Code attribute length does not match its parsed contents");
       if(p!==end) p=end;
       record.attributes.push(attrName);
      }
@@ -158,6 +197,7 @@
    readMembers(out.fields,false);readMembers(out.methods,true);
    const attrCount=u2();
    for(let i=0;i<attrCount;i++){u2();const n=u4();take(n);}
+   if(p!==view.byteLength)throw new Error("trailing bytes remain after the class-file structure");
    const refs=new Set([out.className,out.superName,...out.interfaces].filter(Boolean));
    for(let ci=1;ci<cp.length;ci++){if(cp[ci]&&cp[ci].tag===7){const v=cls(ci);if(v)refs.add(v);}}
    for(const m of out.methods)if(m.code)for(const inv of m.code.invocations)if(inv.owner)refs.add(inv.owner);
