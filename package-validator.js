@@ -85,6 +85,8 @@
   if(typeLayerIncomplete)warnings.push("Java type compatibility is only a scaffold: constructors, class initializers and complete JVM object semantics remain unimplemented.");
   const eventLifecycle=input.eventLifecycle||{};
   const lifecyclePending=Number(eventLifecycle.totals&&eventLifecycle.totals.loaderEntrypoints||0)+
+   Number(eventLifecycle.totals&&eventLifecycle.totals.lifecycleCandidates||0)+
+   Number(eventLifecycle.totals&&eventLifecycle.totals.annotationBearingMethods||0)+
    Number(eventLifecycle.totals&&eventLifecycle.totals.eventRegistrationSites||0)+
    Number(eventLifecycle.totals&&eventLifecycle.totals.eventReferenceCandidates||0)+
    Number(eventLifecycle.totals&&eventLifecycle.totals.timerSites||0);

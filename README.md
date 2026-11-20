@@ -127,6 +127,10 @@ ZeusのLuaランタイムは公式資料に記載されたLua 5.4を前提にし
 
 FabricのClientTickEvents / ClientPlayConnectionEvents / HudRenderCallback / WorldRenderEvents / ScreenEvents、Forge / NeoForgeのtick・GUI描画・クライアント接続・画面イベント型を検出候補として扱います。イベントバスの `register` / `addListener` 等や、Javaの `Timer` / `ScheduledExecutorService` によるスケジュール呼び出しも記録します。 `scheduleAtFixedRate` 等は `timer.every` の候補、単発・周期を区別できない `schedule` は `timer.after` / `timer.every` の候補として扱います。
 
-**自動接続はしません。** Javaコールバックの実体、ラムダのBootstrapMethods / MethodHandle、イベント引数オブジェクト、Forgeのアノテーション値、スレッド・キャンセルの意味を現行パーサーでは再構築できません。Zeus側は `on(name, fn, priority)` / `events.on` と `timer.after` / `timer.every` を提供しますが、Javaイベントの引数・実行タイミング・処理内容とは別物です。登録先Luaを自動生成せず、候補・根拠・手作業が必要な理由を `java-event-lifecycle.json` に記録します。パッケージ検証でも未解決候補が残る出力を完全移植扱いにしません。
+イベント登録サイトの検出は、Fabric `Event.register`、Forge / NeoForgeの既知の `IEventBus` / `EventBus` と登録メソッドの組み合わせに限定します。単にクラス名に `Event` が含まれるだけの第三者ラッパーは登録サイトと判定しません。イベント型と登録APIが同じクラスから見つかっても、個々の呼び出しへの紐付けまでは証明できないため候補扱いです。複数のイベント型が同一クラスから見つかった場合は曖昧として記録します。詳細配列は各5,000件までですが、観測総数は別に保持します。
+
+Zeus側は `main.lua` をMOD読み込み時に一度だけ先頭から実行し、その段階でイベントを登録します。`world_join` は実際にワールドへ参加した時に発火するため、すでにワールド内でMODを再読み込みした場合は現在のワールド状態を別途確認する必要があります。`tick` はタイトル画面・メニュー中も毎秒20回発火し、`timer.after` / `timer.every` は秒単位で指定され、タイマーはフレームごとに確認されます。これらの違いは `java-event-lifecycle.json` の `zeusRuntimeRules` にも記録します。
+
+**自動接続はしません。** Javaコールバックの実体、ラムダのBootstrapMethods / MethodHandle、イベント引数オブジェクト、Forgeのアノテーション値、スレッド・キャンセルの意味を現行パーサーでは再構築できません。アノテーション属性を持つメソッドは `annotationCandidates` に個別記録しますが、属性名の存在だけではイベント購読を確認できず、注釈型・値・イベント型は未解決です。Zeus側は `on(name, fn, priority)` / `events.on` と `timer.after` / `timer.every` を提供しますが、Javaイベントの引数・実行タイミング・処理内容とは別物です。登録先Luaを自動生成せず、候補・根拠・手作業が必要な理由を `java-event-lifecycle.json` に記録します。パッケージ検証でも未解決候補が残る出力を完全移植扱いにしません。
 
 公式資料: [Events and timers](https://dev.eaglercraft.com/docs/modding/events-and-timers) / [How mods run](https://dev.eaglercraft.com/docs/modding/how-mods-run) / [API reference](https://dev.eaglercraft.com/docs/modding/api)

@@ -18,7 +18,22 @@
   ["load","load-name-candidate"],
   ["start","start-name-candidate"]
  ]);
- const REGISTRATION_NAMES=new Set(["register","addListener","addGenericListener","subscribe","listen","on"]);
+ const REGISTRATION_APIS=[
+  {framework:"Fabric",owners:new Set(["net/fabricmc/fabric/api/event/Event"]),methods:new Set(["register"])},
+  {framework:"Forge",owners:new Set(["net/minecraftforge/eventbus/api/IEventBus","net/minecraftforge/eventbus/EventBus"]),methods:new Set(["register","addListener","addGenericListener"])},
+  {framework:"NeoForge",owners:new Set(["net/neoforged/bus/api/IEventBus","net/neoforged/bus/impl/EventBus"]),methods:new Set(["register","addListener","addGenericListener"])}
+ ];
+ function registrationInfo(call){
+  const owner=String(call&&call.owner||""),name=String(call&&call.name||"");
+  for(const api of REGISTRATION_APIS)if(api.owners.has(owner)&&api.methods.has(name))return {framework:api.framework,owner,name};
+  return null;
+ }
+ const DETAIL_LIMIT=5000;
+ function appendDetail(report,key,value){
+  report.observed[key]=(report.observed[key]||0)+1;
+  if(report[key].length<DETAIL_LIMIT)report[key].push(value);
+  else report.truncation[key]=true;
+ }
  const EVENT_RULES=[
   {id:"fabric-client-tick",framework:"Fabric",pattern:/net\/fabricmc\/fabric\/api\/client\/event\/lifecycle\/v1\/ClientTickEvents/,events:["tick"],reason:"Client tick callback class is referenced; its Java callback payload and phase are not reconstructed."},
   {id:"fabric-client-connection",framework:"Fabric",pattern:/net\/fabricmc\/fabric\/api\/client\/networking\/v1\/ClientPlayConnectionEvents/,events:["world_join","world_leave"],reason:"Client connection callbacks are referenced; Java connection objects and event timing differ from Zeus payloads."},
@@ -34,7 +49,7 @@
   {id:"neoforge-client-connection",framework:"NeoForge",pattern:/net\/neoforged\/neoforge\/client\/event\/ClientPlayerNetworkEvent/,events:["world_join","world_leave"],reason:"NeoForge client connection event type is referenced; Java payload semantics remain unresolved."},
   {id:"neoforge-screen",framework:"NeoForge",pattern:/net\/neoforged\/neoforge\/client\/event\/ScreenEvent/,events:["screen_open","screen_close"],reason:"NeoForge screen lifecycle type is referenced; Java screen objects are not compatible with Zeus screen IDs."}
  ];
- const EVENT_REGISTRY=/\b(?:IEventBus|EventBus|Event)\b|event/i;
+ // Registration is recognized by exact API owners above; arbitrary names containing "event" are not enough.
  const ZEUS_SAFE_EVENTS=new Set(["tick","frame","resize","hud","screen_render","overlay","screen_open","screen_close","chat_receive","chat_send","world_join","world_leave","mod_loaded","mod_unloaded","unload"]);
  function isRestricted(clazz){
   if(RESTRICTED.test(clazz.className||""))return true;
@@ -67,9 +82,11 @@
   if(/^[A-Za-z_$][A-Za-z0-9_$.]*$/.test(name))return name.replace(/\./g,"/");
   return null;
  }
- function loaderEntrypoints(loaderAnalysis,classNames){
+ function loaderEntrypoints(loaderAnalysis,classNames,report){
   const rows=(loaderAnalysis&&loaderAnalysis.entrypoints)||[];
-  return rows.slice(0,2000).map(row=>{
+  report.observed.loaderEntrypoints=rows.length;
+  report.truncation.loaderEntrypoints=rows.length>DETAIL_LIMIT;
+  return rows.slice(0,DETAIL_LIMIT).map(row=>{
    const value=String(row.value||"").slice(0,512),className=normalizeEntrypointClass(value);
    return {
     loader:String(row.loader||"unknown"),
@@ -97,11 +114,14 @@
    scope:"static class-file and loader metadata inspection only; Java callbacks are never executed or auto-wired",
    status:"analysis-only",
    loaders:Array.isArray(loaderAnalysis.loaders)?loaderAnalysis.loaders.slice():[],
-   totals:{classesSeen:classes.length,classesAnalyzed:accepted.length,restrictedClassesSkipped:excluded.length,loaderEntrypoints:0,entrypointsResolved:0,entrypointsUnresolved:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrationSites:0,timerSites:0,annotationBearingMethods:0,autoWiredHandlers:0},
+   totals:{classesSeen:classes.length,classesAnalyzed:accepted.length,restrictedClassesSkipped:excluded.length,loaderEntrypoints:0,entrypointsResolved:0,entrypointsUnresolved:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrationSites:0,ambiguousEventRegistrationSites:0,unclassifiedEventRegistrationSites:0,timerSites:0,annotationBearingMethods:0,autoWiredHandlers:0},
+   observed:{loaderEntrypoints:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrations:0,timerSites:0,annotationCandidates:0},
+   truncation:{loaderEntrypoints:false,lifecycleCandidates:false,eventReferenceCandidates:false,eventRegistrations:false,timerSites:false,annotationCandidates:false},
    loaderEntrypoints:[],
    lifecycleCandidates:[],
    eventRegistrations:[],
    eventReferenceCandidates:[],
+   annotationCandidates:[],
    timerSites:[],
    zeusEventCatalog:Array.from(ZEUS_SAFE_EVENTS),
    warnings:[],
@@ -112,8 +132,18 @@
     "Java listener method bodies, instance receivers, Java object state and exception paths are not executable in the current Java-to-Lua subset.",
     "A Zeus event name is only a candidate when a known source event class is referenced. Similar names do not prove equivalent timing, scope or payload.",
     "Zeus main.lua runs once at mod load and registers Lua listeners at top level. This analyzer does not synthesize those listeners from Java entrypoints.",
-    "Timer schedules are only classified as candidates. Java scheduler semantics, cancellation handles, thread behavior and callback objects are not converted."
+    "Timer schedules are only classified as candidates. Java scheduler semantics, cancellation handles, thread behavior and callback objects are not converted.",
+    "Event registration is recognized only for exact known API owners and methods; third-party event-bus wrappers are left unclassified rather than guessed.",
+    "If a class references multiple known event types, the analyzer cannot assign each one to a specific registration instruction."
    ],
+   zeusRuntimeRules:{
+    listenerRegistration:"Register Lua listeners at main.lua top level; that file runs once when the mod loads.",
+    worldJoin:"world_join fires on an actual world join. A mod loaded while already in a world must check current world/player state separately.",
+    tick:"tick fires 20 times per second, including title screen and menus.",
+    timers:"timer.after and timer.every take seconds; timers are checked once per frame.",
+    listenerRemoval:"Remove listeners with the returned handle or events.off(handle).",
+    automaticPorting:"These runtime facts guide manual rewrites only; Java handlers are not synthesized."
+   },
    sources:[
     "https://dev.eaglercraft.com/docs/modding/api",
     "https://dev.eaglercraft.com/docs/modding/events-and-timers",
@@ -121,9 +151,9 @@
    ]
   };
   const classNames=new Set(accepted.map(clazz=>clazz.className));
-  report.loaderEntrypoints=loaderEntrypoints(loaderAnalysis,classNames);
-  report.totals.loaderEntrypoints=report.loaderEntrypoints.length;
-  report.totals.entrypointsResolved=report.loaderEntrypoints.filter(row=>row.javaClassResolved).length;
+  report.loaderEntrypoints=loaderEntrypoints(loaderAnalysis,classNames,report);
+  report.totals.loaderEntrypoints=report.observed.loaderEntrypoints;
+  report.totals.entrypointsResolved=(loaderAnalysis.entrypoints||[]).filter(row=>{const name=normalizeEntrypointClass(row&&row.value);return !!(name&&classNames.has(name));}).length;
   report.totals.entrypointsUnresolved=report.totals.loaderEntrypoints-report.totals.entrypointsResolved;
   const registrationIds=new Set();
   for(const clazz of accepted){
@@ -132,41 +162,49 @@
    const classRegistrationRules=new Set();
    for(const method of clazz.methods||[]){
     if(LIFECYCLE.has(method.name)){
-     report.lifecycleCandidates.push({
+     appendDetail(report,"lifecycleCandidates",{
       className:clazz.className,method:method.name,descriptor:method.descriptor,
+      static:!!(method.accessFlags&8),codePresent:!!method.code,abstract:!!(method.accessFlags&1024),
       kind:LIFECYCLE.get(method.name),confidence:"name-only",evidence:"method-name heuristic; loader invocation and actual execution are not proven",
       autoWired:false
      });
     }else if(method.name==="<clinit>"){
-     report.lifecycleCandidates.push({
+     appendDetail(report,"lifecycleCandidates",{
       className:clazz.className,method:method.name,descriptor:method.descriptor,
-      kind:"class-initializer",confidence:"class-file-structure",evidence:"static initializer exists; its semantics and loader execution order are not reconstructed",
+      static:true,codePresent:!!method.code,kind:"class-initializer",confidence:"class-file-structure",evidence:"static initializer exists; its semantics and loader execution order are not reconstructed",
       autoWired:false
      });
     }
     const annotationAttributes=(method.attributes||[]).filter(name=>/Annotations$/.test(name));
-    if(annotationAttributes.length)report.totals.annotationBearingMethods++;
+    if(annotationAttributes.length){
+     report.totals.annotationBearingMethods++;
+     appendDetail(report,"annotationCandidates",{className:clazz.className,method:method.name,descriptor:method.descriptor,attributes:annotationAttributes,annotationValuesDecoded:false,eventBindingResolved:false,autoWired:false,reason:"Method annotation attributes are present, but annotation types and values are not decoded; this is not proof of an event subscription."});
+    }
     const calls=(method.code&&method.code.invocations)||[];
     for(const call of calls){
-     const name=String(call.name||"");
-     if(!REGISTRATION_NAMES.has(name)||!EVENT_REGISTRY.test(String(call.owner||"")))continue;
-     const id=clazz.className+"."+method.name+method.descriptor+"@"+call.pc+":"+call.owner+"."+name;
+     const registration=registrationInfo(call);
+     if(!registration)continue;
+     const id=clazz.className+"."+method.name+method.descriptor+"@"+call.pc+":"+registration.owner+"."+registration.name;
      if(registrationIds.has(id))continue;
      registrationIds.add(id);
-     const sourceFramework=matches.length?matches[0].framework:
-      (/net\/neoforged\//.test(evidence.join(" "))?"NeoForge":/net\/minecraftforge\//.test(evidence.join(" "))?"Forge":/net\/fabricmc\//.test(evidence.join(" "))?"Fabric":"unknown");
+     const sourceFramework=registration.framework;
+     const sourceFrameworkCandidates=Array.from(new Set(matches.map(rule=>rule.framework)));
      const candidateRules=matches.filter(rule=>rule.events.every(event=>ZEUS_SAFE_EVENTS.has(event)));
      const eventCandidates=Array.from(new Set(candidateRules.flatMap(rule=>rule.events)));
+     if(matches.length>1)report.totals.ambiguousEventRegistrationSites++;
+     if(!eventCandidates.length)report.totals.unclassifiedEventRegistrationSites++;
      for(const rule of candidateRules)classRegistrationRules.add(rule.id);
-     report.eventRegistrations.push({
+     appendDetail(report,"eventRegistrations",{
       id,className:clazz.className,method:method.name,descriptor:method.descriptor,pc:Number.isInteger(call.pc)?call.pc:null,
-      sourceFramework,registrationOwner:call.owner||null,registrationMethod:name,
+      sourceFramework,sourceFrameworkCandidates,registrationOwner:registration.owner,registrationMethod:registration.name,
+      registrationApi:"exact-owner-and-method-match",sourceRuleResolution:matches.length===1?"single-class-level-fingerprint":matches.length>1?"ambiguous-class-level-fingerprints":"no-known-source-event-fingerprint",
       sourceRuleIds:candidateRules.map(rule=>rule.id),zeusEventCandidates:eventCandidates,
       status:eventCandidates.length?"candidate-only":"unclassified-registration-site",
-      callbackResolved:false,autoWired:false,
-      reason:eventCandidates.length?
-       "Known event class references suggest a Zeus event candidate, but callback target, Java signature, payload and behavior are not translated.":
-       "Registration call detected without a known source-event fingerprint; manual analysis is required."
+      callbackResolved:false,callbackParameterRecovered:false,autoWired:false,
+      reason:matches.length>1?
+       "Multiple known event types are referenced by this class; they cannot be assigned to this particular registration site.":eventCandidates.length?
+       "A known event class is referenced in this class, but its link to this registration instruction, callback target, Java signature, payload and behavior is not reconstructed.":
+       "A recognized event-bus registration call was found without a known source-event fingerprint; manual analysis is required."
      });
     }
     for(const call of calls){
@@ -175,18 +213,20 @@
      const isTimerMethod=["schedule","scheduleAtFixedRate","scheduleWithFixedDelay"].includes(name);
      if(!isTimerOwner||!isTimerMethod)continue;
      const recurring=name==="scheduleAtFixedRate"||name==="scheduleWithFixedDelay";
-     report.timerSites.push({
+     appendDetail(report,"timerSites",{
       className:clazz.className,method:method.name,descriptor:method.descriptor,pc:Number.isInteger(call.pc)?call.pc:null,
-      javaOwner:owner,javaMethod:name,
+      javaOwner:owner,javaMethod:name,javaDescriptor:call.descriptor||null,
+      periodicity:name==="scheduleAtFixedRate"?"fixed-rate":name==="scheduleWithFixedDelay"?"fixed-delay":"unknown-single-or-periodic",
+      hasTimeUnitParameter:/Ljava\/util\/concurrent\/TimeUnit;/.test(call.descriptor||""),
       zeusApiCandidates:recurring?["timer.every"]:["timer.after","timer.every"],
       status:"candidate-only",callbackResolved:false,autoWired:false,
-      reason:"Java scheduler callback, delay units, cancellation and threading are not translated. Choose and implement the equivalent Zeus timer explicitly."
+      reason:"Java scheduler callback, actual delay values and units, cancellation, exception policy and threading are not reconstructed. Zeus timer.after/every use seconds and timers are checked once per frame; choose and implement the equivalent explicitly."
      });
     }
    }
    for(const rule of matches){
     if(!classRegistrationRules.has(rule.id)){
-     report.eventReferenceCandidates.push({
+     appendDetail(report,"eventReferenceCandidates",{
       className:clazz.className,sourceFramework:rule.framework,sourceRuleId:rule.id,
       zeusEventCandidates:rule.events.filter(event=>ZEUS_SAFE_EVENTS.has(event)),
       status:"reference-only",registrationDetected:false,callbackResolved:false,autoWired:false,
@@ -195,22 +235,26 @@
     }
    }
   }
-  report.totals.lifecycleCandidates=report.lifecycleCandidates.length;
-  report.totals.eventReferenceCandidates=report.eventReferenceCandidates.length;
-  report.totals.eventRegistrationSites=report.eventRegistrations.length;
-  report.totals.timerSites=report.timerSites.length;
+  report.totals.lifecycleCandidates=report.observed.lifecycleCandidates;
+  report.totals.eventReferenceCandidates=report.observed.eventReferenceCandidates;
+  report.totals.eventRegistrationSites=report.observed.eventRegistrations;
+  report.totals.timerSites=report.observed.timerSites;
+  report.reportedCounts={loaderEntrypoints:report.loaderEntrypoints.length,lifecycleCandidates:report.lifecycleCandidates.length,eventReferenceCandidates:report.eventReferenceCandidates.length,eventRegistrations:report.eventRegistrations.length,timerSites:report.timerSites.length,annotationCandidates:report.annotationCandidates.length};
+  report.detailLimit=DETAIL_LIMIT;
   if(report.eventRegistrations.length)report.warnings.push("Event registration sites were found, but no Java callback was connected to a Zeus listener.");
   if(report.eventReferenceCandidates.length)report.warnings.push("Known source event classes were referenced without a proven registration site; these are not confirmed listeners.");
   if(report.timerSites.length)report.warnings.push("Java timer/scheduler calls were found, but no timer callback was converted.");
   if(report.totals.annotationBearingMethods)report.warnings.push("Annotation-bearing methods exist; annotation values are not decoded, so annotation-based event subscriptions may be missing.");
   if(report.loaderEntrypoints.length)report.warnings.push("Loader metadata contains entrypoint declarations. Entrypoint classes and execution behavior require a loader-specific rewrite.");
   if(!report.totals.eventRegistrationSites&&!report.totals.eventReferenceCandidates&&!report.totals.timerSites)report.warnings.push("No supported event-registration or timer pattern was confirmed from the available class-file evidence.");
+  if(Object.values(report.truncation).some(Boolean))report.warnings.push("Some detail arrays reached the 5,000-entry reporting cap; observed totals remain accurate, but not every detail row is stored.");
   report.plan=[
+   {task:"review-lifecycle-methods",pending:report.totals.lifecycleCandidates+report.totals.annotationBearingMethods,requiredWork:"Confirm whether name-based or annotation-bearing methods are real loader/event entrypoints; decode annotations and verify execution before rewriting."},
    {task:"resolve-loader-entrypoints",pending:report.totals.loaderEntrypoints,requiredWork:"Resolve the declared loader entrypoint and replace it with safe top-level Lua initialization."},
    {task:"rewrite-event-listeners",pending:report.totals.eventRegistrationSites+report.totals.eventReferenceCandidates,requiredWork:"Resolve the Java callback and port its behavior manually to an equivalent documented Zeus listener."},
    {task:"rewrite-timers",pending:report.totals.timerSites,requiredWork:"Reimplement supported timing behavior with documented Zeus timer APIs and explicit cancellation handling."}
   ].filter(task=>task.pending>0);
-  report.status=report.totals.eventRegistrationSites||report.totals.eventReferenceCandidates||report.totals.timerSites||report.totals.loaderEntrypoints?"partial-analysis":"no-event-hooks-detected";
+  report.status=report.totals.eventRegistrationSites||report.totals.eventReferenceCandidates||report.totals.timerSites||report.totals.loaderEntrypoints||report.totals.lifecycleCandidates||report.totals.annotationBearingMethods?"partial-analysis":"no-event-hooks-detected";
   // No generated Lua is returned by design: this stage is evidence and planning only.
   return report;
  }
