@@ -115,7 +115,7 @@
    }
    if(cpErrors.length)throw new Error(cpErrors.slice(0,8).join("; "));
    function decodeCode(code){
-    const ins=[],counts={},calls=[],fieldRefs=[],strings=[],branches=[];
+    const ins=[],counts={},calls=[],fieldRefs=[],objectAllocations=[],arrayAllocations=[],strings=[],branches=[];
     let q=0;
     function byte(){if(q>=code.length)throw new Error("truncated bytecode");return code[q++];}
     function short(){const a=byte(),b=byte();return (a<<8)|b;}
@@ -141,7 +141,7 @@
        throw new Error("ldc/ldc_w cannot load a category-2 dynamic constant");
       }
      }
-     else if((op>=0x15&&op<=0x19)||(op>=0x36&&op<=0x3a)||op===0xa9||op===0xbc)x.operand=byte();
+     else if((op>=0x15&&op<=0x19)||(op>=0x36&&op<=0x3a)||op===0xa9||op===0xbc){x.operand=byte();if(op===0xbc)arrayAllocations.push({pc,kind:"primitive-array",atype:x.operand});}
      else if(op===0x84){x.local=byte();x.increment=signedByte();}
      else if((op>=0x99&&op<=0xa8)||op===0xc6||op===0xc7){x.offset=signedShort();x.target=pc+x.offset;branches.push(x.target);}
      else if(op===0xc8||op===0xc9){x.offset=signedInt();x.target=pc+x.offset;branches.push(x.target);}
@@ -150,15 +150,17 @@
       if(!entry)throw new Error("member/type instruction has an invalid constant-pool index");
       if(op>=0xb2&&op<=0xb5){
        if(entry.tag!==9)throw new Error("field access must reference CONSTANT_Fieldref");
-       if(x.member)fieldRefs.push(x.member);
+       if(x.member)fieldRefs.push(Object.assign({pc},x.member));
       }else if(op===0xb6){
        if(entry.tag!==10)throw new Error("invokevirtual must reference CONSTANT_Methodref");
-       if(x.member)calls.push(x.member);
+       if(x.member)calls.push(Object.assign({pc},x.member));
       }else if(op===0xb7||op===0xb8){
        if(entry.tag!==10&&!(out.major>=52&&entry.tag===11))throw new Error("invokespecial/invokestatic has an invalid method reference tag");
-       if(x.member)calls.push(x.member);
+       if(x.member)calls.push(Object.assign({pc},x.member));
       }else{
        if(entry.tag!==7||!x.className)throw new Error("type instruction must reference CONSTANT_Class");
+       if(op===0xbb)objectAllocations.push({pc,className:x.className,kind:"object"});
+       if(op===0xbd)arrayAllocations.push({pc,kind:"reference-array",componentClass:x.className});
       }
      }
      else if(op===0xb9){
@@ -166,7 +168,7 @@
       if(!x.member||x.member.kind!=="interface-method")throw new Error("invokeinterface must reference CONSTANT_InterfaceMethodref");
       const argumentSlots=x.member?methodArgumentSlots(x.member.descriptor):null;
       if(x.count===0||x.zero!==0||argumentSlots===null||x.count!==argumentSlots+1)throw new Error("invalid invokeinterface count, method descriptor or trailing byte");
-      if(x.member)calls.push(x.member);
+      if(x.member)calls.push(Object.assign({pc},x.member));
      }
      else if(op===0xba){
       x.cpIndex=short();x.zero=short();const dyn=cp[x.cpIndex],nt=dyn&&dyn.tag===18?nameType(dyn.b):null;
@@ -174,7 +176,7 @@
       x.dynamic=nt||null;
      }
      else if(op===0xc5){
-      x.cpIndex=short();x.dimensions=byte();x.className=cls(x.cpIndex);
+      x.cpIndex=short();x.dimensions=byte();x.className=cls(x.cpIndex);arrayAllocations.push({pc,kind:"multi-array",className:x.className,dimensions:x.dimensions});
       let arrayDepth=0;if(x.className)while(x.className[arrayDepth]==="[")arrayDepth++;
       if(!x.className||cp[x.cpIndex].tag!==7||arrayDepth===0||x.dimensions<1||x.dimensions>arrayDepth)
        throw new Error("invalid multianewarray class or dimensions");
@@ -204,7 +206,7 @@
      ins.push(x);
     }
     if(q!==code.length)throw new Error("bytecode decoder did not consume the method");
-    return {instructions:ins,opcodeCounts:counts,invocations:calls,fieldAccesses:fieldRefs,stringConstants:Array.from(new Set(strings)),branchTargets:Array.from(new Set(branches)).sort((a,b)=>a-b)};
+    return {instructions:ins,opcodeCounts:counts,invocations:calls,fieldAccesses:fieldRefs,objectAllocations,arrayAllocations,stringConstants:Array.from(new Set(strings)),branchTargets:Array.from(new Set(branches)).sort((a,b)=>a-b)};
    }
    out.accessFlags=u2();const thisIndex=u2(),superIndex=u2();
    out.className=cls(thisIndex);out.superName=superIndex?cls(superIndex):null;
@@ -221,7 +223,15 @@
       const attrName=utf(u2()),length=u4(),end=p+length;
       if(!attrName)throw new Error("attribute name is not CONSTANT_Utf8");
       if(end>view.byteLength)throw new Error("attribute exceeds class file boundary");
-      if(isMethod&&attrName==="Code"){
+      if(!isMethod&&attrName==="ConstantValue"){
+       if(length!==2)throw new Error("ConstantValue attribute must contain exactly one constant-pool index");
+       const constantIndex=u2(),entry=cp[constantIndex];
+       if(!entry)throw new Error("ConstantValue references an invalid constant-pool index");
+       if(record.constantPoolIndex!==undefined)throw new Error("field has more than one ConstantValue attribute");
+       const validTag=(descriptor==="F"?entry.tag===4:descriptor==="J"?entry.tag===5:descriptor==="D"?entry.tag===6:descriptor==="Ljava/lang/String;"?entry.tag===8:["Z","B","C","S","I"].includes(descriptor)?entry.tag===3:false);
+       if(!validTag)throw new Error("ConstantValue constant-pool type does not match field descriptor");
+       record.constantPoolIndex=constantIndex;record.constantValue=constant(constantIndex);record.constantValueTag=entry.tag;
+      }else if(isMethod&&attrName==="Code"){
        if(record.code)throw new Error("method has more than one Code attribute");
        const maxStack=u2(),maxLocals=u2(),codeLength=u4();
        if(codeLength===0||codeLength>65535)throw new Error("Code.code_length must be between 1 and 65535");
@@ -231,8 +241,8 @@
        const nested=u2();
        for(let z=0;z<nested;z++){const nestedName=utf(u2()),n=u4();if(!nestedName)throw new Error("Code nested attribute name is not CONSTANT_Utf8");take(n);}
        let decoded;
-       try{decoded=decodeCode(codeBytes);}catch(error){decoded={instructions:[],opcodeCounts:{},invocations:[],fieldAccesses:[],stringConstants:[],branchTargets:[],decodeError:error.message};}
-       record.code={maxStack,maxLocals,codeLength,instructions:decoded.instructions,opcodeCounts:decoded.opcodeCounts,invocations:decoded.invocations,fieldAccesses:decoded.fieldAccesses,stringConstants:decoded.stringConstants,branchTargets:decoded.branchTargets,exceptions,decodeError:decoded.decodeError||null};
+       try{decoded=decodeCode(codeBytes);}catch(error){decoded={instructions:[],opcodeCounts:{},invocations:[],fieldAccesses:[],objectAllocations:[],arrayAllocations:[],stringConstants:[],branchTargets:[],decodeError:error.message};}
+       record.code={maxStack,maxLocals,codeLength,instructions:decoded.instructions,opcodeCounts:decoded.opcodeCounts,invocations:decoded.invocations,fieldAccesses:decoded.fieldAccesses,objectAllocations:decoded.objectAllocations||[],arrayAllocations:decoded.arrayAllocations||[],stringConstants:decoded.stringConstants,branchTargets:decoded.branchTargets,exceptions,decodeError:decoded.decodeError||null};
        record.code.verification=root.Jar2ZeusBytecodeVerifier?
         root.Jar2ZeusBytecodeVerifier.verify({code:record.code,descriptor,isStatic:!!(access&8)}):
         {valid:false,structuralOnly:true,errors:["bytecode-verifier.js was not loaded"],warnings:[]};
