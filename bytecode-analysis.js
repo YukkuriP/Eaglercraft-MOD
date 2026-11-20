@@ -13,7 +13,7 @@
    scope:"static class-file and bytecode analysis only; no Java execution or full JVM type verification",
    totals:{classesSeen:(classes||[]).length,validClasses:list.length,methodsSeen:0,methodsWithCode:0,methodsWithoutCode:0,methodsVerified:0,methodsRejected:0,decodeErrors:0,instructions:0,basicBlocks:0,controlFlowEdges:0,branches:0,loopBackEdges:0,exceptionHandlers:0,invocations:0,internalInvocations:0,externalInvocations:0,dynamicCallSites:0,unreachableBlocks:0},
    classVersions:{},opcodeFrequency:{},methodSummaries:[],callGraph:{nodes:[],edges:[],truncated:false},
-   entrypointCandidates:[],externalCallOwners:{},warnings:[]
+   entrypointCandidates:[],externalCallOwners:{},methodSummariesTruncated:false,warnings:[]
   };
   const nodeIds=new Set(),methodNodes=new Set(),edges=[];
   for(const c of list){
@@ -70,10 +70,11 @@
       controlFlow:cfg.counts||{blocks:0,edges:0,loops:0,unreachableBlocks:0},
       complexityEstimate:1+branchCount+(cfg.counts&&cfg.counts.loops||0)*2
      });
-    }else report.callGraph.truncated=true;
+    }else report.methodSummariesTruncated=true;
    }
   }
   report.callGraph.nodes=Array.from(nodeIds).slice(0,10000);
+  if(nodeIds.size>10000)report.callGraph.truncated=true;
   report.callGraph.edges=edges;
   report.opcodeFrequency=Object.fromEntries(Object.entries(report.opcodeFrequency).sort((a,b)=>b[1]-a[1]).slice(0,100));
   report.externalCallOwners=Object.fromEntries(Object.entries(report.externalCallOwners).sort((a,b)=>b[1]-a[1]).slice(0,100));
@@ -82,6 +83,7 @@
   if(report.totals.methodsRejected)report.warnings.push("一部メソッドは命令構造検証に合格していません。自動再実装対象に含めないでください。");
   if(report.totals.dynamicCallSites)report.warnings.push("invokedynamicが存在します。BootstrapMethodsと実行時リンクの意味解析は別途必要です。");
   if(report.callGraph.truncated)report.warnings.push("巨大な呼び出しグラフの一部はレポート上限により省略されました。");
+  if(report.methodSummariesTruncated)report.warnings.push("メソッド別詳細の一部はレポート上限により省略されました。");
   report.limits={methodSummaries:3000,callGraphNodes:10000,callGraphEdges:20000,opcodeKinds:100,externalCallOwners:100};
   return report;
  }
