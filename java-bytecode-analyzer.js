@@ -168,7 +168,7 @@
       if(!x.member||x.member.kind!=="interface-method")throw new Error("invokeinterface must reference CONSTANT_InterfaceMethodref");
       const argumentSlots=x.member?methodArgumentSlots(x.member.descriptor):null;
       if(x.count===0||x.zero!==0||argumentSlots===null||x.count!==argumentSlots+1)throw new Error("invalid invokeinterface count, method descriptor or trailing byte");
-      if(x.member)calls.push(x.member);
+      if(x.member)calls.push(Object.assign({pc},x.member));
      }
      else if(op===0xba){
       x.cpIndex=short();x.zero=short();const dyn=cp[x.cpIndex],nt=dyn&&dyn.tag===18?nameType(dyn.b):null;
@@ -227,6 +227,9 @@
        if(length!==2)throw new Error("ConstantValue attribute must contain exactly one constant-pool index");
        const constantIndex=u2(),entry=cp[constantIndex];
        if(!entry)throw new Error("ConstantValue references an invalid constant-pool index");
+       if(record.constantPoolIndex!==undefined)throw new Error("field has more than one ConstantValue attribute");
+       const validTag=(descriptor==="F"?entry.tag===4:descriptor==="J"?entry.tag===5:descriptor==="D"?entry.tag===6:descriptor==="Ljava/lang/String;"?entry.tag===8:["Z","B","C","S","I"].includes(descriptor)?entry.tag===3:false);
+       if(!validTag)throw new Error("ConstantValue constant-pool type does not match field descriptor");
        record.constantPoolIndex=constantIndex;record.constantValue=constant(constantIndex);record.constantValueTag=entry.tag;
       }else if(isMethod&&attrName==="Code"){
        if(record.code)throw new Error("method has more than one Code attribute");
