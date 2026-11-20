@@ -115,13 +115,35 @@
      const x={pc,opcode:op,name};counts[name]=(counts[name]||0)+1;
      if(op===0x10)x.operand=signedByte();
      else if(op===0x11)x.operand=signedShort();
-     else if(op===0x12){x.cpIndex=byte();x.constant=constant(x.cpIndex);x.constantTag=cp[x.cpIndex]&&cp[x.cpIndex].tag;}
-     else if(op===0x13||op===0x14){x.cpIndex=short();x.constant=constant(x.cpIndex);x.constantTag=cp[x.cpIndex]&&cp[x.cpIndex].tag;}
+     else if(op===0x12||op===0x13||op===0x14){
+      x.cpIndex=op===0x12?byte():short();const entry=cp[x.cpIndex];x.constant=constant(x.cpIndex);x.constantTag=entry&&entry.tag;
+      if(!entry)throw new Error("ldc instruction has an invalid constant-pool index");
+      if(op===0x14){
+       if(entry.tag!==5&&entry.tag!==6&&!(entry.tag===17&&["J","D"].includes(nameType(entry.b)?.descriptor)))
+        throw new Error("ldc2_w requires a long, double or category-2 dynamic constant");
+      }else if(![3,4,7,8,15,16,17].includes(entry.tag)){
+       throw new Error("ldc/ldc_w references an unsupported constant-pool tag "+entry.tag);
+      }
      else if((op>=0x15&&op<=0x19)||(op>=0x36&&op<=0x3a)||op===0xa9||op===0xbc)x.operand=byte();
      else if(op===0x84){x.local=byte();x.increment=signedByte();}
      else if((op>=0x99&&op<=0xa8)||op===0xc6||op===0xc7){x.offset=signedShort();x.target=pc+x.offset;branches.push(x.target);}
      else if(op===0xc8||op===0xc9){x.offset=signedInt();x.target=pc+x.offset;branches.push(x.target);}
-     else if((op>=0xb2&&op<=0xb8)||op===0xbb||op===0xbd||op===0xc0||op===0xc1){x.cpIndex=short();x.member=member(x.cpIndex);x.className=cls(x.cpIndex);if(x.member){if(op>=0xb2&&op<=0xb5)fieldRefs.push(x.member);else calls.push(x.member);}}
+     else if((op>=0xb2&&op<=0xb8)||op===0xbb||op===0xbd||op===0xc0||op===0xc1){
+      x.cpIndex=short();const entry=cp[x.cpIndex];x.member=member(x.cpIndex);x.className=cls(x.cpIndex);
+      if(!entry)throw new Error("member/type instruction has an invalid constant-pool index");
+      if(op>=0xb2&&op<=0xb5){
+       if(entry.tag!==9)throw new Error("field access must reference CONSTANT_Fieldref");
+       if(x.member)fieldRefs.push(x.member);
+      }else if(op===0xb6){
+       if(entry.tag!==10)throw new Error("invokevirtual must reference CONSTANT_Methodref");
+       if(x.member)calls.push(x.member);
+      }else if(op===0xb7||op===0xb8){
+       if(entry.tag!==10&&!(out.major>=52&&entry.tag===11))throw new Error("invokespecial/invokestatic has an invalid method reference tag");
+       if(x.member)calls.push(x.member);
+      }else{
+       if(entry.tag!==7||!x.className)throw new Error("type instruction must reference CONSTANT_Class");
+      }
+     }
      else if(op===0xb9){
       x.cpIndex=short();x.count=byte();x.zero=byte();x.member=member(x.cpIndex);
       if(!x.member||x.member.kind!=="interface-method")throw new Error("invokeinterface must reference CONSTANT_InterfaceMethodref");
@@ -133,7 +155,7 @@
       if(!dyn||dyn.tag!==18||x.zero!==0)throw new Error("invokedynamic must reference CONSTANT_InvokeDynamic and have zero trailing bytes");
       x.dynamic=nt||null;
      }
-     else if(op===0xc5){x.cpIndex=short();x.dimensions=byte();x.className=cls(x.cpIndex);}
+     else if(op===0xc5){x.cpIndex=short();x.dimensions=byte();x.className=cls(x.cpIndex);if(!x.className||cp[x.cpIndex].tag!==7||!x.className.startsWith("[")||x.dimensions<1||x.dimensions>(x.className.match(/^\\[+/)||[""])[0].length)throw new Error("invalid multianewarray class or dimensions");}
      else if(op===0xaa){
       while(q%4!==0){if(byte()!==0)throw new Error("non-zero switch padding");}
       x.defaultOffset=signedInt();x.low=signedInt();x.high=signedInt();x.targets=[];
