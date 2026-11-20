@@ -124,7 +124,7 @@ ZeusのLuaランタイムは公式資料に記載されたLua 5.4を前提にし
 
 ## Forge API互換性インベントリ
 
-`forge-api-compat.js` は、Javaクラス解析で得たForge名前空間のクラス参照・メソッド呼び出し・フィールドアクセスを調べ、API領域別に分類します。呼び出しの詳細には、JAR内のパス、呼び出し元クラス／メソッド／メソッドdescriptor、バイトコード位置（PC）、Forge側の所有クラス・メンバー名・descriptor、分類根拠を記録します。単なる文字列一致ではなく、パーサーが復元したクラス／メンバー参照を対象にします。
+`forge-api-compat.js` は、Javaクラス解析で得たForge名前空間のクラス参照、フィールド／メソッドdescriptor内の型、メソッド呼び出し・フィールドアクセスを調べ、API領域別に分類します。呼び出しの詳細には、JAR内のパス、呼び出し元クラス／メソッド／メソッドdescriptor、バイトコード位置（PC）、Forge側の所有クラス・メンバー名・descriptor、分類根拠を記録します。単なる文字列一致ではなく、パーサーが復元したクラス／メンバー参照とJVM descriptor内の参照型を対象にします。
 
 分類領域はModエントリポイント、イベントバス、ライフサイクル、レジストリ、Capability、ネットワーク、設定、ブロック／アイテム拡張、レシピ、描画、コマンド、ワールド生成、データ生成、その他のForge APIです。既知の `IEventBus.addListener/register`、`DeferredRegister.create/register`、`RegistryObject.get`、`RegisterEvent.register`、`NetworkRegistry.newSimpleChannel`、`SimpleChannel` の一部操作、Capability関連操作、設定登録・定義操作、`ForgeRegistries` のフィールドアクセスは「操作候補」として識別します。
 
