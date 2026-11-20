@@ -64,6 +64,19 @@
    function utf(i){const x=cp[i];return x&&x.tag===1?x.value:null;}
    function cls(i){const x=cp[i];return x&&x.tag===7?utf(x.index):null;}
    function nameType(i){const x=cp[i];return x&&x.tag===12?{name:utf(x.a),descriptor:utf(x.b)}:null;}
+   function methodArgumentSlots(desc){
+    if(typeof desc!=="string"||desc[0]!=="(")return null;
+    let p=1,slots=0;
+    while(p<desc.length&&desc[p]!==")"){
+     let c=desc[p++],array=false;
+     while(c==="["){array=true;c=desc[p++];}
+     if(c==="L"){const end=desc.indexOf(";",p);if(end<0)return null;p=end+1;slots++;}
+     else if("ZBCSIF".includes(c))slots++;
+     else if(c==="J"||c==="D")slots+=array?1:2;
+     else return null;
+    }
+    return desc[p]===")"?slots:null;
+   }
    function member(i){
     const x=cp[i];if(!x||(x.tag!==9&&x.tag!==10&&x.tag!==11))return null;
     const nt=nameType(x.b);return {kind:x.tag===9?"field":x.tag===11?"interface-method":"method",owner:cls(x.a),name:nt&&nt.name,descriptor:nt&&nt.descriptor};
@@ -151,12 +164,13 @@
      else if(op===0xb9){
       x.cpIndex=short();x.count=byte();x.zero=byte();x.member=member(x.cpIndex);
       if(!x.member||x.member.kind!=="interface-method")throw new Error("invokeinterface must reference CONSTANT_InterfaceMethodref");
-      if(x.count===0||x.zero!==0)throw new Error("invalid invokeinterface count or trailing byte");
+      const argumentSlots=x.member?methodArgumentSlots(x.member.descriptor):null;
+      if(x.count===0||x.zero!==0||argumentSlots===null||x.count!==argumentSlots+1)throw new Error("invalid invokeinterface count, method descriptor or trailing byte");
       if(x.member)calls.push(x.member);
      }
      else if(op===0xba){
       x.cpIndex=short();x.zero=short();const dyn=cp[x.cpIndex],nt=dyn&&dyn.tag===18?nameType(dyn.b):null;
-      if(!dyn||dyn.tag!==18||x.zero!==0)throw new Error("invokedynamic must reference CONSTANT_InvokeDynamic and have zero trailing bytes");
+      if(!dyn||dyn.tag!==18||x.zero!==0||methodArgumentSlots(nt&&nt.descriptor)===null)throw new Error("invokedynamic must reference a valid CONSTANT_InvokeDynamic method descriptor and have zero trailing bytes");
       x.dynamic=nt||null;
      }
      else if(op===0xc5){
