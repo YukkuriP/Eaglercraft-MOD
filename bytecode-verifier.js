@@ -11,6 +11,23 @@
   if(!Number.isInteger(code.maxLocals)||code.maxLocals<0||!Number.isInteger(code.maxStack)||code.maxStack<0)fail("invalid max_locals/max_stack");
   if(length===0&&instructions.length)fail("empty Code attribute contains instructions");
   if(length>0&&!instructions.length&&!code.decodeError)fail("non-empty Code attribute has no decoded instructions");
+  function descriptorSlots(desc){
+   if(typeof desc!=="string"||desc[0]!=="(")return null;
+   let p=1,slots=0;
+   while(p<desc.length&&desc[p]!==")"){
+    let c=desc[p++];
+    while(c==="["){c=desc[p++];}
+    if(c==="L"){const end=desc.indexOf(";",p);if(end<0)return null;p=end+1;slots++;}
+    else if("ZBCSIF".includes(c))slots++;
+    else if(c==="J"||c==="D")slots+=2;
+    else return null;
+   }
+   if(desc[p]!==")")return null;
+   return slots;
+  }
+  const args=descriptorSlots(input&&input.descriptor);
+  if(args===null)fail("invalid method descriptor for local-slot verification");
+  else if(args+(input&&input.isStatic?0:1)>code.maxLocals)fail("method parameters exceed max_locals");
   const byPc=new Map();
   let previous=-1;
   for(const ins of instructions){
