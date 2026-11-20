@@ -72,6 +72,7 @@ JSZipをCDNから読み込むため初回利用時にインターネット接続
 - `diagnostics/archive-preflight-report.json`: 展開前のZIP/JAR検査結果。
 - `diagnostics/bytecode-analysis.json`: JVM命令・制御フロー・呼び出し関係の集計。
 - `diagnostics/reimplementation-report.json`: Javaメソッドごとの変換状況。
+- `diagnostics/java-call-graph.json`: Luaへ再実装したstatic補助メソッド間の呼び出しグラフと再帰辺。
 - `diagnostics/reimplementation-plan.json`: 未実装機能の再実装タスク。
 - `diagnostics/entity-model-report.json`: 3D形状・ボーン・モーションの変換結果と未対応アニメーション。
 - `diagnostics/api-validation.json`: 使用したZeus APIの静的検証結果。
