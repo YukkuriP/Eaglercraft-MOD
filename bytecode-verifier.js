@@ -15,11 +15,11 @@
    if(typeof desc!=="string"||desc[0]!=="(")return null;
    let p=1,slots=0;
    while(p<desc.length&&desc[p]!==")"){
-    let c=desc[p++];
-    while(c==="["){c=desc[p++];}
+    let c=desc[p++],array=false;
+    while(c==="["){array=true;c=desc[p++];}
     if(c==="L"){const end=desc.indexOf(";",p);if(end<0)return null;p=end+1;slots++;}
     else if("ZBCSIF".includes(c))slots++;
-    else if(c==="J"||c==="D")slots+=2;
+    else if(c==="J"||c==="D")slots+=array?1:2;
     else return null;
    }
    if(desc[p]!==")")return null;
