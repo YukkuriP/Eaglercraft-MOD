@@ -35,7 +35,7 @@
   let observedMax=0,visited=0;
   function local(x,n){
    if(x.wideOpcode!=null)return x.local;
-   const match=n.match(/_(\\d)$/);
+   const match=n.match(/_(\d)$/);
    return match?Number(match[1]):x.operand;
   }
   while(queue.length){
