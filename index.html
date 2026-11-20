@@ -14,6 +14,7 @@
 <script src="definition-converter.js"></script>
 <script src="entity-model-converter.js"></script>
 <script src="bytecode-verifier.js"></script>
+<script src="bytecode-analysis.js"></script>
 <script src="java-bytecode-analyzer.js"></script>
 <script src="generic-mod-analyzer.js"></script>
 <script src="java-reimplementation-engine.js"></script>
@@ -119,11 +120,15 @@ $("analyze").onclick=async function(){
    genericEntries.push(ge);
   }
   var genericAnalysis=window.Jar2ZeusGenericAnalyzer.analyze(genericEntries);
+  var bytecodeAnalysis=window.Jar2ZeusBytecodeAnalysis.analyze(javaClassRecords);
+  genericAnalysis.bytecodeAnalysis=bytecodeAnalysis;
+  genericAnalysis.migrationAssessment.bytecodeAnalysis={methodsSeen:bytecodeAnalysis.totals.methodsSeen,methodsVerified:bytecodeAnalysis.totals.methodsVerified,methodsRejected:bytecodeAnalysis.totals.methodsRejected,branches:bytecodeAnalysis.totals.branches,loops:bytecodeAnalysis.totals.loopBackEdges,internalCalls:bytecodeAnalysis.totals.internalInvocations,externalCalls:bytecodeAnalysis.totals.externalInvocations};
   genericAnalysis.migrationAssessment.javaLogicPort="Java bytecode is analyzed and a conservative subset is reimplemented; remaining methods are emitted as explicit adapter tasks.";
   var mod={id:id||slug(jarFile.name),name:name||jarFile.name.replace(/\.jar$/i,""),version:version,loader:loader,minecraft_versions:unique(mc),dependencies:deps};
   jarReport={
    jar:{filename:jarFile.name,bytes:jarFile.size,mod:mod,counts:{files:names.length,java_classes:classes,assets:assets,data:data}},
    archive_preflight:archivePreflightReport,
+   bytecode_analysis:bytecodeAnalysis,
    generic_analysis:genericAnalysis,
    target_zeus:{game_version:targetGameVersion,api_version:1,documentation:"https://dev.eaglercraft.com/docs/modding/api",target_html_required:false},
    conversion:{metadata:"解析済み",resources:"変換候補を抽出",java_logic:"Java bytecodeからZeus向けの限定的な再実装を試行",html_integration:"不要（Zeus専用出力）"}
@@ -219,6 +224,7 @@ $("build").onclick=async function(){
  addPackageFile("config-report.json",JSON.stringify(configSettings.report,null,2),true);
  addPackageFile("entity-model-report.json",JSON.stringify(entityModels.report,null,2),true);
  addPackageFile("machine-animation-report.json",JSON.stringify({schema:"jar2zeus.machine-animation-report.v1",mapped:entityModels.report.machineAnimationsMapped||[],unmapped:entityModels.report.machineAnimationsUnmapped||[],staticAssets:entityModels.report.machineAssetsUnmapped||[],counts:{mapped:(entityModels.report.machineAnimationsMapped||[]).length,unmapped:(entityModels.report.machineAnimationsUnmapped||[]).length,staticAssets:(entityModels.report.machineAssetsUnmapped||[]).length}},null,2),true);
+ addPackageFile("bytecode-analysis.json",JSON.stringify(bytecodeAnalysis,null,2),true);
  addPackageFile("reimplementation-report.json",JSON.stringify(javaReimplementation.report,null,2),true);
  addPackageFile("reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2),true);
  addPackageFile("generic-analysis.json",JSON.stringify(jarReport.generic_analysis,null,2),true);
@@ -281,12 +287,13 @@ $("build").onclick=async function(){
  out.file("diagnostics/api-validation.json",JSON.stringify(apiValidation,null,2));
  out.file("diagnostics/zeus-runtime-probe.lua",window.Jar2ZeusApiValidator.runtimeProbeLua());
  out.file("diagnostics/config-report.json",JSON.stringify(configSettings.report,null,2));
+ out.file("diagnostics/bytecode-analysis.json",JSON.stringify(bytecodeAnalysis,null,2));
  out.file("diagnostics/reimplementation-report.json",JSON.stringify(javaReimplementation.report,null,2));
  out.file("diagnostics/reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2));
  out.file("diagnostics/entity-model-report.json",JSON.stringify(entityModels.report,null,2));
  out.file("diagnostics/machine-animation-report.json",JSON.stringify(jarReport.machine_animation_report,null,2));
  out.file("diagnostics/target-zeus.json",JSON.stringify(jarReport.target_zeus,null,2));
- out.file("README.txt","Jar2Zeus output\n\nIMPORT THIS FILE: "+id+"-zeus-mod.zip\n\nStandalone Zeus MOD ZIP for Eaglercraft "+targetVersion+". The uploaded JAR is analyzed locally in this browser; no game HTML is required.\n\nThe Java reimplementation engine translates a conservative subset of primitive static helper methods, including bounded integer branches and loops, when no Java object state or external API calls are involved. Remaining Java/loader behavior is listed in reimplementation-report.json and reimplementation-plan.json for feature-specific Zeus adapters. Resource converters handle supported recipes, block/item definitions and preserve compatible model JSON and textures. This output is a partial port unless its remaining tasks are completed and the exact target game is tested.\n\nThe generated main.lua includes preflight guards for documented Zeus APIs. The bundled runtime probe checks API presence only and does not prove gameplay behavior. See diagnostics/report.json, diagnostics/config-report.json, diagnostics/reimplementation-report.json, diagnostics/reimplementation-plan.json, diagnostics/entity-model-report.json, diagnostics/api-validation.json and validation-report.json.\n\nPackage files: "+packageFiles.length+"\nUnpacked package size: "+packageBytes+" bytes\nZeus limits: 4096 files / 64 MiB\nOmitted package files: "+packageSkipped.length+"\nExtracted source resources: "+copied+"\n");
+ out.file("README.txt","Jar2Zeus output\n\nIMPORT THIS FILE: "+id+"-zeus-mod.zip\n\nStandalone Zeus MOD ZIP for Eaglercraft "+targetVersion+". The uploaded JAR is analyzed locally in this browser; no game HTML is required.\n\nThe Java reimplementation engine translates a conservative subset of primitive static helper methods, including bounded integer branches and loops, when no Java object state or external API calls are involved. Remaining Java/loader behavior is listed in reimplementation-report.json and reimplementation-plan.json for feature-specific Zeus adapters. Resource converters handle supported recipes, block/item definitions and preserve compatible model JSON and textures. This output is a partial port unless its remaining tasks are completed and the exact target game is tested.\n\nThe generated main.lua includes preflight guards for documented Zeus APIs. The bundled runtime probe checks API presence only and does not prove gameplay behavior. See diagnostics/report.json, diagnostics/bytecode-analysis.json, diagnostics/config-report.json, diagnostics/reimplementation-report.json, diagnostics/reimplementation-plan.json, diagnostics/entity-model-report.json, diagnostics/api-validation.json and validation-report.json.\n\nPackage files: "+packageFiles.length+"\nUnpacked package size: "+packageBytes+" bytes\nZeus limits: 4096 files / 64 MiB\nOmitted package files: "+packageSkipped.length+"\nExtracted source resources: "+copied+"\n");
  var blob=await out.generateAsync({type:"blob",compression:"DEFLATE"});var a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download=id+"-migration.zip";a.click();setTimeout(function(){URL.revokeObjectURL(url)},1500);
  }catch(e){alert("出力失敗: "+e.message)}
 };
