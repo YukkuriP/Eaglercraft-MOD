@@ -18,7 +18,16 @@
   ["load","load-name-candidate"],
   ["start","start-name-candidate"]
  ]);
- const REGISTRATION_NAMES=new Set(["register","addListener","addGenericListener","subscribe","listen","on"]);
+ const REGISTRATION_APIS=[
+  {framework:"Fabric",owners:new Set(["net/fabricmc/fabric/api/event/Event"]),methods:new Set(["register"])},
+  {framework:"Forge",owners:new Set(["net/minecraftforge/eventbus/api/IEventBus","net/minecraftforge/eventbus/EventBus"]),methods:new Set(["register","addListener","addGenericListener"])},
+  {framework:"NeoForge",owners:new Set(["net/neoforged/bus/api/IEventBus","net/neoforged/bus/impl/EventBus"]),methods:new Set(["register","addListener","addGenericListener"])}
+ ];
+ function registrationInfo(call){
+  const owner=String(call&&call.owner||""),name=String(call&&call.name||"");
+  for(const api of REGISTRATION_APIS)if(api.owners.has(owner)&&api.methods.has(name))return {framework:api.framework,owner,name};
+  return null;
+ }
  const EVENT_RULES=[
   {id:"fabric-client-tick",framework:"Fabric",pattern:/net\/fabricmc\/fabric\/api\/client\/event\/lifecycle\/v1\/ClientTickEvents/,events:["tick"],reason:"Client tick callback class is referenced; its Java callback payload and phase are not reconstructed."},
   {id:"fabric-client-connection",framework:"Fabric",pattern:/net\/fabricmc\/fabric\/api\/client\/networking\/v1\/ClientPlayConnectionEvents/,events:["world_join","world_leave"],reason:"Client connection callbacks are referenced; Java connection objects and event timing differ from Zeus payloads."},
@@ -34,7 +43,7 @@
   {id:"neoforge-client-connection",framework:"NeoForge",pattern:/net\/neoforged\/neoforge\/client\/event\/ClientPlayerNetworkEvent/,events:["world_join","world_leave"],reason:"NeoForge client connection event type is referenced; Java payload semantics remain unresolved."},
   {id:"neoforge-screen",framework:"NeoForge",pattern:/net\/neoforged\/neoforge\/client\/event\/ScreenEvent/,events:["screen_open","screen_close"],reason:"NeoForge screen lifecycle type is referenced; Java screen objects are not compatible with Zeus screen IDs."}
  ];
- const EVENT_REGISTRY=/\b(?:IEventBus|EventBus|Event)\b|event/i;
+ // Registration is recognized by exact API owners above; arbitrary names containing "event" are not enough.
  const ZEUS_SAFE_EVENTS=new Set(["tick","frame","resize","hud","screen_render","overlay","screen_open","screen_close","chat_receive","chat_send","world_join","world_leave","mod_loaded","mod_unloaded","unload"]);
  function isRestricted(clazz){
   if(RESTRICTED.test(clazz.className||""))return true;
