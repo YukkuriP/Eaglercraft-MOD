@@ -309,12 +309,16 @@
           recordEnd = d;
         }
         ranges.push({ start: localOffset, end: recordEnd, path });
-        entries.push({
+        const entryRecord = {
           path, canonicalPath: canonical, directory, flags, method, crc32: crc,
           compressedSize, uncompressedSize, compressionRatio: Number.isFinite(ratio) ? ratio : null,
           localOffset, dataOffset: dataStart, platform: unixHost ? "unix" : "other",
           executable: unixHost && (unixMode & 0x49) !== 0
-        });
+        };
+        // Keep raw filename bytes out of JSON reports while allowing JSZip to decode
+        // the exact same names that were already validated here.
+        Object.defineProperty(entryRecord, "_rawName", { value: new Uint8Array(nameBytes), enumerable: false });
+        entries.push(entryRecord);
         p = end;
       }
       if (p > centralEnd) throw new Error("central directory parser overran its boundary");
@@ -341,9 +345,30 @@
     return result;
   }
 
+  function bytesKey(bytes) {
+    let key = "";
+    for (let i = 0; i < bytes.length; i++) key += bytes[i].toString(16).padStart(2, "0");
+    return key;
+  }
+
+  function createDecoder(entries) {
+    const names = new Map();
+    for (const entry of entries || []) {
+      if (entry && entry._rawName instanceof Uint8Array) names.set(bytesKey(entry._rawName), entry.path);
+    }
+    return function (input) {
+      const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+      const known = names.get(bytesKey(bytes));
+      if (known !== undefined) return known;
+      const utf8 = decoder("utf-8", false);
+      return utf8 ? utf8.decode(bytes) : decoder("ibm437", false).decode(bytes);
+    };
+  }
+
   root.Jar2ZeusArchive = {
     inspect,
     decodeName,
+    createDecoder,
     canonicalPath,
     crc32,
     defaults: DEFAULT_LIMITS
