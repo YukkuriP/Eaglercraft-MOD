@@ -15,8 +15,11 @@
    classVersions:{},opcodeFrequency:{},methodSummaries:[],callGraph:{nodes:[],edges:[],truncated:false},
    entrypointCandidates:[],externalCallOwners:{},warnings:[]
   };
-  const nodeIds=new Set(),edges=[];
-  for(const c of list)report.classVersions[c.major]=(report.classVersions[c.major]||0)+1;
+  const nodeIds=new Set(),methodNodes=new Set(),edges=[];
+  for(const c of list){
+   report.classVersions[c.major]=(report.classVersions[c.major]||0)+1;
+   for(const m of c.methods||[]){const id=methodId(c,m);nodeIds.add(id);methodNodes.add(id);}
+  }
   for(const c of list){
    for(const m of c.methods||[]){
     report.totals.methodsSeen++;
@@ -24,7 +27,6 @@
     report.totals.methodsWithCode++;
     const code=m.code,ins=code.instructions||[],verification=code.verification||{},cfg=verification.controlFlow||{};
     const id=methodId(c,m);
-    nodeIds.add(id);
     report.totals.instructions+=ins.length;
     report.totals.exceptionHandlers+=(code.exceptions||[]).length;
     if(code.decodeError){report.totals.decodeErrors++;report.totals.methodsRejected++;}
@@ -50,7 +52,8 @@
      const owner=call.owner||"<unknown>";
      if(classNames.has(owner)){
       internal++;report.totals.internalInvocations++;
-      if(edges.length<20000)edges.push({from:id,to:owner+"."+String(call.name||"")+" "+String(call.descriptor||""),kind:"method-call"});
+      const targetId=owner+"."+String(call.name||"")+String(call.descriptor||"");
+      if(edges.length<20000)edges.push({from:id,to:targetId,kind:methodNodes.has(targetId)?"resolved-method-call":"unresolved-internal-method-call"});
       else report.callGraph.truncated=true;
      }else{
       external++;report.totals.externalInvocations++;
