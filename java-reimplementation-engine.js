@@ -146,11 +146,17 @@
   }
   const invocationInstructions=ins.filter(x=>/^invoke/.test(x.name));
   for(const x of invocationInstructions){
-   if(x.name!=="invokestatic"||!x.member||x.member.owner!=="java/lang/Math")return null;
+   if(x.name!=="invokestatic"||!x.member)return null;
    const md=descriptor(x.member.descriptor);
-   if(!md||md.args.some(t=>t!=="I")||md.result!=="I")return null;
-   const valid=(x.member.name==="abs"&&md.args.length===1)||((x.member.name==="min"||x.member.name==="max")&&md.args.length===2);
-   if(!valid)return null;
+   if(!md||md.args.some(t=>!intTypes.has(t))||!intTypes.has(md.result))return null;
+   if(x.member.owner==="java/lang/Math"){
+    if(md.args.some(t=>t!=="I")||md.result!=="I")return null;
+    const valid=(x.member.name==="abs"&&md.args.length===1)||((x.member.name==="min"||x.member.name==="max")&&md.args.length===2);
+    if(!valid)return null;
+   }else{
+    const key=x.member.owner+"."+x.member.name+x.member.descriptor;
+    if(!helperSignatures||!helperSignatures.has(key))return null;
+   }
   }
   const params=[];
   for(let i=0;i<d.args.length;i++)params.push("arg"+i);
@@ -317,53 +323,70 @@
  }
  function run(input){
   const classes=Array.isArray(input&&input.classes)?input.classes:[];
-  const candidates=[],candidateByKey=new Map(),candidateKeys=new Set();
+  const candidates=[],candidateByKey=new Map(),candidateKeys=new Set(),ambiguousKeys=new Set();
   const integerTypes=new Set(["Z","B","C","S","I"]);
   for(const clazz of classes){
    if(!clazz||!clazz.valid||isRestrictedClass(clazz))continue;
    for(const m of clazz.methods||[]){
     if(!m.code||!(m.accessFlags&8)||m.name.startsWith("<"))continue;
     const d=descriptor(m.descriptor);
-    if(!d||!integerTypes.has(d.result)||d.args.some(t=>!integerTypes.has(t))||(m.code.fieldAccesses||[]).length||(m.code.exceptions||[]).length)continue;
+    if(!d||!integerTypes.has(d.result)||d.args.some(t=>!integerTypes.has(t))||
+       (m.code.fieldAccesses||[]).length||(m.code.exceptions||[]).length)continue;
     const key=clazz.className+"."+m.name+m.descriptor;
-    if(candidateByKey.has(key)){candidateKeys.delete(key);candidateByKey.delete(key);continue;}
-    const record={clazz,m,key};candidateByKey.set(key,record);candidateKeys.add(key);candidates.push(record);
+    if(ambiguousKeys.has(key))continue;
+    if(candidateByKey.has(key)){
+     ambiguousKeys.add(key);candidateKeys.delete(key);candidateByKey.delete(key);continue;
+    }
+    const record={clazz,m,key};
+    candidateByKey.set(key,record);candidateKeys.add(key);candidates.push(record);
    }
   }
-  // Reject recursive call cycles. Recursive Java control flow would need a shared
-  // call-depth/step budget; this translator intentionally does not emulate that.
+  // A helper may call another static primitive helper from the same JAR.
+  // Recursive cycles and unresolved dependencies are deliberately excluded.
   const edges=new Map();
   for(const record of candidates){
-   const deps=(record.m.code.instructions||[]).filter(x=>x.name==="invokestatic"&&x.member&&x.member.owner!=="java/lang/Math").map(x=>x.member.owner+"."+x.member.name+x.member.descriptor);
+   const deps=(record.m.code.instructions||[])
+    .filter(x=>x.name==="invokestatic"&&x.member&&x.member.owner!=="java/lang/Math")
+    .map(x=>x.member.owner+"."+x.member.name+x.member.descriptor);
    edges.set(record.key,deps.filter(key=>candidateKeys.has(key)));
   }
-  const visiting=[],visited=new Set(),recursive=new Set();
-  function visit(key){
+  const visiting=[],visited=new Set(),recursive=new Set(),tooDeep=new Set();
+  function visit(key,depth){
+   if(depth>32){tooDeep.add(key);return;}
    if(visited.has(key))return;
    const at=visiting.indexOf(key);
    if(at>=0){for(const member of visiting.slice(at))recursive.add(member);recursive.add(key);return;}
    visiting.push(key);
-   for(const dep of edges.get(key)||[])visit(dep);
+   for(const dep of edges.get(key)||[])visit(dep,depth+1);
    visiting.pop();visited.add(key);
   }
-  for(const key of candidateKeys)visit(key);
-  const verifiedKeys=new Set(Array.from(candidateKeys).filter(key=>!recursive.has(key)));
+  for(const key of candidateKeys)visit(key,0);
+  const verifiedKeys=new Set(Array.from(candidateKeys).filter(key=>!recursive.has(key)&&!tooDeep.has(key)));
   let changed=true,passes=0;
   while(changed&&passes++<=candidates.length+1){
    changed=false;
    for(const record of candidates){
-    if(!verifiedKeys.has(record.key))continue;
-    if(!pureHelper(record.clazz,record.m,verifiedKeys)){verifiedKeys.delete(record.key);changed=true;}
+    if(verifiedKeys.has(record.key)&&!pureHelper(record.clazz,record.m,verifiedKeys)){
+     verifiedKeys.delete(record.key);changed=true;
+    }
    }
   }
-  const report={schema:"jar2zeus.reimplementation.v1",engine:"integer-control-flow-subset",status:"analysis-only",classesSeen:classes.length,methodsSeen:0,utilityMethodsTranslated:0,controlFlowMethodsTranslated:0,methodsPending:0,methodsSkipped:0,translated:[],pending:[],skipped:[],warnings:[]};
+  const report={schema:"jar2zeus.reimplementation.v1",engine:"integer-control-flow-linked-helpers",status:"analysis-only",classesSeen:classes.length,methodsSeen:0,utilityMethodsTranslated:0,controlFlowMethodsTranslated:0,methodsPending:0,methodsSkipped:0,translated:[],pending:[],skipped:[],warnings:[]};
   const plan={schema:"jar2zeus.reimplementation-plan.v1",tasks:[],featureCounts:{},notes:[
-   "自動翻訳は整数系static補助メソッドの限定的なJVM命令に限ります。",
-   "対応する条件分岐・switch・ループは命令予算を設けたLua実行関数へ変換します。",
-   "Minecraft/Forge/Fabricの状態・イベント処理はZeus APIアダプターによる再設計が必要です。",
-   "生成した補助関数はJava側の呼び出し経路やゲームイベントへ自動接続されるわけではありません。"
+   "自動翻訳は整数系static補助メソッドの限定されたJVM命令に限ります。",
+   "同一JAR内の検証済みstatic補助メソッド呼び出しを連結し、依存先が未対応なら呼び出し元も変換しません。",
+   "再帰呼び出し・依存深度超過・Javaオブジェクト状態・Minecraft/Forge/Fabric API依存処理は自動変換しません。",
+   "生成した補助関数はJava側のゲームイベントや元のMODの呼び出し経路へ自動接続されるわけではありません。"
   ]};
-  const lua=["-- Conservative Java-to-Lua reimplementation generated by Jar2Zeus.","local __jar2zeus_java_helpers = {}","local function __jar2zeus_i32(v) v = math.tointeger(v) or error('Java int conversion overflow'); v = v & 0xffffffff; if v >= 0x80000000 then return v - 0x100000000 end; return v end","local function __jar2zeus_idiv(a,b) if b == 0 then error('java.lang.ArithmeticException: / by zero') end; if a == -2147483648 and b == -1 then return -2147483648 end; local q = math.abs(a) // math.abs(b); if (a < 0) ~= (b < 0) then return -q end; return q end","local function __jar2zeus_irem(a,b) if b == 0 then error('java.lang.ArithmeticException: / by zero') end; return a - __jar2zeus_idiv(a,b) * b end"];
+  const lua=[
+   "-- Conservative Java-to-Lua reimplementation generated by Jar2Zeus.",
+   "local __jar2zeus_java_helpers = {}",
+   "local __jar2zeus_call_depth = 0",
+   "local function __jar2zeus_i32(v) v = math.tointeger(v) or error('Java int conversion overflow'); v = v & 0xffffffff; if v >= 0x80000000 then return v - 0x100000000 end; return v end",
+   "local function __jar2zeus_idiv(a,b) if b == 0 then error('java.lang.ArithmeticException: / by zero') end; if a == -2147483648 and b == -1 then return -2147483648 end; local q = math.abs(a) // math.abs(b); if (a < 0) ~= (b < 0) then return -q end; return q end",
+   "local function __jar2zeus_irem(a,b) if b == 0 then error('java.lang.ArithmeticException: / by zero') end; return a - __jar2zeus_idiv(a,b) * b end"
+  ];
+  let helperIndex=0;
   for(const clazz of classes){
    if(!clazz||!clazz.valid)continue;
    if(isRestrictedClass(clazz)){
@@ -374,21 +397,38 @@
    for(const m of clazz.methods||[]){
     if(!m.code)continue;
     report.methodsSeen++;
+    const key=clazz.className+"."+m.name+m.descriptor;
     if(RESTRICTED.test(m.name||"")){report.methodsSkipped++;continue;}
-    const verification=verifyIntBytecode(m,descriptor(m.descriptor),m.code);
-    const converted=pureHelper(clazz,m);
+    const converted=verifiedKeys.has(key)?pureHelper(clazz,m,verifiedKeys):null;
+    const verification=converted?converted.verification:verifyIntBytecode(m,descriptor(m.descriptor),m.code,verifiedKeys);
     if(converted){
-     const key=clazz.className+"."+m.name+m.descriptor;
-     lua.push("__jar2zeus_java_helpers["+q(key)+"] = function("+converted.params.join(", ")+")");
+     const impl="__jar2zeus_impl_"+(helperIndex++);
+     lua.push("local "+impl+" = function("+converted.params.join(", ")+")");
      lua.push(converted.lua);
      lua.push("end");
+     lua.push("__jar2zeus_java_helpers["+q(key)+"] = function(...)");
+     lua.push("  __jar2zeus_call_depth = __jar2zeus_call_depth + 1");
+     lua.push("  if __jar2zeus_call_depth > 64 then __jar2zeus_call_depth = __jar2zeus_call_depth - 1; error('Java helper call-depth limit exceeded') end");
+     lua.push("  local __ok, __result = pcall("+impl+", ...)");
+     lua.push("  __jar2zeus_call_depth = __jar2zeus_call_depth - 1");
+     lua.push("  if not __ok then error(__result, 0) end");
+     lua.push("  return __result");
+     lua.push("end");
      report.utilityMethodsTranslated++;
-     report.translated.push({className:clazz.className,method:m.name,descriptor:m.descriptor,kind:"pure-static-primitive-helper",symbol:key,controlFlow:converted.controlFlow===true,verification:converted.verification});
+     report.translated.push({className:clazz.className,method:m.name,descriptor:m.descriptor,kind:"pure-static-primitive-helper",symbol:key,controlFlow:converted.controlFlow===true,verification:converted.verification,dependencies:(edges.get(key)||[]).filter(dep=>verifiedKeys.has(dep))});
      if(converted.controlFlow)report.controlFlowMethodsTranslated++;
     }else{
      const feature=role(m),calls=(m.code.invocations||[]).slice(0,60).map(x=>({owner:x.owner,name:x.name,descriptor:x.descriptor}));
      report.methodsPending++;
-     report.pending.push({className:clazz.className,method:m.name,descriptor:m.descriptor,feature,evidence:calls,reason:m.code.decodeError?"bytecode decode error: "+m.code.decodeError:(m.code.exceptions||[]).length?"exception handlers require a dedicated adapter":(m.code.fieldAccesses||[]).length?"method reads or changes Java object/static state":verification&&!verification.valid?verification.reason:calls.length?"Java/loader API or a helper outside the verified translation subset":"descriptor, opcode, or stack behavior is outside the verified translation subset"});
+     let reason=m.code.decodeError?"bytecode decode error: "+m.code.decodeError:
+      (m.code.exceptions||[]).length?"exception handlers require a dedicated adapter":
+      (m.code.fieldAccesses||[]).length?"method reads or changes Java object/static state":
+      verification&&!verification.valid?verification.reason:
+      calls.length?"Java/loader API or a helper outside the verified translation subset":
+      "descriptor, opcode, or stack behavior is outside the verified translation subset";
+     if(recursive.has(key))reason="recursive Java helper cycle is outside the bounded translation subset";
+     if(tooDeep.has(key))reason="helper dependency depth exceeds 32";
+     report.pending.push({className:clazz.className,method:m.name,descriptor:m.descriptor,feature,evidence:calls,reason});
      plan.featureCounts[feature]=(plan.featureCounts[feature]||0)+1;
     }
    }
@@ -399,10 +439,17 @@
    const observed=Array.from(new Set(items.flatMap(x=>x.evidence.map(v=>(v.owner||"")+"."+v.name)))).slice(0,80);
    plan.tasks.push({id:"rewrite-"+feature,feature,sourceMethods:items.map(x=>x.className+"."+x.method+x.descriptor),observedCalls:observed,requiredWork:"Zeus APIを使う機能アダプターとして同等の処理を再実装し、実機で検証する"});
   }
-  if(recursive.size)report.warnings.push(recursive.size+\" methods are in recursive call cycles and were excluded from automatic translation.\");\n  report.helperDependencies=candidates.filter(x=>verifiedKeys.has(x.key)).map(x=>({method:x.key,calls:(edges.get(x.key)||[]).filter(key=>verifiedKeys.has(key))}));\n  report.status=report.methodsPending?"partial-reimplementation":report.utilityMethodsTranslated?"utility-subset-translated":"no-translatable-methods";
+  if(recursive.size)report.warnings.push(recursive.size+" methods are in recursive call cycles and were excluded from automatic translation.");
+  if(tooDeep.size)report.warnings.push(tooDeep.size+" methods exceed the helper dependency depth limit.");
+  report.helperDependencies=candidates.filter(x=>verifiedKeys.has(x.key)).map(x=>({method:x.key,calls:(edges.get(x.key)||[]).filter(key=>verifiedKeys.has(key))}));
+  if(report.utilityMethodsTranslated){
+   lua.push("mod.export = mod.export or {}");
+   lua.push("mod.export.jar2zeus = { version = 1, helpers = __jar2zeus_java_helpers }");
+  }
+  report.status=report.methodsPending?"partial-reimplementation":report.utilityMethodsTranslated?"utility-subset-translated":"no-translatable-methods";
   if(!report.methodsSeen)report.warnings.push("解析可能なJavaメソッド本体が見つかりませんでした。");
   if(report.methodsPending)report.warnings.push("未再実装のJavaメソッドが残っています。完全移植とは判定しません。");
-  if(!report.utilityMethodsTranslated)report.warnings.push("自動翻訳できる単純なint型補助メソッドは見つかりませんでした。");
+  if(!report.utilityMethodsTranslated)report.warnings.push("自動翻訳できる単純な整数系補助メソッドは見つかりませんでした。");
   return {lua:lua.join("\n")+"\n",report,plan};
  }
  root.Jar2ZeusReimplementation={run,descriptor,pureHelper,verifyIntBytecode};
