@@ -444,6 +444,12 @@
   report.helperDependencies=candidates.filter(x=>verifiedKeys.has(x.key)).map(x=>({method:x.key,calls:(edges.get(x.key)||[]).filter(key=>verifiedKeys.has(key))}));
   if(report.utilityMethodsTranslated){
    lua.push("mod.export = mod.export or {}");
+   lua.push("mod.export.jar2zeus = mod.export.jar2zeus or {}");
+   lua.push("mod.export.jar2zeus.version = 1");
+   lua.push("mod.export.jar2zeus.helpers = __jar2zeus_java_helpers");
+  }
+  if(report.utilityMethodsTranslated){
+   lua.push("mod.export = mod.export or {}");
    lua.push("mod.export.jar2zeus = { version = 1, helpers = __jar2zeus_java_helpers }");
   }
   report.status=report.methodsPending?"partial-reimplementation":report.utilityMethodsTranslated?"utility-subset-translated":"no-translatable-methods";
