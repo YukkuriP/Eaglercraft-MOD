@@ -15,11 +15,8 @@
    classVersions:{},opcodeFrequency:{},methodSummaries:[],callGraph:{nodes:[],edges:[],truncated:false},
    entrypointCandidates:[],externalCallOwners:{},warnings:[]
   };
-  const nodeIds=new Set(),edges=[],methodLookup=new Set();
-  for(const c of list){
-   report.classVersions[c.major]=(report.classVersions[c.major]||0)+1;
-   for(const m of c.methods||[])methodLookup.add(c.className+"#"+m.name+m.descriptor);
-  }
+  const nodeIds=new Set(),edges=[];
+  for(const c of list)report.classVersions[c.major]=(report.classVersions[c.major]||0)+1;
   for(const c of list){
    for(const m of c.methods||[]){
     report.totals.methodsSeen++;
