@@ -55,19 +55,18 @@
     if(typeof value!=="string")return false;
     const raw=value.startsWith("#")&&allowTag?value.slice(1):value;
     const normalized=raw.includes(":")?raw:"minecraft:"+raw;
-    return validId(normalized);
+    return normalized!=="minecraft:air"&&validId(normalized);
   }
   function validIngredient(value,depth){
     depth=depth||0;
     if(depth>8)return false;
     if(typeof value==="string")return validResourceId(value,true);
-    if(Array.isArray(value))return value.length>0&&value.length<=32&&value.every(item=>validIngredient(item,depth+1));
+    if(Array.isArray(value))return value.length>0&&value.length<=32&&value.every(item=>typeof item==="string"&&validResourceId(item,false));
     if(!value||typeof value!=="object")return false;
     if(typeof value.item==="string")return validResourceId(value.item,false);
     if(typeof value.id==="string")return validResourceId(value.id,false);
     if(typeof value.tag==="string")return validResourceId("#"+value.tag,true);
     if(Array.isArray(value.items))return value.items.length>0&&value.items.length<=32&&value.items.every(item=>typeof item==="string"&&validResourceId(item,false));
-    if(Array.isArray(value.terms))return value.terms.length>0&&value.terms.length<=32&&value.terms.every(item=>validIngredient(item,depth+1));
     return false;
   }
   function isBlocked(path,parsed){
@@ -107,6 +106,8 @@
     if(type==="minecraft:crafting_shaped"){
       if(!Array.isArray(r.pattern)||r.pattern.length<1||r.pattern.length>3||
          r.pattern.some(row=>typeof row!=="string"||row.length<1||row.length>3)||!r.key||typeof r.key!=="object"||Array.isArray(r.key))return "invalid shaped recipe pattern or key";
+      const rowWidth=r.pattern[0].length;
+      if(r.pattern.some(row=>row.length!==rowWidth))return "shaped recipe rows must have the same width";
       const symbols=new Set();
       for(const row of r.pattern)for(const symbol of row)if(symbol!==" ")symbols.add(symbol);
       for(const symbol of symbols)if(!Object.prototype.hasOwnProperty.call(r.key,symbol))return "shaped recipe is missing key symbol: "+symbol;
