@@ -81,13 +81,14 @@
     const x=cp[ci];if(!x)continue;
     if(x.tag===7)cpCheck(!!utf(x.index),"CONSTANT_Class has an invalid name_index at #"+ci);
     else if(x.tag===8)cpCheck(!!utf(x.index),"CONSTANT_String has an invalid string_index at #"+ci);
-    else if(x.tag===16)cpCheck(!!utf(x.index),"CONSTANT_MethodType has an invalid descriptor_index at #"+ci);
-    else if(x.tag===19||x.tag===20)cpCheck(!!utf(x.index),"module/package constant has an invalid name_index at #"+ci);
+    else if(x.tag===16){cpCheck(out.major>=51,"CONSTANT_MethodType requires class-file version 51 or newer");cpCheck(!!utf(x.index),"CONSTANT_MethodType has an invalid descriptor_index at #"+ci);}
+    else if(x.tag===19||x.tag===20){cpCheck(out.major>=53,"module/package constants require class-file version 53 or newer");cpCheck(!!utf(x.index),"module/package constant has an invalid name_index at #"+ci);}
     else if(x.tag===9||x.tag===10||x.tag===11){
      cpCheck(!!cls(x.a),"member reference has an invalid class_index at #"+ci);
      const nt=nameType(x.b);cpCheck(!!nt&&!!nt.name&&!!nt.descriptor,"member reference has an invalid NameAndType at #"+ci);
     }else if(x.tag===12)cpCheck(!!utf(x.a)&&!!utf(x.b),"NameAndType has an invalid UTF-8 reference at #"+ci);
     else if(x.tag===15){
+     cpCheck(out.major>=51,"CONSTANT_MethodHandle requires class-file version 51 or newer");
      const ref=cp[x.index],kind=x.kind;
      const allowed=kind>=1&&kind<=4?ref&&ref.tag===9:
       kind===5||kind===8?ref&&ref.tag===10:
@@ -123,6 +124,8 @@
         throw new Error("ldc2_w requires a long, double or category-2 dynamic constant");
       }else if(![3,4,7,8,15,16,17].includes(entry.tag)){
        throw new Error("ldc/ldc_w references an unsupported constant-pool tag "+entry.tag);
+      }else if(entry.tag===17&&["J","D"].includes(nameType(entry.b)?.descriptor)){
+       throw new Error("ldc/ldc_w cannot load a category-2 dynamic constant");
       }
      }
      else if((op>=0x15&&op<=0x19)||(op>=0x36&&op<=0x3a)||op===0xa9||op===0xbc)x.operand=byte();
@@ -201,6 +204,7 @@
      const ac=u2();
      for(let j=0;j<ac;j++){
       const attrName=utf(u2()),length=u4(),end=p+length;
+      if(!attrName)throw new Error("attribute name is not CONSTANT_Utf8");
       if(end>view.byteLength)throw new Error("attribute exceeds class file boundary");
       if(isMethod&&attrName==="Code"){
        const maxStack=u2(),maxLocals=u2(),codeLength=u4();
@@ -209,7 +213,7 @@
        const exceptionCount=u2(),exceptions=[];
        for(let z=0;z<exceptionCount;z++){const start=u2(),end=u2(),handler=u2(),catchIndex=u2(),catchType=catchIndex?cls(catchIndex):null;if(catchIndex&&!catchType)throw new Error("exception catch_type does not reference CONSTANT_Class");exceptions.push({start,end,handler,catchType});}
        const nested=u2();
-       for(let z=0;z<nested;z++){u2();const n=u4();take(n);}
+       for(let z=0;z<nested;z++){const nestedName=utf(u2()),n=u4();if(!nestedName)throw new Error("Code nested attribute name is not CONSTANT_Utf8");take(n);}
        let decoded;
        try{decoded=decodeCode(codeBytes);}catch(error){decoded={instructions:[],opcodeCounts:{},invocations:[],fieldAccesses:[],stringConstants:[],branchTargets:[],decodeError:error.message};}
        record.code={maxStack,maxLocals,codeLength,instructions:decoded.instructions,opcodeCounts:decoded.opcodeCounts,invocations:decoded.invocations,fieldAccesses:decoded.fieldAccesses,stringConstants:decoded.stringConstants,branchTargets:decoded.branchTargets,exceptions,decodeError:decoded.decodeError||null};
