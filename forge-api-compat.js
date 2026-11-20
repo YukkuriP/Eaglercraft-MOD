@@ -28,7 +28,7 @@
   ];
 
   function normalizeName(value) {
-    return typeof value === "string" ? value.replace(/\\./g, "/").replace(/^L|;$/g, "") : "";
+    return typeof value === "string" ? value.replace(/\./g, "/").replace(/^L|;$/g, "") : "";
   }
 
   function categoryFor(owner) {
@@ -62,7 +62,7 @@
       return { id: "attach_capability", confidence: "high", reason: "Exact AttachCapabilitiesEvent method owner and name" };
     if (/^net\/minecraftforge\/fml\/ModLoadingContext$/.test(owner) && name === "registerConfig")
       return { id: "config_registration", confidence: "high", reason: "Exact ModLoadingContext config registration owner and name" };
-    if (/^net\/minecraftforge\/common\/ForgeConfigSpec(?:\\$Builder)?$/.test(owner) && /^define/.test(name))
+    if (/^net\/minecraftforge\/common\/ForgeConfigSpec(?:\$Builder)?$/.test(owner) && /^define/.test(name))
       return { id: "config_value_definition", confidence: "high", reason: "Exact ForgeConfigSpec definition method owner and name" };
     if (owner === "net/minecraftforge/eventbus/api/Event" && name === "isCanceled")
       return { id: "event_cancellation_query", confidence: "high", reason: "Exact Forge Event cancellation query owner and name" };
@@ -194,6 +194,8 @@
         if (emittedClassReference.has(key)) continue;
         emittedClassReference.add(key);
         const category = categoryFor(owner);
+        classSeen.add(sourceClass);
+        if (!apiClassCounts.has(owner)) apiClassCounts.set(owner, 1);
         if (!categoryCounts[category]) categoryCounts[category] = { classReferences: 0, invocations: 0, fieldAccesses: 0 };
         categoryCounts[category].classReferences++;
         report.totals.classReferenceSites++;
