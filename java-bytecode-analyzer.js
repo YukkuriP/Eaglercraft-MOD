@@ -160,7 +160,7 @@
       }else{
        if(entry.tag!==7||!x.className)throw new Error("type instruction must reference CONSTANT_Class");
        if(op===0xbb)objectAllocations.push({pc,className:x.className,kind:"object"});
-       if(op===0xbd)objectAllocations.push({pc,className:x.className,kind:"reference-array"});
+       if(op===0xbd)arrayAllocations.push({pc,kind:"reference-array",componentClass:x.className});
       }
      }
      else if(op===0xb9){
