@@ -127,6 +127,7 @@
   for(const clazz of accepted){
    const evidence=classEvidence(clazz);
    const matches=EVENT_RULES.filter(rule=>evidence.some(value=>rule.pattern.test(value)));
+   const classRegistrationRules=new Set();
    for(const method of clazz.methods||[]){
     if(LIFECYCLE.has(method.name)){
      report.lifecycleCandidates.push({
@@ -144,7 +145,6 @@
     const annotationAttributes=(method.attributes||[]).filter(name=>/Annotations$/.test(name));
     if(annotationAttributes.length)report.totals.annotationBearingMethods++;
     const calls=(method.code&&method.code.invocations)||[];
-    const classRegistrationRules=new Set();
     for(const call of calls){
      const name=String(call.name||"");
      if(!REGISTRATION_NAMES.has(name)||!EVENT_REGISTRY.test(String(call.owner||"")))continue;
