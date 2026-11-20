@@ -95,7 +95,7 @@
       kind===9?ref&&ref.tag===11:false;
      cpCheck(!!allowed,"MethodHandle has an invalid reference_kind/reference_index at #"+ci);
     }else if(x.tag===17||x.tag===18){
-     cpCheck(out.major>=55,"Dynamic/InvokeDynamic constants require class-file version 55 or newer");
+     cpCheck(x.tag===17?out.major>=55:out.major>=51,"Dynamic/InvokeDynamic constant is not supported by this class-file version");
      const nt=nameType(x.b);cpCheck(!!nt&&!!nt.name&&!!nt.descriptor,"Dynamic constant has an invalid NameAndType at #"+ci);
     }
    }
