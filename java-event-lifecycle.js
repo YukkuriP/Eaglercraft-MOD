@@ -57,16 +57,31 @@
   }
   return Array.from(new Set(values.filter(Boolean)));
  }
- function loaderEntrypoints(loaderAnalysis){
+ function normalizeEntrypointClass(value){
+  let name=String(value||"").trim();
+  if(!name)return null;
+  const separator=name.indexOf("::");
+  if(separator>=0)name=name.slice(0,separator);
+  if(name.startsWith("L")&&name.endsWith(";"))name=name.slice(1,-1);
+  if(name.includes("/"))return /^[A-Za-z0-9_$/]+$/.test(name)?name:null;
+  if(/^[A-Za-z_$][A-Za-z0-9_$.]*$/.test(name))return name.replace(/\./g,"/");
+  return null;
+ }
+ function loaderEntrypoints(loaderAnalysis,classNames){
   const rows=(loaderAnalysis&&loaderAnalysis.entrypoints)||[];
-  return rows.slice(0,2000).map(row=>({
-   loader:String(row.loader||"unknown"),
-   type:String(row.type||"unknown"),
-   value:String(row.value||"").slice(0,512),
-   resolution:"metadata-entrypoint-string",
-   javaClassResolved:false,
-   autoWired:false
-  }));
+  return rows.slice(0,2000).map(row=>{
+   const value=String(row.value||"").slice(0,512),className=normalizeEntrypointClass(value);
+   return {
+    loader:String(row.loader||"unknown"),
+    type:String(row.type||"unknown"),
+    value,
+    className,
+    resolution:className&&classNames.has(className)?"class-file-found":"metadata-entrypoint-string-only",
+    javaClassResolved:!!(className&&classNames.has(className)),
+    executionConfirmed:false,
+    autoWired:false
+   };
+  });
  }
  function analyze(input){
   const classes=Array.isArray(input&&input.classes)?input.classes:[];
@@ -106,6 +121,8 @@
    ]
   };
   report.totals.loaderEntrypoints=report.loaderEntrypoints.length;
+  const classNames=new Set(accepted.map(clazz=>clazz.className));
+  report.loaderEntrypoints=loaderEntrypoints(loaderAnalysis,classNames);
   const registrationIds=new Set();
   for(const clazz of accepted){
    const evidence=classEvidence(clazz);
@@ -127,6 +144,7 @@
     const annotationAttributes=(method.attributes||[]).filter(name=>/Annotations$/.test(name));
     if(annotationAttributes.length)report.totals.annotationBearingMethods++;
     const calls=(method.code&&method.code.invocations)||[];
+    const classRegistrationRules=new Set();
     for(const call of calls){
      const name=String(call.name||"");
      if(!REGISTRATION_NAMES.has(name)||!EVENT_REGISTRY.test(String(call.owner||"")))continue;
@@ -135,8 +153,9 @@
      registrationIds.add(id);
      const sourceFramework=matches.length?matches[0].framework:
       (/net\/neoforged\//.test(evidence.join(" "))?"NeoForge":/net\/minecraftforge\//.test(evidence.join(" "))?"Forge":/net\/fabricmc\//.test(evidence.join(" "))?"Fabric":"unknown");
-     const candidateRules=matches.filter(rule=>ZEUS_SAFE_EVENTS.size&&rule.events.every(event=>ZEUS_SAFE_EVENTS.has(event)));
+     const candidateRules=matches.filter(rule=>rule.events.every(event=>ZEUS_SAFE_EVENTS.has(event)));
      const eventCandidates=Array.from(new Set(candidateRules.flatMap(rule=>rule.events)));
+     for(const rule of candidateRules)classRegistrationRules.add(rule.id);
      report.eventRegistrations.push({
       id,className:clazz.className,method:method.name,descriptor:method.descriptor,pc:Number.isInteger(call.pc)?call.pc:null,
       sourceFramework,registrationOwner:call.owner||null,registrationMethod:name,
@@ -164,8 +183,7 @@
     }
    }
    for(const rule of matches){
-    const hasRegistration=report.eventRegistrations.some(row=>row.className===clazz.className&&row.sourceRuleIds.includes(rule.id));
-    if(!hasRegistration){
+    if(!classRegistrationRules.has(rule.id)){
      report.eventReferenceCandidates.push({
       className:clazz.className,sourceFramework:rule.framework,sourceRuleId:rule.id,
       zeusEventCandidates:rule.events.filter(event=>ZEUS_SAFE_EVENTS.has(event)),
