@@ -96,7 +96,14 @@
    warnings.push(lifecyclePending+" Java lifecycle, event or timer candidates still need an explicit Zeus-side rewrite; none were auto-wired");
   if(eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1")
    warnings.push("Java lifecycle analysis is missing; event-driven Java behavior has not been proven absent");
-  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1";
+  const forgeApiCompatibility=input.forgeApiCompatibility||{};
+  const forgeApiReportMissing=forgeApiCompatibility.schema!=="jar2zeus.forge-api-compatibility.v1"&&hasJavaClasses;
+  const forgeApiPending=forgeApiCompatibility.schema==="jar2zeus.forge-api-compatibility.v1"?
+   (Number(forgeApiCompatibility.totals&&forgeApiCompatibility.totals.unmappedSites)||0)+
+   (Number(forgeApiCompatibility.totals&&forgeApiCompatibility.totals.classReferenceSites)||0):0;
+  if(forgeApiPending>0)warnings.push(forgeApiPending+" Forge API call, field or class-reference candidates are not mapped to Zeus; manual porting is required.");
+  if(forgeApiReportMissing)warnings.push("Forge API compatibility analysis is missing; imported Forge API use has not been reviewed.");
+  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing;
   const skippedResources=(Array.isArray(recipeReport.skipped)?recipeReport.skipped.length:0)+
    (Array.isArray(recipeReport.excluded)?recipeReport.excluded.length:0)+
    (Array.isArray(definitionReport.skipped)?definitionReport.skipped.length:0)+
