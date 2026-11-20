@@ -15,7 +15,7 @@
    - `entity-model-converter.js`
    - `bytecode-verifier.js`
    - `bytecode-analysis.js`
-   - `generic-mod-analyzer.js
+   - `generic-mod-analyzer.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
    - `migration-pipeline.js`
