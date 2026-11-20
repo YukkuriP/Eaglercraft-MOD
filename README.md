@@ -131,6 +131,6 @@ FabricのClientTickEvents / ClientPlayConnectionEvents / HudRenderCallback / Wor
 
 Zeus側は `main.lua` をMOD読み込み時に一度だけ先頭から実行し、その段階でイベントを登録します。`world_join` は実際にワールドへ参加した時に発火するため、すでにワールド内でMODを再読み込みした場合は現在のワールド状態を別途確認する必要があります。`tick` はタイトル画面・メニュー中も毎秒20回発火し、`timer.after` / `timer.every` は秒単位で指定され、タイマーはフレームごとに確認されます。これらの違いは `java-event-lifecycle.json` の `zeusRuntimeRules` にも記録します。
 
-**自動接続はしません。** Javaコールバックの実体、ラムダのBootstrapMethods / MethodHandle、イベント引数オブジェクト、Forgeのアノテーション値、スレッド・キャンセルの意味を現行パーサーでは再構築できません。Zeus側は `on(name, fn, priority)` / `events.on` と `timer.after` / `timer.every` を提供しますが、Javaイベントの引数・実行タイミング・処理内容とは別物です。登録先Luaを自動生成せず、候補・根拠・手作業が必要な理由を `java-event-lifecycle.json` に記録します。パッケージ検証でも未解決候補が残る出力を完全移植扱いにしません。
+**自動接続はしません。** Javaコールバックの実体、ラムダのBootstrapMethods / MethodHandle、イベント引数オブジェクト、Forgeのアノテーション値、スレッド・キャンセルの意味を現行パーサーでは再構築できません。アノテーション属性を持つメソッドは `annotationCandidates` に個別記録しますが、属性名の存在だけではイベント購読を確認できず、注釈型・値・イベント型は未解決です。Zeus側は `on(name, fn, priority)` / `events.on` と `timer.after` / `timer.every` を提供しますが、Javaイベントの引数・実行タイミング・処理内容とは別物です。登録先Luaを自動生成せず、候補・根拠・手作業が必要な理由を `java-event-lifecycle.json` に記録します。パッケージ検証でも未解決候補が残る出力を完全移植扱いにしません。
 
 公式資料: [Events and timers](https://dev.eaglercraft.com/docs/modding/events-and-timers) / [How mods run](https://dev.eaglercraft.com/docs/modding/how-mods-run) / [API reference](https://dev.eaglercraft.com/docs/modding/api)
