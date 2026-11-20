@@ -86,7 +86,7 @@
   }
  }
  function convert(entries){
-  const report={schema:"jar2zeus.config-settings.v1",filesSeen:0,settingsGenerated:0,excludedSensitiveKeys:0,skipped:[],warnings:[]};
+  const report={schema:"jar2zeus.config-settings.v1",filesSeen:0,settingsGenerated:0,excludedSensitiveKeys:0,sourceReadersRewritten:false,migrationMode:"zeus-settings-export-only",skipped:[],warnings:[]};
   const candidates=(entries||[]).filter(e=>e&&typeof e.path==="string"&&safePath(e.path)&&/^(?:config|defaultconfigs)\//i.test(e.path)&&/\.(?:json|toml|properties)$/i.test(e.path)).sort((a,b)=>a.path.localeCompare(b.path));
   const values=[];
   for(const entry of candidates){
