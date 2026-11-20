@@ -11,7 +11,7 @@
 
   const AREAS = [
     ["modEntrypoint", /^net\/minecraftforge\/fml\/(?:common\/Mod(?:$|\$)|javafmlmod\/FMLJavaModLoadingContext$|ModList$|ModContainer$)/],
-    ["eventBus", /^net\/minecraftforge\/eventbus\/api\//],
+    ["eventBus", /^net\/minecraftforge\/(?:eventbus\/api\/|common\/MinecraftForge$)/],
     ["lifecycle", /^net\/minecraftforge\/fml\/event\/lifecycle\//],
     ["registries", /^net\/minecraftforge\/registries\//],
     ["capabilities", /^net\/minecraftforge\/common\/capabilities\//],
@@ -40,6 +40,8 @@
     if (kind === "field") {
       if (/^net\/minecraftforge\/registries\/ForgeRegistries$/.test(owner))
         return { id: "forge_registry_field", confidence: "high", reason: "Exact ForgeRegistries field access" };
+      if (owner === "net/minecraftforge/common/MinecraftForge" && name === "EVENT_BUS")
+        return { id: "global_event_bus_access", confidence: "high", reason: "Exact MinecraftForge.EVENT_BUS field access" };
       return null;
     }
     if (owner === "net/minecraftforge/eventbus/api/IEventBus" && (name === "addListener" || name === "register"))
