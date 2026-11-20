@@ -19,6 +19,7 @@
 <script src="java-type-compat.js"></script>
 <script src="java-bytecode-analyzer.js"></script>
 <script src="generic-mod-analyzer.js"></script>
+<script src="java-event-lifecycle.js"></script>
 <script src="java-reimplementation-engine.js"></script>
 <script src="migration-pipeline.js"></script>
 <script src="zeus-api-contract.js"></script>
@@ -40,7 +41,7 @@
 <button id="build" disabled>Zeus MOD ZIP＋再実装レポートを出力</button>
 </section>
 <section class="card"><h2>このツールが行うこと</h2>
-<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>単純なJSON/TOML/properties設定をZeus設定画面へ移行し、秘密情報らしいキーを除外</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Javaクラスの定数プール・メソッド・バイトコード・API呼び出しを解析</li><li>Javaメソッドの安全な限定範囲をLuaへ変換し、未対応ロジックは再実装タスクに整理</li><li>検証済みの同一JAR内static補助メソッド呼び出し・void戻り・呼び出しグラフを再構築（再帰深度上限128）</li><li>クラスのメソッド・命令・呼び出し先を解析し、対応できるJava処理をLuaへ再実装</li><li>Javaの型・継承・インターフェース・フィールド既定値をLua互換レイヤーとして出力</li><li>JAR内のassets/dataを解析し、変換可能なテクスチャ・モデル・レシピ等を抽出</li><li>ブロック・アイテム・レシピ等のJSON資産をZeus形式へ変換し、Javaコード由来の機能と統合</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>Zeusが直接読み込める、metadata.jsonがZIP直下にある単体MOD ZIPを生成</li></ul>
+<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>単純なJSON/TOML/properties設定をZeus設定画面へ移行し、秘密情報らしいキーを除外</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Fabric / Forge / NeoForgeのイベント登録候補・初期化候補・タイマーを静的解析し、Zeusイベント候補と未対応理由を出力</li><li>Javaクラスの定数プール・メソッド・バイトコード・API呼び出しを解析</li><li>Javaメソッドの安全な限定範囲をLuaへ変換し、未対応ロジックは再実装タスクに整理</li><li>検証済みの同一JAR内static補助メソッド呼び出し・void戻り・呼び出しグラフを再構築（再帰深度上限128）</li><li>クラスのメソッド・命令・呼び出し先を解析し、対応できるJava処理をLuaへ再実装</li><li>Javaの型・継承・インターフェース・フィールド既定値をLua互換レイヤーとして出力</li><li>JAR内のassets/dataを解析し、変換可能なテクスチャ・モデル・レシピ等を抽出</li><li>ブロック・アイテム・レシピ等のJSON資産をZeus形式へ変換し、Javaコード由来の機能と統合</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>Zeusが直接読み込める、metadata.jsonがZIP直下にある単体MOD ZIPを生成</li></ul>
 <p class="warn">重要：任意のJava MODを100%自動で完全移植できるわけではありません。現在は限定されたプリミティブ型staticメソッド（条件分岐・switch・ループ、void戻り、同一JAR内の検証済みstatic補助メソッド呼び出しを含む）をLuaへ再実装し、Java/Minecraft/ローダーAPIに依存する処理は機能別の再実装タスクとして出力します。Java型互換レイヤーは継承判定や既定値フィールドを扱う補助骨格であり、コンストラクタ・クラス初期化・Javaメソッド本体・完全なアクセス制御は実行しません。設定移行はZeus設定値の公開までで、元Javaの設定読み取りを自動接続しません。未対応コードを動くふりで置き換えることはしません。危険な武器関連機能は変換対象にしません。</p>
 </section>
 <p class="muted">JARの解析と変換はブラウザ内で処理し、サーバーへ送信しません。ZIP作成時のみJSZipを読み込みます。</p>
@@ -124,6 +125,8 @@ $("analyze").onclick=async function(){
   var genericAnalysis=window.Jar2ZeusGenericAnalyzer.analyze(genericEntries);
   var bytecodeAnalysis=window.Jar2ZeusBytecodeAnalysis.analyze(genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return entry.classInfo;}));
   var classStructureAnalysis=window.Jar2ZeusClassModel.analyze(javaClassRecords);
+  var javaEventLifecycle=window.Jar2ZeusEventLifecycle.analyze({classes:javaClassRecords,loaderAnalysis:genericAnalysis,bytecodeAnalysis:bytecodeAnalysis});
+  genericAnalysis.migrationAssessment.javaEventLifecycle={status:javaEventLifecycle.status,classesAnalyzed:javaEventLifecycle.totals.classesAnalyzed,restrictedClassesSkipped:javaEventLifecycle.totals.restrictedClassesSkipped,loaderEntrypoints:javaEventLifecycle.totals.loaderEntrypoints,entrypointsResolved:javaEventLifecycle.totals.entrypointsResolved,entrypointsUnresolved:javaEventLifecycle.totals.entrypointsUnresolved,lifecycleCandidates:javaEventLifecycle.totals.lifecycleCandidates,eventRegistrationSites:javaEventLifecycle.totals.eventRegistrationSites,eventReferenceCandidates:javaEventLifecycle.totals.eventReferenceCandidates,timerSites:javaEventLifecycle.totals.timerSites,autoWiredHandlers:javaEventLifecycle.totals.autoWiredHandlers};
   genericAnalysis.migrationAssessment.classObjectModel={classesModeled:classStructureAnalysis.totals.classesModeled,fields:classStructureAnalysis.totals.fields,instanceFields:classStructureAnalysis.totals.instanceFields,staticFields:classStructureAnalysis.totals.staticFields,constructors:classStructureAnalysis.totals.constructors,methods:classStructureAnalysis.totals.methods,constantFields:classStructureAnalysis.totals.constantFields,objectAllocations:classStructureAnalysis.totals.objectAllocations,arrayAllocations:classStructureAnalysis.totals.arrayAllocations,constructorCalls:classStructureAnalysis.totals.constructorCalls,constructorFieldWrites:classStructureAnalysis.totals.constructorFieldWrites,staticInitializerFieldWrites:classStructureAnalysis.totals.staticInitializerFieldWrites,internalCalls:classStructureAnalysis.totals.internalCalls,externalCalls:classStructureAnalysis.totals.externalCalls};
   genericAnalysis.migrationAssessment.javaTypeCompatibility="Class hierarchy, primitive descriptors and default-field helpers are emitted as a Lua compatibility scaffold; constructors and Java method bodies are not executed.";
   genericAnalysis.migrationAssessment.bytecodeAnalysis={methodsSeen:bytecodeAnalysis.totals.methodsSeen,methodsVerified:bytecodeAnalysis.totals.methodsVerified,methodsRejected:bytecodeAnalysis.totals.methodsRejected,branches:bytecodeAnalysis.totals.branches,loops:bytecodeAnalysis.totals.loopBackEdges,internalCalls:bytecodeAnalysis.totals.internalInvocations,externalCalls:bytecodeAnalysis.totals.externalInvocations};
@@ -134,12 +137,13 @@ $("analyze").onclick=async function(){
    archive_preflight:archivePreflightReport,
    bytecode_analysis:bytecodeAnalysis,
    class_object_model:classStructureAnalysis,
+   java_event_lifecycle:javaEventLifecycle,
    generic_analysis:genericAnalysis,
    target_zeus:{game_version:targetGameVersion,api_version:1,documentation:"https://dev.eaglercraft.com/docs/modding/api",target_html_required:false},
    conversion:{metadata:"解析済み",resources:"変換候補を抽出",java_logic:"Java bytecodeからZeus向けの限定的な再実装を試行",html_integration:"不要（Zeus専用出力）"}
   };
   $("out").textContent=JSON.stringify(jarReport,null,2);
-  $("warning").textContent="JAR解析完了。Javaクラス "+javaClassRecords.length+" 件をバイトコード解析。Zeus "+targetGameVersion+" 向けに再実装を試行します。";
+  $("warning").textContent="JAR解析完了。Javaクラス "+javaClassRecords.length+" 件を解析。イベント登録候補 "+javaEventLifecycle.totals.eventRegistrationSites+" 件、タイマー候補 "+javaEventLifecycle.totals.timerSites+" 件（自動接続なし）。Zeus "+targetGameVersion+" 向けの部分移植診断を作成しました。";
   $("build").disabled=false;
  }catch(e){alert("解析失敗: "+e.message)}
 };
@@ -238,6 +242,7 @@ $("build").onclick=async function(){
  addPackageFile("java-type-compatibility.json",JSON.stringify(javaTypeCompatibility.report,null,2),true);
  addPackageFile("reimplementation-report.json",JSON.stringify(javaReimplementation.report,null,2),true);
  addPackageFile("java-call-graph.json",JSON.stringify(javaReimplementation.report.callGraph||{nodes:[],edges:[],recursiveEdges:[]},null,2),true);
+ addPackageFile("java-event-lifecycle.json",JSON.stringify(jarReport.java_event_lifecycle,null,2),true);
  addPackageFile("reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2),true);
  addPackageFile("generic-analysis.json",JSON.stringify(jarReport.generic_analysis,null,2),true);
  addPackageFile("conversion-assessment.json",JSON.stringify(jarReport.generic_analysis.migrationAssessment,null,2),true);
@@ -262,7 +267,7 @@ $("build").onclick=async function(){
    metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,
    textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,
    packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},
-   packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,
+   packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,eventLifecycle:jarReport.java_event_lifecycle,
    reimplementation:javaReimplementation.report,javaTypeCompatibility:javaTypeCompatibility.report,recipeReport:converted.report,definitionReport:definitions.report,entityReport:entityModels.report,configReport:configSettings.report,
    apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}
   });
@@ -281,7 +286,7 @@ $("build").onclick=async function(){
   metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,
   textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,
   packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},
-  packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,
+  packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,eventLifecycle:jarReport.java_event_lifecycle,
   reimplementation:javaReimplementation.report,javaTypeCompatibility:javaTypeCompatibility.report,recipeReport:converted.report,definitionReport:definitions.report,entityReport:entityModels.report,configReport:configSettings.report,
   apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}
  });
@@ -304,11 +309,12 @@ $("build").onclick=async function(){
  out.file("diagnostics/java-type-compatibility.json",JSON.stringify(javaTypeCompatibility.report,null,2));
  out.file("diagnostics/reimplementation-report.json",JSON.stringify(javaReimplementation.report,null,2));
  out.file("diagnostics/java-call-graph.json",JSON.stringify(javaReimplementation.report.callGraph||{nodes:[],edges:[],recursiveEdges:[]},null,2));
+ out.file("diagnostics/java-event-lifecycle.json",JSON.stringify(jarReport.java_event_lifecycle,null,2));
  out.file("diagnostics/reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2));
  out.file("diagnostics/entity-model-report.json",JSON.stringify(entityModels.report,null,2));
  out.file("diagnostics/machine-animation-report.json",JSON.stringify(jarReport.machine_animation_report,null,2));
  out.file("diagnostics/target-zeus.json",JSON.stringify(jarReport.target_zeus,null,2));
- out.file("README.txt","Jar2Zeus output\n\nIMPORT THIS FILE: "+id+"-zeus-mod.zip\n\nStandalone Zeus MOD ZIP for Eaglercraft "+targetVersion+". The uploaded JAR is analyzed locally in this browser; no game HTML is required.\n\nThe Java reimplementation engine translates a conservative subset of primitive static helper methods, including branches, switches, loops, void returns and verified calls to other static helpers in the same JAR. Recursive helper calls have a depth limit of 128. Java object state, exception handlers, external API calls and game lifecycle wiring are not automatically migrated. Remaining Java/loader behavior is listed in reimplementation-report.json and reimplementation-plan.json for feature-specific Zeus adapters. Resource converters handle supported recipes, block/item definitions and preserve compatible model JSON and textures. This output is a partial port unless its remaining tasks are completed and the exact target game is tested.\n\nThe generated main.lua includes preflight guards for documented Zeus APIs. The bundled runtime probe checks API presence only and does not prove gameplay behavior. See diagnostics/report.json, diagnostics/bytecode-analysis.json, diagnostics/config-report.json, diagnostics/class-object-model.json, diagnostics/java-type-compatibility.json, diagnostics/reimplementation-report.json, diagnostics/java-call-graph.json, diagnostics/reimplementation-plan.json, diagnostics/entity-model-report.json, diagnostics/api-validation.json and validation-report.json.\n\nPackage files: "+packageFiles.length+"\nUnpacked package size: "+packageBytes+" bytes\nZeus limits: 4096 files / 64 MiB\nOmitted package files: "+packageSkipped.length+"\nExtracted source resources: "+copied+"\n");
+ out.file("README.txt","Jar2Zeus output\n\nIMPORT THIS FILE: "+id+"-zeus-mod.zip\n\nStandalone Zeus MOD ZIP for Eaglercraft "+targetVersion+". The uploaded JAR is analyzed locally in this browser; no game HTML is required.\n\nThe Java reimplementation engine translates a conservative subset of primitive static helper methods, including branches, switches, loops, void returns and verified calls to other static helpers in the same JAR. Recursive helper calls have a depth limit of 128. Java object state, exception handlers, external API calls and game lifecycle wiring are not automatically migrated. Remaining Java/loader behavior is listed in reimplementation-report.json and reimplementation-plan.json for feature-specific Zeus adapters. Resource converters handle supported recipes, block/item definitions and preserve compatible model JSON and textures. This output is a partial port unless its remaining tasks are completed and the exact target game is tested.\n\nThe generated main.lua includes preflight guards for documented Zeus APIs. The bundled runtime probe checks API presence only and does not prove gameplay behavior. See diagnostics/report.json, diagnostics/bytecode-analysis.json, diagnostics/config-report.json, diagnostics/class-object-model.json, diagnostics/java-type-compatibility.json, diagnostics/reimplementation-report.json, diagnostics/java-call-graph.json, diagnostics/java-event-lifecycle.json, diagnostics/reimplementation-plan.json, diagnostics/entity-model-report.json, diagnostics/api-validation.json and validation-report.json.\n\nPackage files: "+packageFiles.length+"\nUnpacked package size: "+packageBytes+" bytes\nZeus limits: 4096 files / 64 MiB\nOmitted package files: "+packageSkipped.length+"\nExtracted source resources: "+copied+"\n");
  var blob=await out.generateAsync({type:"blob",compression:"DEFLATE"});var a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download=id+"-migration.zip";a.click();setTimeout(function(){URL.revokeObjectURL(url)},1500);
  }catch(e){alert("出力失敗: "+e.message)}
 };

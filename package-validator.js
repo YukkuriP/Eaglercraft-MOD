@@ -83,7 +83,16 @@
   const hasJavaClasses=(Number(javaTypeCompatibility.totals&&javaTypeCompatibility.totals.classesRegistered)||0)>0;
   const typeLayerIncomplete=hasJavaClasses&&(!Array.isArray(javaTypeCompatibility.limitations)||javaTypeCompatibility.limitations.length>0);
   if(typeLayerIncomplete)warnings.push("Java type compatibility is only a scaffold: constructors, class initializers and complete JVM object semantics remain unimplemented.");
-  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete;
+  const eventLifecycle=input.eventLifecycle||{};
+  const lifecyclePending=Number(eventLifecycle.totals&&eventLifecycle.totals.loaderEntrypoints||0)+
+   Number(eventLifecycle.totals&&eventLifecycle.totals.eventRegistrationSites||0)+
+   Number(eventLifecycle.totals&&eventLifecycle.totals.eventReferenceCandidates||0)+
+   Number(eventLifecycle.totals&&eventLifecycle.totals.timerSites||0);
+  if(eventLifecycle.schema==="jar2zeus.java-event-lifecycle.v1"&&lifecyclePending>0)
+   warnings.push(lifecyclePending+" Java lifecycle, event or timer candidates still need an explicit Zeus-side rewrite; none were auto-wired");
+  if(eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1")
+   warnings.push("Java lifecycle analysis is missing; event-driven Java behavior has not been proven absent");
+  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1";
   const skippedResources=(Array.isArray(recipeReport.skipped)?recipeReport.skipped.length:0)+
    (Array.isArray(recipeReport.excluded)?recipeReport.excluded.length:0)+
    (Array.isArray(definitionReport.skipped)?definitionReport.skipped.length:0)+

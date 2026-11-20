@@ -18,6 +18,7 @@
    - `class-object-analyzer.js`
    - `java-type-compat.js`
    - `generic-mod-analyzer.js`
+   - `java-event-lifecycle.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
    - `migration-pipeline.js`
@@ -75,6 +76,7 @@ JSZipをCDNから読み込むため初回利用時にインターネット接続
 - `diagnostics/bytecode-analysis.json`: JVM命令・制御フロー・呼び出し関係の集計。
 - `diagnostics/reimplementation-report.json`: Javaメソッドごとの変換状況。
 - `diagnostics/java-call-graph.json`: Luaへ再実装したstatic補助メソッド間の呼び出しグラフと再帰辺。
+- `diagnostics/java-event-lifecycle.json`: Javaローダー初期化候補、イベント登録候補、Zeus側の候補イベント、タイマー候補、未対応理由。
 - `diagnostics/reimplementation-plan.json`: 未実装機能の再実装タスク。
 - `diagnostics/entity-model-report.json`: 3D形状・ボーン・モーションの変換結果と未対応アニメーション。
 - `diagnostics/api-validation.json`: 使用したZeus APIの静的検証結果。
@@ -118,3 +120,13 @@ ZeusのLuaランタイムは公式資料に記載されたLua 5.4を前提にし
 変換前に候補メソッドの依存先を反復検査し、対象外のメソッドを呼ぶものは呼び出し元も変換候補から外します。生成Luaではメソッドシンボル表を経由して呼び出し、呼び出し深度は128で制限します。各メソッドの命令ループには既存の100,000命令予算があります。引数を一度ローカル変数へ取り出してから呼ぶため、複数引数のスタック順を保持します。レポートの `callGraph.nodes` / `edges` / `recursiveEdges` に変換された補助メソッドと依存関係を記録します。
 
 **未対応:** インスタンスメソッド、Javaオブジェクト／staticフィールドへのアクセス、コンストラクタ、例外ハンドラー、外部Java/Minecraft/Forge/Fabric API呼び出し、`invokedynamic`、参照型・配列型の実行時意味、ゲームイベントやローダーのライフサイクルへの自動接続は対象外です。未対応の呼び出しを含むメソッドはpendingとしてレポートに残します。これはJava仮想マシンではなく、任意のJava MODの完全移植を保証しません。
+
+## Javaイベント・ライフサイクル解析
+
+`java-event-lifecycle.js` は、クラスファイルとFabric / Forge / NeoForge等のローダーメタデータを静的に照合し、初期化メソッド名、宣言されたentrypoint、既知のイベント型参照、イベントバス登録呼び出し、Javaタイマー呼び出しを診断します。Zeus側の候補として記録するイベントは `tick` / `frame` / `resize` / `hud` / `screen_render` / `overlay` / `screen_open` / `screen_close` / `chat_receive` / `chat_send` / `world_join` / `world_leave` / `mod_loaded` / `mod_unloaded` / `unload` に限定しています。イベント名が似ているだけでは互換と判定せず、既知のソースイベント型を参照した場合も「候補」にとどめます。
+
+FabricのClientTickEvents / ClientPlayConnectionEvents / HudRenderCallback / WorldRenderEvents / ScreenEvents、Forge / NeoForgeのtick・GUI描画・クライアント接続・画面イベント型を検出候補として扱います。イベントバスの `register` / `addListener` 等や、Javaの `Timer` / `ScheduledExecutorService` によるスケジュール呼び出しも記録します。 `scheduleAtFixedRate` 等は `timer.every` の候補、単発・周期を区別できない `schedule` は `timer.after` / `timer.every` の候補として扱います。
+
+**自動接続はしません。** Javaコールバックの実体、ラムダのBootstrapMethods / MethodHandle、イベント引数オブジェクト、Forgeのアノテーション値、スレッド・キャンセルの意味を現行パーサーでは再構築できません。Zeus側は `on(name, fn, priority)` / `events.on` と `timer.after` / `timer.every` を提供しますが、Javaイベントの引数・実行タイミング・処理内容とは別物です。登録先Luaを自動生成せず、候補・根拠・手作業が必要な理由を `java-event-lifecycle.json` に記録します。パッケージ検証でも未解決候補が残る出力を完全移植扱いにしません。
+
+公式資料: [Events and timers](https://dev.eaglercraft.com/docs/modding/events-and-timers) / [How mods run](https://dev.eaglercraft.com/docs/modding/how-mods-run) / [API reference](https://dev.eaglercraft.com/docs/modding/api)
