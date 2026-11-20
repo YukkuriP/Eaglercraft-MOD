@@ -5,15 +5,15 @@ const PREFIX="net/minecraft/";
 const BLOCKED=/(?:^|[\/.$_-])(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)(?:$|[\/.$_-])/i;
 const LIMIT=5000;
 const AREAS=[
-["blocksAndStates",/^net\/minecraft\/world\/level\/block\//],
 ["blockEntitiesAndMachines",/^net\/minecraft\/world\/level\/block\/entity\//],
+["blocksAndStates",/^net\/minecraft\/world\/level\/block\//],
+["recipesAndData",/^net\/minecraft\/(?:world\/item\/crafting|data)\//],
 ["itemsAndStacks",/^net\/minecraft\/world\/item\//],
 ["inventoryAndContainers",/^net\/minecraft\/world\/(?:Container|entity\/player\/Inventory|inventory\/)/],
 ["entitiesAndPlayers",/^net\/minecraft\/world\/entity\//],
+["worldGeneration",/^net\/minecraft\/world\/level\/(?:levelgen|biome)\//],
 ["worldAndLevel",/^net\/minecraft\/world\/level\//],
 ["registriesAndResources",/^net\/minecraft\/(?:core\/Registry|core\/registries|resources\/)/],
-["recipesAndData",/^net\/minecraft\/(?:world\/item\/crafting|data)\//],
-["worldGeneration",/^net\/minecraft\/world\/level\/(?:levelgen|biome)\//],
 ["commands",/^net\/minecraft\/commands\//],
 ["clientUi",/^net\/minecraft\/client\/gui\//],
 ["clientRendering",/^net\/minecraft\/client\/renderer\//],
