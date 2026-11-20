@@ -74,9 +74,12 @@
   const runtimeTested=input.runtimeTested===true;
   const gameplayVerified=input.gameplayVerified===true;
   const reimplementation=input.reimplementation||{};
-  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0;
   const recipeReport=input.recipeReport||{};
   const definitionReport=input.definitionReport||{};
+  const configReport=input.configReport||{};
+  const configNotWired=(Number(configReport.settingsGenerated)||0)>0&&configReport.sourceReadersRewritten!==true;
+  if(configNotWired)warnings.push("Simple config values were exposed as Zeus settings, but original Java config readers were not redirected.");
+  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired;
   const skippedResources=(Array.isArray(recipeReport.skipped)?recipeReport.skipped.length:0)+
    (Array.isArray(recipeReport.excluded)?recipeReport.excluded.length:0)+
    (Array.isArray(definitionReport.skipped)?definitionReport.skipped.length:0)+
@@ -84,7 +87,9 @@
    (input.entityReport&&Array.isArray(input.entityReport.skipped)?input.entityReport.skipped.length:0)+
    (input.entityReport&&Array.isArray(input.entityReport.animationsUnmapped)?input.entityReport.animationsUnmapped.length:0)+
    (input.entityReport&&Array.isArray(input.entityReport.machineAnimationsUnmapped)?input.entityReport.machineAnimationsUnmapped.length:0)+
-   (input.entityReport&&Array.isArray(input.entityReport.machineAssetsUnmapped)?input.entityReport.machineAssetsUnmapped.length:0);
+   (input.entityReport&&Array.isArray(input.entityReport.machineAssetsUnmapped)?input.entityReport.machineAssetsUnmapped.length:0)+
+   (Array.isArray(configReport.skipped)?configReport.skipped.length:0)+
+   (Number(configReport.excludedSensitiveKeys)||0);
   const restrictedResources=!!(input.analysis&&input.analysis.featureReview&&input.analysis.featureReview.restrictedPathCount>0);
   const unsupportedRuntime=!!(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length);
   const conversionComplete=valid&&!skipped&&!incompleteJava&&skippedResources===0&&!restrictedResources&&!unsupportedRuntime;
