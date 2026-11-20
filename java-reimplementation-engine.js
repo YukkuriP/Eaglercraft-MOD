@@ -226,13 +226,19 @@
      let expr=n==="i2c"?"("+v+" & 65535)":n==="i2b"?"((("+v+" & 255) >= 128) and ("+v+" & 255) - 256 or ("+v+" & 255))":"((("+v+" & 65535) >= 32768) and ("+v+" & 65535) - 65536 or ("+v+" & 65535))";
      code.push(push("__jar2zeus_i32("+expr+")"),fall);
     }else if(n==="invokestatic"){
-     const md=descriptor(x.member.descriptor),args=[];
-     for(let z=0;z<md.args.length;z++)args.unshift(pop());
-     let expr;
-     if(x.member.name==="abs")expr="math.abs("+args[0]+")";
-     else if(x.member.name==="min")expr="math.min("+args.join(", ")+")";
-     else expr="math.max("+args.join(", ")+")";
-     code.push(push("__jar2zeus_i32("+expr+")"),fall);
+     const md=descriptor(x.member.descriptor),args=new Array(md.args.length);
+     for(let z=md.args.length-1;z>=0;z--){const variable="__call_arg_"+z;code.push("local "+variable+" = "+pop());args[z]=variable;}
+     if(x.member.owner==="java/lang/Math"){
+      let expr;
+      if(x.member.name==="abs")expr="math.abs("+args[0]+")";
+      else if(x.member.name==="min")expr="math.min("+args.join(", ")+")";
+      else expr="math.max("+args.join(", ")+")";
+      code.push(push("__jar2zeus_i32("+expr+")"),fall);
+     }else{
+      const targetKey=x.member.owner+"."+x.member.name+x.member.descriptor;
+      const call="__jar2zeus_call("+q(targetKey)+(args.length?", "+args.join(", "):"")+")";
+      if(md.result==="V")code.push(call,fall);else code.push(push(call),fall);
+     }
     }else if(n==="pop")code.push(pop(),fall);
     else if(n==="pop2")code.push(pop(),pop(),fall);
     else if(n==="dup"){
@@ -268,7 +274,8 @@
      code.push("else __pc = "+(x.pc+x.defaultOffset)+" end");
     }else if(n==="ireturn"){
      const v=pop();code.push("return "+integerReturn(v));
-    }else return null;
+    }else if(n==="return")code.push("return");
+    else return null;
    }
    cases.push((i===0?"if":"elseif")+" __pc == "+x.pc+" then\n      "+code.join("\n      "));
   }
