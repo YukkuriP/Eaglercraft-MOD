@@ -90,8 +90,8 @@
      const x={pc,opcode:op,name};counts[name]=(counts[name]||0)+1;
      if(op===0x10)x.operand=signedByte();
      else if(op===0x11)x.operand=signedShort();
-     else if(op===0x12){x.cpIndex=byte();x.constant=constant(x.cpIndex);}
-     else if(op===0x13||op===0x14){x.cpIndex=short();x.constant=constant(x.cpIndex);}
+     else if(op===0x12){x.cpIndex=byte();x.constant=constant(x.cpIndex);x.constantTag=cp[x.cpIndex]&&cp[x.cpIndex].tag;}
+     else if(op===0x13||op===0x14){x.cpIndex=short();x.constant=constant(x.cpIndex);x.constantTag=cp[x.cpIndex]&&cp[x.cpIndex].tag;}
      else if((op>=0x15&&op<=0x19)||(op>=0x36&&op<=0x3a)||op===0xa9||op===0xbc)x.operand=byte();
      else if(op===0x84){x.local=byte();x.increment=signedByte();}
      else if((op>=0x99&&op<=0xa8)||op===0xc6||op===0xc7){x.offset=signedShort();x.target=pc+x.offset;branches.push(x.target);}
