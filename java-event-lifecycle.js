@@ -131,8 +131,18 @@
     "Java listener method bodies, instance receivers, Java object state and exception paths are not executable in the current Java-to-Lua subset.",
     "A Zeus event name is only a candidate when a known source event class is referenced. Similar names do not prove equivalent timing, scope or payload.",
     "Zeus main.lua runs once at mod load and registers Lua listeners at top level. This analyzer does not synthesize those listeners from Java entrypoints.",
-    "Timer schedules are only classified as candidates. Java scheduler semantics, cancellation handles, thread behavior and callback objects are not converted."
+    "Timer schedules are only classified as candidates. Java scheduler semantics, cancellation handles, thread behavior and callback objects are not converted.",
+    "Event registration is recognized only for exact known API owners and methods; third-party event-bus wrappers are left unclassified rather than guessed.",
+    "If a class references multiple known event types, the analyzer cannot assign each one to a specific registration instruction."
    ],
+   zeusRuntimeRules:{
+    listenerRegistration:"Register Lua listeners at main.lua top level; that file runs once when the mod loads.",
+    worldJoin:"world_join fires on an actual world join. A mod loaded while already in a world must check current world/player state separately.",
+    tick:"tick fires 20 times per second, including title screen and menus.",
+    timers:"timer.after and timer.every take seconds; timers are checked once per frame.",
+    listenerRemoval:"Remove listeners with the returned handle or events.off(handle).",
+    automaticPorting:"These runtime facts guide manual rewrites only; Java handlers are not synthesized."
+   },
    sources:[
     "https://dev.eaglercraft.com/docs/modding/api",
     "https://dev.eaglercraft.com/docs/modding/events-and-timers",
