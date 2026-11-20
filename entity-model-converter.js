@@ -46,6 +46,29 @@
   if(/body|root/.test(b)&&/hover|float|idle_bob/.test(a))return "bob";
   return null;
  }
+ function normalizeAnimationTrack(raw){
+  if(raw===undefined||raw===null)return {keys:[],error:null};
+  if(typeof raw!=="object")return {keys:[],error:"animation channel is not an object"};
+  const entries=Array.isArray(raw)?raw.map((value,index)=>[String(index),value]):Object.entries(raw);
+  const keys=[];
+  for(const [timeText,frame] of entries){
+   const time=Number(timeText);
+   if(!Number.isFinite(time)||time<0)return {keys:[],error:"invalid animation keyframe time: "+timeText};
+   let value=frame,interpolation="linear";
+   if(frame&&typeof frame==="object"&&!Array.isArray(frame)){
+    interpolation=String(frame.lerp_mode||frame.interpolation||"linear").toLowerCase();
+    value=frame.post!==undefined?frame.post:(frame.value!==undefined?frame.value:frame.pre);
+   }
+   if(!Array.isArray(value)||value.length!==3||!value.every(v=>typeof v==="number"&&Number.isFinite(v))){
+    return {keys:[],error:"keyframe is not a finite three-number vector"};
+   }
+   if(interpolation!=="linear"&&interpolation!=="step")return {keys:[],error:"unsupported interpolation: "+interpolation};
+   keys.push({time,value:value.slice(),interpolation});
+  }
+  keys.sort((a,b)=>a.time-b.time);
+  for(let i=1;i<keys.length;i++)if(keys[i].time===keys[i-1].time)return {keys:[],error:"duplicate keyframe time"};
+  return {keys,error:null};
+ }
  function animationInfo(entries,namespace){
   const list=[];
   for(const e of entries||[]){
@@ -55,14 +78,26 @@
    if(!animations||typeof animations!=="object")continue;
    for(const [name,anim] of Object.entries(animations)){
     const rawTracks=anim&&anim.bones&&typeof anim.bones==="object"?anim.bones:{};
-    const boneTracks={};
-    for(const [bone,track] of Object.entries(rawTracks)){
-     const channels=["position","rotation","scale"].filter(key=>track&&track[key]!==undefined);
-     boneTracks[bone]={channels:channels,hasPosition:channels.includes("position"),hasRotation:channels.includes("rotation"),hasScale:channels.includes("scale")};
+    const boneTracks={},tracks={},trackErrors=[];
+    for(const [bone,channels] of Object.entries(rawTracks)){
+     const raw=channels&&typeof channels==="object"?channels:{},normalized={};
+     for(const channel of ["position","rotation","scale"]){
+      if(raw[channel]===undefined)continue;
+      const result=normalizeAnimationTrack(raw[channel]);
+      if(result.error)trackErrors.push({bone,channel,reason:result.error});
+      else if(result.keys.length)normalized[channel]=result.keys;
+     }
+     const channelNames=Object.keys(normalized);
+     tracks[bone]=normalized;
+     boneTracks[bone]={channels:channelNames,hasPosition:channelNames.includes("position"),hasRotation:channelNames.includes("rotation"),hasScale:channelNames.includes("scale")};
     }
     const bones=Object.keys(boneTracks),hasTimeline=Object.values(boneTracks).some(track=>track.channels.length>0);
-    const loop=anim&&anim.loop!==undefined?anim.loop:false;
-    list.push({name,path:e.path,bones,boneTracks,hasTimeline,length:Number(anim&&anim.animation_length)||null,loop,looping:loop===true||loop==="loop"});
+    const rawLoop=anim&&anim.loop!==undefined?anim.loop:false;
+    const loop=rawLoop===true||rawLoop==="loop";
+    const pingPong=rawLoop==="pingpong"||rawLoop==="ping_pong"||!!(anim&&anim.ping_pong===true);
+    const maxTime=Object.values(tracks).flatMap(ch=>Object.values(ch).flatMap(keys=>keys.map(k=>k.time))).reduce((a,b)=>Math.max(a,b),0);
+    const declaredLength=Number(anim&&anim.animation_length);
+    list.push({name,path:e.path,bones,boneTracks,tracks,trackErrors,hasTimeline,length:Number.isFinite(declaredLength)&&declaredLength>0?declaredLength:maxTime,loop:rawLoop,looping:loop||pingPong,pingPong});
    }
   }
   return list;
@@ -100,7 +135,7 @@
   }));
  }
  function convert(entries,namespace){
-  const json=parseJsonEntries(entries),report={schema:"jar2zeus.entity-models.v1",geometriesFound:0,entitiesConverted:[],animationsFound:[],animationsMapped:[],animationsUnmapped:[],machineAnimationsMapped:[],machineAnimationsUnmapped:[],machineAssetsUnmapped:[],skipped:[],warnings:[],counts:{converted:0,skipped:0,parts:0,cubes:0,animations:0,machineMapped:0,machineUnmapped:0,machineAssets:0}},files={},lines=[];
+  const json=parseJsonEntries(entries),report={schema:"jar2zeus.entity-models.v1",geometriesFound:0,entitiesConverted:[],animationsFound:[],animationsMapped:[],animationsUnmapped:[],machineAnimationsMapped:[],machineAnimationsUnmapped:[],machineAssetsUnmapped:[],machineTypesGenerated:[],skipped:[],warnings:[],counts:{converted:0,skipped:0,parts:0,cubes:0,animations:0,machineMapped:0,machineUnmapped:0,machineAssets:0,machineTypes:0}},files={},lines=[],machineTypes=[],machineLua=[];
   const animations=animationInfo(entries,namespace);report.animationsFound=animations;
   const animationNames=animations.map(a=>a.name);
   report.machineAssetsUnmapped=machineAssetCandidates(entries,namespace);
@@ -184,6 +219,62 @@
     const name=String(description.identifier||id).split(/[.:]/).pop().replace(/[_-]+/g," ");
     const definition={name:name,texture:targetTexture,model:model};
     lines.push("entities.register("+lua(id)+", "+lua(definition)+")");
+
+    const machineBoneNames=ordered.filter(part=>machineKind(part.name));
+    const runtimeAnimations={};
+    for(const animation of entityAnimations){
+     const runtimeBones={};
+     for(const [bone,channels] of Object.entries(animation.tracks||{})){
+      const normalized={};
+      for(const channel of ["position","rotation","scale"]){
+       if(Array.isArray(channels[channel])&&channels[channel].length)normalized[channel]=channels[channel];
+      }
+      if(Object.keys(normalized).length)runtimeBones[bone]=normalized;
+     }
+     if(Object.keys(runtimeBones).length){
+      runtimeAnimations[animation.name]={
+       duration:animation.length||0,
+       loop:animation.loop===true||animation.loop==="loop",
+       pingPong:animation.pingPong===true,
+       bones:runtimeBones
+      };
+     }
+     for(const error of animation.trackErrors||[]){
+      if(machineBoneNames.some(part=>part.name===error.bone)){
+       report.machineAnimationsUnmapped.push({entity:id,bone:error.bone,animation:animation.name,reason:error.reason});
+      }
+     }
+    }
+    const animatedMachineBones=machineBoneNames.filter(part=>entityAnimations.some(animation=>
+     animation.boneTracks&&animation.boneTracks[part.name]&&animation.boneTracks[part.name].channels.length>0
+    ));
+    if(animatedMachineBones.length&&Object.keys(runtimeAnimations).length){
+     const runtimeModel={
+      textureWidth:textureWidth,textureHeight:textureHeight,
+      parts:ordered.map(part=>{
+       const value={name:part.name};
+       if(part.parent)value.parent=part.parent;
+       if(part.pivot)value.pivot=part.pivot;
+       if(part.rotation)value.rotation=part.rotation;
+       value.color=[0.68,0.72,0.78];
+       value.cubes=(part.cubes||[]).map(cube=>{
+        const item={origin:cube.origin,size:cube.size,color:[0.68,0.72,0.78]};
+        if(cube.inflate!==undefined)item.inflate=cube.inflate;
+        return item;
+       });
+       return value;
+      })
+     };
+     const defaultAnimation=Object.keys(runtimeAnimations)[0]||null;
+     const machineType={id,model:runtimeModel,animations:runtimeAnimations,defaultAnimation};
+     machineTypes.push(machineType);
+     machineLua.push("__j2z_machine_runtime:registerType("+lua(id)+", "+lua(machineType).replace(/\\[\"model\"] = /g,"[\"model\"] = ")+")");
+     for(const part of animatedMachineBones){
+      const animationNames=entityAnimations.filter(animation=>animation.boneTracks[part.name]&&animation.boneTracks[part.name].channels.length).map(animation=>animation.name);
+      report.machineAnimationsMapped.push({entity:id,bone:part.name,animations:animationNames,backend:"lua-machine-runtime",channels:uniqueChannels(animationNames,entityAnimations,part.name)});
+     }
+     report.machineTypesGenerated.push({id,source:path,parts:runtimeModel.parts.length,animations:Object.keys(runtimeAnimations),animatedMachineParts:animatedMachineBones.map(part=>part.name),note:"Rendered as an independent local virtual machine; not a vanilla block entity"});
+    }
     files[targetTexture]=texture.bytes;
     usedIds.add(id);
     const partCount=ordered.length,cubeCount=ordered.reduce((n,p)=>n+(p.cubes||[]).length,0);
@@ -201,11 +292,17 @@
   report.counts.animations=report.animationsMapped.length;
   report.counts.machineMapped=report.machineAnimationsMapped.length;
   report.counts.machineUnmapped=report.machineAnimationsUnmapped.length;
+  report.counts.machineTypes=machineTypes.length;
   if(report.animationsUnmapped.length)report.warnings.push("Some source animation timelines were not reproduced exactly; see animationsUnmapped");
   if(report.machineAnimationsMapped.length)report.warnings.push("Some looping rotary machine parts were approximated with Zeus spin; exact source timing and curves are not preserved");
   if(report.machineAnimationsUnmapped.length)report.warnings.push("Some mechanical movements (for example pistons, conveyors and hinged parts) remain unmapped; see machineAnimationsUnmapped");
   if(report.machineAssetsUnmapped.length)report.warnings.push("Machine-like block model assets remain static because the documented Zeus block definition API does not expose animated block-entity rendering; see machineAssetsUnmapped");
-  return {lua:lines.join("\n"),files,report};
+  if(machineTypes.length){
+   machineLua.unshift("local __j2z_machine_runtime = require(\"lib.jar2zeus.machine_runtime\").new({storageKey=\"jar2zeus_machine_runtime\"})");
+   machineLua.push("__j2z_machine_runtime:start()");
+   report.warnings.push("Rigged machine models are rendered as local virtual 3D machines by the bundled Lua runtime; they are not native Minecraft block entities or server-synchronized blocks");
+  }
+  return {lua:[lines.join("\n"),machineLua.join("\n")].filter(Boolean).join("\n\n"),files,report,machineTypes,machineRuntimeRequired:machineTypes.length>0};
  }
  root.Jar2ZeusEntityModels={convert};
 })(typeof globalThis!=="undefined"?globalThis:this);
