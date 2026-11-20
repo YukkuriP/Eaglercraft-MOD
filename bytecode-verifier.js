@@ -115,7 +115,7 @@
   if(blocks.length){const queue=[blocks[0].id];while(queue.length){const id=queue.shift();if(reachable.has(id))continue;reachable.add(id);for(const to of adj.get(id)||[])if(!reachable.has(to))queue.push(to);}}
   const unreachable=blocks.filter(b=>!reachable.has(b.id)).map(b=>b.id);
   if(unreachable.length)warn("unreachable basic blocks detected: "+unreachable.length);
-  if(blocks.length){const last=blocks[blocks.length-1].lastOpcode;if(!terminal.has(last)&&!conditional.test(last)&&!["tableswitch","lookupswitch","jsr","jsr_w"].includes(last))warn("control flow may fall off the end of the method");}
+  if(blocks.length){const last=blocks[blocks.length-1].lastOpcode;if(!terminal.has(last)&&!["tableswitch","lookupswitch"].includes(last))fail("control flow falls off the end of the method");}
   return {valid:errors.length===0,structuralOnly:true,errors,warnings,instructionCount:insns.length,descriptor,
    controlFlow:{basicBlocks:blocks,edges,branchTargets:Array.from(branchTargets).sort((a,b)=>a-b),loopBackEdges:loops.map(e=>({from:e.from,to:e.to,kind:e.kind})),reachableBlockIds:Array.from(reachable).sort((a,b)=>a-b),unreachableBlockIds:unreachable,counts:{blocks:blocks.length,edges:edges.length,loops:loops.length,unreachableBlocks:unreachable.length}}};
  }
