@@ -20,7 +20,7 @@
   return {args,result};
  }
  function q(s){return '"'+String(s).replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/\r/g,"\\r").replace(/\n/g,"\\n")+'"';}
- function verifyIntBytecode(m,d,c){
+ function verifyIntBytecode(m,d,c,helperSignatures){
   const fail=reason=>({valid:false,reason});
   if(!d||!c||c.decodeError)return fail(c&&c.decodeError||"missing method descriptor or Code attribute");
   const intTypes=new Set(["Z","B","C","S","I"]);
@@ -84,11 +84,17 @@
    }else if(["iadd","isub","imul","idiv","irem","iand","ior","ixor","ishl","ishr","iushr"].includes(n)){need=2;delta=-1;}
    else if(n==="ineg"||n==="i2b"||n==="i2s"||n==="i2c"){need=1;}
    else if(n==="invokestatic"){
-    if(!x.member||x.member.owner!=="java/lang/Math")return fail("only approved java.lang.Math static calls are supported at "+x.pc);
+    if(!x.member)return fail("unresolved invokestatic reference at "+x.pc);
     const md=descriptor(x.member.descriptor);
-    if(!md||md.args.some(t=>t!=="I")||md.result!=="I")return fail("unsupported Math method descriptor at "+x.pc);
-    const valid=(x.member.name==="abs"&&md.args.length===1)||((x.member.name==="min"||x.member.name==="max")&&md.args.length===2);
-    if(!valid)return fail("unsupported java.lang.Math method at "+x.pc);
+    if(!md||md.args.some(t=>!intTypes.has(t))||!intTypes.has(md.result))return fail("static helper call uses a non-integer descriptor at "+x.pc);
+    if(x.member.owner==="java/lang/Math"){
+     if(md.args.some(t=>t!=="I")||md.result!=="I")return fail("unsupported Math method descriptor at "+x.pc);
+     const valid=(x.member.name==="abs"&&md.args.length===1)||((x.member.name==="min"||x.member.name==="max")&&md.args.length===2);
+     if(!valid)return fail("unsupported java.lang.Math method at "+x.pc);
+    }else{
+     const key=x.member.owner+"."+x.member.name+x.member.descriptor;
+     if(!helperSignatures||!helperSignatures.has(key))return fail("called method is not a verified in-jar helper: "+key);
+    }
     need=md.args.length;delta=1-md.args.length;
    }else if(n==="pop"){need=1;delta=-1;}
    else if(n==="pop2"){need=2;delta=-2;}
@@ -119,7 +125,7 @@
   }
   return {valid:true,observedMaxStack:observedMax,reachableInstructions:states.size};
  }
- function pureHelper(clazz,m){
+ function pureHelper(clazz,m,helperSignatures){
   const d=descriptor(m.descriptor),c=m.code;
   const intTypes=new Set(["Z","B","C","S","I"]);
   if(!(m.accessFlags&8)||!d||!intTypes.has(d.result)||d.args.some(x=>!intTypes.has(x))||!c||c.decodeError)return null;
@@ -128,7 +134,7 @@
   if((c.fieldAccesses||[]).length)return null;
   const ins=c.instructions||[];
   if(!ins.length||ins.length>5000||c.codeLength>20000)return null;
-  const verification=verifyIntBytecode(m,d,c);
+  const verification=verifyIntBytecode(m,d,c,helperSignatures);
   if(!verification.valid)return null;
   const pcs=new Set(ins.map(x=>x.pc));
   for(const target of c.branchTargets||[])if(!pcs.has(target))return null;
@@ -148,7 +154,7 @@
   }
   const params=[];
   for(let i=0;i<d.args.length;i++)params.push("arg"+i);
-  const localInit=params.map((name,i)=>"__locals["+i+"] = "+name);
+  const localInit=params.map((name,i)=>"__locals["+i+"] = "+narrowInteger(name,d.args[i]));
   const nextPc=i=>i+1<ins.length?ins[i+1].pc:null;
   const cases=[];
   function targetOrError(value){return value==null?"error('Java method fell through without return')":"__pc = "+value;}
@@ -160,13 +166,14 @@
    if(n.endsWith("_3"))return 3;
    return x.operand;
   }
-  function integerReturn(expr){
-   if(d.result==="Z")return "("+expr+" ~= 0)";
-   if(d.result==="B")return "((("+expr+") & 255) >= 128 and (("+expr+") & 255) - 256 or (("+expr+") & 255))";
-   if(d.result==="S")return "((("+expr+") & 65535) >= 32768 and (("+expr+") & 65535) - 65536 or (("+expr+") & 65535))";
-   if(d.result==="C")return "(("+expr+") & 65535)";
+  function narrowInteger(expr,type){
+   if(type==="Z")return "("+expr+" ~= 0 and 1 or 0)";
+   if(type==="B")return "(((("+expr+") & 255) >= 128) and ((("+expr+") & 255) - 256) or (("+expr+") & 255))";
+   if(type==="S")return "(((("+expr+") & 65535) >= 32768) and ((("+expr+") & 65535) - 65536) or (("+expr+") & 65535))";
+   if(type==="C")return "(("+expr+") & 65535)";
    return "__jar2zeus_i32("+expr+")";
   }
+  function integerReturn(expr){return narrowInteger(expr,d.result);}
   for(let i=0;i<ins.length;i++){
    const x=ins[i],n=x.name,next=nextPc(i),fall=targetOrError(next),code=[];
    const push=e=>"__push("+e+")";
@@ -218,10 +225,16 @@
      const md=descriptor(x.member.descriptor),args=[];
      for(let z=0;z<md.args.length;z++)args.unshift(pop());
      let expr;
-     if(x.member.name==="abs")expr="math.abs("+args[0]+")";
-     else if(x.member.name==="min")expr="math.min("+args.join(", ")+")";
-     else expr="math.max("+args.join(", ")+")";
-     code.push(push("__jar2zeus_i32("+expr+")"),fall);
+     if(x.member.owner==="java/lang/Math"){
+      if(x.member.name==="abs")expr="math.abs("+args[0]+")";
+      else if(x.member.name==="min")expr="math.min("+args.join(", ")+")";
+      else expr="math.max("+args.join(", ")+")";
+      expr="__jar2zeus_i32("+expr+")";
+     }else{
+      const key=x.member.owner+"."+x.member.name+x.member.descriptor;
+      expr="__jar2zeus_java_helpers["+q(key)+"]("+args.join(", ")+")";
+     }
+     code.push(push(expr),fall);
     }else if(n==="pop")code.push(pop(),fall);
     else if(n==="pop2")code.push(pop(),pop(),fall);
     else if(n==="dup"){
@@ -304,6 +317,45 @@
  }
  function run(input){
   const classes=Array.isArray(input&&input.classes)?input.classes:[];
+  const candidates=[],candidateByKey=new Map(),candidateKeys=new Set();
+  const integerTypes=new Set(["Z","B","C","S","I"]);
+  for(const clazz of classes){
+   if(!clazz||!clazz.valid||isRestrictedClass(clazz))continue;
+   for(const m of clazz.methods||[]){
+    if(!m.code||!(m.accessFlags&8)||m.name.startsWith("<"))continue;
+    const d=descriptor(m.descriptor);
+    if(!d||!integerTypes.has(d.result)||d.args.some(t=>!integerTypes.has(t))||(m.code.fieldAccesses||[]).length||(m.code.exceptions||[]).length)continue;
+    const key=clazz.className+"."+m.name+m.descriptor;
+    if(candidateByKey.has(key)){candidateKeys.delete(key);candidateByKey.delete(key);continue;}
+    const record={clazz,m,key};candidateByKey.set(key,record);candidateKeys.add(key);candidates.push(record);
+   }
+  }
+  // Reject recursive call cycles. Recursive Java control flow would need a shared
+  // call-depth/step budget; this translator intentionally does not emulate that.
+  const edges=new Map();
+  for(const record of candidates){
+   const deps=(record.m.code.instructions||[]).filter(x=>x.name==="invokestatic"&&x.member&&x.member.owner!=="java/lang/Math").map(x=>x.member.owner+"."+x.member.name+x.member.descriptor);
+   edges.set(record.key,deps.filter(key=>candidateKeys.has(key)));
+  }
+  const visiting=[],visited=new Set(),recursive=new Set();
+  function visit(key){
+   if(visited.has(key))return;
+   const at=visiting.indexOf(key);
+   if(at>=0){for(const member of visiting.slice(at))recursive.add(member);recursive.add(key);return;}
+   visiting.push(key);
+   for(const dep of edges.get(key)||[])visit(dep);
+   visiting.pop();visited.add(key);
+  }
+  for(const key of candidateKeys)visit(key);
+  const verifiedKeys=new Set(Array.from(candidateKeys).filter(key=>!recursive.has(key)));
+  let changed=true,passes=0;
+  while(changed&&passes++<=candidates.length+1){
+   changed=false;
+   for(const record of candidates){
+    if(!verifiedKeys.has(record.key))continue;
+    if(!pureHelper(record.clazz,record.m,verifiedKeys)){verifiedKeys.delete(record.key);changed=true;}
+   }
+  }
   const report={schema:"jar2zeus.reimplementation.v1",engine:"integer-control-flow-subset",status:"analysis-only",classesSeen:classes.length,methodsSeen:0,utilityMethodsTranslated:0,controlFlowMethodsTranslated:0,methodsPending:0,methodsSkipped:0,translated:[],pending:[],skipped:[],warnings:[]};
   const plan={schema:"jar2zeus.reimplementation-plan.v1",tasks:[],featureCounts:{},notes:[
    "自動翻訳は整数系static補助メソッドの限定的なJVM命令に限ります。",
@@ -331,7 +383,7 @@
      lua.push(converted.lua);
      lua.push("end");
      report.utilityMethodsTranslated++;
-     report.translated.push({className:clazz.className,method:m.name,descriptor:m.descriptor,kind:"pure-static-primitive-helper",symbol:key,controlFlow:converted.controlFlow===true});
+     report.translated.push({className:clazz.className,method:m.name,descriptor:m.descriptor,kind:"pure-static-primitive-helper",symbol:key,controlFlow:converted.controlFlow===true,verification:converted.verification});
      if(converted.controlFlow)report.controlFlowMethodsTranslated++;
     }else{
      const feature=role(m),calls=(m.code.invocations||[]).slice(0,60).map(x=>({owner:x.owner,name:x.name,descriptor:x.descriptor}));
@@ -347,7 +399,7 @@
    const observed=Array.from(new Set(items.flatMap(x=>x.evidence.map(v=>(v.owner||"")+"."+v.name)))).slice(0,80);
    plan.tasks.push({id:"rewrite-"+feature,feature,sourceMethods:items.map(x=>x.className+"."+x.method+x.descriptor),observedCalls:observed,requiredWork:"Zeus APIを使う機能アダプターとして同等の処理を再実装し、実機で検証する"});
   }
-  report.status=report.methodsPending?"partial-reimplementation":report.utilityMethodsTranslated?"utility-subset-translated":"no-translatable-methods";
+  if(recursive.size)report.warnings.push(recursive.size+\" methods are in recursive call cycles and were excluded from automatic translation.\");\n  report.helperDependencies=candidates.filter(x=>verifiedKeys.has(x.key)).map(x=>({method:x.key,calls:(edges.get(x.key)||[]).filter(key=>verifiedKeys.has(key))}));\n  report.status=report.methodsPending?"partial-reimplementation":report.utilityMethodsTranslated?"utility-subset-translated":"no-translatable-methods";
   if(!report.methodsSeen)report.warnings.push("解析可能なJavaメソッド本体が見つかりませんでした。");
   if(report.methodsPending)report.warnings.push("未再実装のJavaメソッドが残っています。完全移植とは判定しません。");
   if(!report.utilityMethodsTranslated)report.warnings.push("自動翻訳できる単純なint型補助メソッドは見つかりませんでした。");
