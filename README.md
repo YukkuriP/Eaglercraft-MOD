@@ -7,6 +7,7 @@
 ## 使い方
 
 1. `index.html` と次のJavaScriptファイルを同じフォルダに置きます。
+   - `archive-inspector.js`
    - `converter.js`
    - `config-converter.js`
    - `resource-converter.js`
@@ -24,6 +25,14 @@
 5. 出力された外側ZIPを展開し、`<mod-id>-zeus-mod.zip` をEaglercraftのModsメニューからインポートします。
 
 JSZipをCDNから読み込むため初回利用時にインターネット接続が必要です。JARの内容はブラウザ内で処理し、サーバーには送信しません。
+
+## ZIP/JARの事前検査
+
+`archive-inspector.js` はZIP中央ディレクトリと各ローカルファイルヘッダーを、JSZipがファイルを展開する前に読み取ります。ZIP64、圧縮方式（Stored / Deflate）、CRC・サイズ情報、データ範囲、ファイル名の一致、重複パス、危険なパス、シンボリックリンク、暗号化、入れ子JARの数などを確認します。暗号化、分割ZIP、未対応圧縮方式、重複・不正パス、壊れたヘッダー、異常な圧縮率やサイズ超過を検出した場合は、展開前に処理を停止します。
+
+初期上限は圧縮入力256 MiB、エントリー50,000件、単一ファイルの展開後64 MiB、全ファイル合計512 MiB、圧縮率1,000:1です。これらはブラウザでのメモリ消費とZIP爆弾対策のための事前検査上限であり、Minecraft MOD仕様そのものの制限ではありません。大容量のMODは現状この上限により処理できない場合があります。大きな入れ子JARは検出しますが、まだ自動で展開・依存解決しません。
+
+検査結果は `archive-preflight-report.json` と `diagnostics/archive-preflight-report.json` に保存されます。検査はZIPの整合性と安全性を確認するもので、MODのJava処理が移植できることや、ゲーム内で動くことを保証するものではありません。
 
 ## 変換パイプライン
 
@@ -50,6 +59,7 @@ JSZipをCDNから読み込むため初回利用時にインターネット接続
 
 - `<mod-id>-zeus-mod.zip`: ZeusへインポートするMOD本体。`metadata.json` と `main.lua` がZIP直下にあります。
 - `diagnostics/report.json`: JAR・変換・パッケージ全体の診断。
+- `diagnostics/archive-preflight-report.json`: 展開前のZIP/JAR検査結果。
 - `diagnostics/reimplementation-report.json`: Javaメソッドごとの変換状況。
 - `diagnostics/reimplementation-plan.json`: 未実装機能の再実装タスク。
 - `diagnostics/entity-model-report.json`: 3D形状・ボーン・モーションの変換結果と未対応アニメーション。
