@@ -97,7 +97,7 @@
    scope:"static class-file and loader metadata inspection only; Java callbacks are never executed or auto-wired",
    status:"analysis-only",
    loaders:Array.isArray(loaderAnalysis.loaders)?loaderAnalysis.loaders.slice():[],
-   totals:{classesSeen:classes.length,classesAnalyzed:accepted.length,restrictedClassesSkipped:excluded.length,loaderEntrypoints:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrationSites:0,timerSites:0,annotationBearingMethods:0,autoWiredHandlers:0},
+   totals:{classesSeen:classes.length,classesAnalyzed:accepted.length,restrictedClassesSkipped:excluded.length,loaderEntrypoints:0,entrypointsResolved:0,entrypointsUnresolved:0,lifecycleCandidates:0,eventReferenceCandidates:0,eventRegistrationSites:0,timerSites:0,annotationBearingMethods:0,autoWiredHandlers:0},
    loaderEntrypoints:[],
    lifecycleCandidates:[],
    eventRegistrations:[],
@@ -120,9 +120,11 @@
     "https://dev.eaglercraft.com/docs/modding/how-mods-run"
    ]
   };
-  report.totals.loaderEntrypoints=report.loaderEntrypoints.length;
   const classNames=new Set(accepted.map(clazz=>clazz.className));
   report.loaderEntrypoints=loaderEntrypoints(loaderAnalysis,classNames);
+  report.totals.loaderEntrypoints=report.loaderEntrypoints.length;
+  report.totals.entrypointsResolved=report.loaderEntrypoints.filter(row=>row.javaClassResolved).length;
+  report.totals.entrypointsUnresolved=report.totals.loaderEntrypoints-report.totals.entrypointsResolved;
   const registrationIds=new Set();
   for(const clazz of accepted){
    const evidence=classEvidence(clazz);
