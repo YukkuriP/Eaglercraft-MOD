@@ -69,7 +69,7 @@
   const targetEvidence=input.targetRuntimeEvidence||{};
   if(targetEvidence.apiPresenceVerified!==true)warnings.push("Required Zeus API presence has not been verified in the selected game build");
   if(targetEvidence.versionVerified!==true)warnings.push("The running game version has not been confirmed by an in-game report; the package version is based on the selection");
-  const valid=errors.length===0;
+  let valid=errors.length===0;
   const skipped=!!(input.packageSkipped&&input.packageSkipped.length);
   const runtimeTested=input.runtimeTested===true;
   const gameplayVerified=input.gameplayVerified===true;
@@ -200,7 +200,13 @@
    (Number(machineGuiInteraction.totals&&machineGuiInteraction.totals.guiJsonInvalid)||0):0;
   if(machineGuiPending>0)warnings.push(machineGuiPending+" machine GUI, menu, widget, slot, interaction, asset or synchronization candidates remain unmapped; the Zeus UI and server-authoritative actions require implementation and testing.");
   if(machineGuiReportMissing)warnings.push("Machine GUI analysis is missing; screens, menus, widgets and server synchronization have not been reviewed.");
-  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing||minecraftInternalApiPending>0||minecraftInternalApiReportMissing||blockStatePending>0||blockStateReportMissing||itemInventoryPending>0||itemInventoryReportMissing||blockEntityMachineStatePending>0||blockEntityMachineStateReportMissing||machinePowerSystemsPending>0||machinePowerSystemsReportMissing||transportNetworksPending>0||transportNetworksReportMissing||machineProcessPending>0||machineProcessReportMissing||machineGuiPending>0||machineGuiReportMissing;
+  const machineGuiConversion=input.machineGuiConversion||{};
+  const machineGuiConversionFileCount=Number(input.machineGuiConversionFileCount)||0;
+  const machineGuiConversionReportMissing=(machineGuiPending>0||machineGuiResourceFileCount>0||machineGuiConversionFileCount>0)&&machineGuiConversion.schema!=="jar2zeus.machine-gui-conversion-plan.v1";
+  const machineGuiConversionUnsafeClaim=machineGuiConversion.schema==="jar2zeus.machine-gui-conversion-plan.v1"&&(machineGuiConversion.sourceBehaviorPorted!==false||machineGuiConversion.executableMachineGui!==false);
+  if(machineGuiConversionReportMissing)warnings.push("Machine GUI Zeus conversion plan is missing; do not treat the preview scaffold as a completed port.");
+  if(machineGuiConversionUnsafeClaim)errors.push("Machine GUI conversion plan incorrectly claims executable or source-behavior-complete migration.");
+  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing||minecraftInternalApiPending>0||minecraftInternalApiReportMissing||blockStatePending>0||blockStateReportMissing||itemInventoryPending>0||itemInventoryReportMissing||blockEntityMachineStatePending>0||blockEntityMachineStateReportMissing||machinePowerSystemsPending>0||machinePowerSystemsReportMissing||transportNetworksPending>0||transportNetworksReportMissing||machineProcessPending>0||machineProcessReportMissing||machineGuiPending>0||machineGuiReportMissing||machineGuiConversionReportMissing;
   const skippedResources=(Array.isArray(recipeReport.skipped)?recipeReport.skipped.length:0)+
    (Array.isArray(recipeReport.excluded)?recipeReport.excluded.length:0)+
    (Array.isArray(definitionReport.skipped)?definitionReport.skipped.length:0)+
@@ -213,6 +219,7 @@
    (Number(configReport.excludedSensitiveKeys)||0);
   const restrictedResources=!!(input.analysis&&input.analysis.featureReview&&input.analysis.featureReview.restrictedPathCount>0);
   const unsupportedRuntime=!!(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length);
+  valid=errors.length===0;
   const conversionComplete=valid&&!skipped&&!incompleteJava&&skippedResources===0&&!restrictedResources&&!unsupportedRuntime;
   if(!conversionComplete)warnings.push("The generated package is a partial port; review skipped resources, restricted-content exclusions, Java reimplementation tasks and runtime indicators");
   const readyToImport=conversionComplete&&runtimeTested&&gameplayVerified&&targetEvidence.apiPresenceVerified===true&&targetEvidence.versionVerified===true;
