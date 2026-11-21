@@ -3,7 +3,6 @@
 "use strict";
 const LIMIT=5000;
 const BLOCKED=/(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i;
-const PREFIX="net/";
 const ITEM_OWNERS=new Set([
 "net/minecraftforge/items/IItemHandler","net/minecraftforge/items/IItemHandlerModifiable",
 "net/minecraftforge/items/ItemStackHandler","net/neoforged/neoforge/items/IItemHandler",
@@ -81,7 +80,7 @@ transfer:"resource_transfer_candidate",move:"resource_move_candidate",
 push:"resource_push_candidate",pull:"resource_pull_candidate",send:"resource_send_candidate",
 receive:"resource_receive_candidate",insert:"resource_insert",extract:"resource_extract"
 };
-const TRANSPORT_CLASS_RE=/(?:pipe|piping|tube|duct|conveyor|transport|transfer|pump|tank|fluid|itemhandler|itemstorage|fluidstorage|cable|wire|channel|endpoint|networknode|storagenode|resourcehandler)/i;
+const TRANSPORT_CLASS_RE=/(?:pipe|piping|tube|duct|conveyor|transport|transfer|pump|tank|fluid|valve|itemhandler|itemstorage|fluidstorage|cable|wire|channel|endpoint|networknode|storagenode|resourcehandler)/i;
 const ITEM_CONTEXT_RE=/(?:item|inventory|slot|stack|conveyor|chute|hopper|drawer|crate|container)/i;
 const FLUID_CONTEXT_RE=/(?:fluid|liquid|tank|pipe|pump|valve|reservoir|hose)/i;
 const ENERGY_CONTEXT_RE=/(?:energy|power|electric|battery|capacitor|generator|cable|wire)/i;
@@ -230,7 +229,7 @@ function analyze(input,options){
    if(METHOD_RE.test(mn))push(methods,{sourcePath:path,sourceClass:name,name:mn,descriptor:desc,invocationCount:invocations.length,resourceKinds:Array.from(kinds),portStatus:"unmapped"},"method");
    for(const inv of invocations){
     const owner=norm(inv&&inv.owner),member=String(inv&&inv.name||"");
-    if(!owner||blocked(owner)||!owner.startsWith(PREFIX))continue;
+    if(!owner||blocked(owner))continue;
     const apiFamily=family(owner),candidate=operation(owner,member);
     let opKinds=apiFamily?kindsFor(owner):Array.from(kinds);
     if(apiFamily==="resource"||apiFamily==="generic-storage"){
