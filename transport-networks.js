@@ -104,7 +104,7 @@ function family(owner){
  if(ITEM_OWNERS.has(owner)||/(?:\/item\/(?:ItemStorage|InventoryStorage|ItemVariant)|\/items\/(?:IItemHandler|ItemStackHandler))$/.test(owner))return "item";
  if(FLUID_OWNERS.has(owner)||/(?:\/fluid\/(?:FluidStorage|FluidVariant)|\/fluids\/capability\/IFluidHandler|\/fluids\/FluidTank)$/.test(owner))return "fluid";
  if(/(?:IEnergyStorage|EnergyStorage|EnergyHandler)$/.test(owner))return "energy";
- if(NEO_RESOURCE_OWNERS.has(owner)||/\/transfer\/(?:ResourceHandler|ItemResource|FluidResource)$/.test(owner))return "resource";
+ if(NEO_RESOURCE_OWNERS.has(owner)||/\/transfer\/ResourceHandler$/.test(owner))return "resource";
  if(FABRIC_STORAGE_OWNERS.has(owner)||/\/transfer\/v1\/storage\/(?:Storage|StorageView)$/.test(owner))return "generic-storage";
  return null;
 }
@@ -247,7 +247,7 @@ function analyze(input,options){
    for(const inv of invocations){
     const owner=norm(inv&&inv.owner),member=String(inv&&inv.name||"");
     if(!owner||blocked(owner))continue;
-    const apiFamily=family(owner),candidate=operation(owner,member);
+    const apiFamily=family(owner),candidate=operation(owner,member,inv.descriptor,name+" "+mn);
     let opKinds=apiFamily?kindsFor(owner):Array.from(kinds);
     if(apiFamily==="resource"||apiFamily==="generic-storage"){
      const descriptor=String(inv.descriptor||"");
