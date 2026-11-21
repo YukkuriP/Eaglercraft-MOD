@@ -8,7 +8,7 @@ const ITEM_TYPES=new Set([
 "net/minecraft/world/item/Item","net/minecraft/world/item/BlockItem",
 "net/minecraft/world/item/Items","net/minecraft/world/item/ItemStack",
 "net/minecraft/world/item/ArmorItem","net/minecraft/world/item/SpawnEggItem",
-"net/minecraft/world/item/BucketItem","net/minecraft/world/item/ खाद"
+"net/minecraft/world/item/BucketItem"
 ]);
 const STACK_OPS={
 getCount:"stack_count_read",setCount:"stack_count_write",shrink:"stack_shrink",grow:"stack_grow",
