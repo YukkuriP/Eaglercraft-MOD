@@ -42,11 +42,6 @@ function buildLua(controls,assetPaths,summary){
  "-- Review and connect each control to a safe, server-authoritative implementation.",
  ""
  ];
- if(assetPaths.length){
-  lines.push("local machineGuiTextures = {}");
-  assetPaths.forEach((p,i)=>lines.push("machineGuiTextures["+(i+1)+"] = textures.load("+luaString(p)+")"));
-  lines.push("");
- }
  lines.push("local machineGuiPreview = ui.screen({");
  lines.push('  title = "Machine UI Preview",');
  lines.push("  pause = true,");
