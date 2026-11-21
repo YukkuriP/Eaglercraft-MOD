@@ -64,7 +64,7 @@
 <button id="build" disabled>Zeus MOD ZIP＋再実装レポートを出力</button>
 </section>
 <section class="card"><h2>このツールが行うこと</h2>
-<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>単純なJSON/TOML/properties設定をZeus設定画面へ移行し、秘密情報らしいキーを除外</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Fabric / Forge / NeoForgeのイベント登録候補・初期化候補・タイマーを静的解析し、Zeusイベント候補と未対応理由を出力</li><li>Javaクラスの定数プール・メソッド・バイトコード・API呼び出しを解析</li><li>エネルギー・蓄電・発電・Create系回転動力／StressネットワークのAPI候補とフィールドを解析</li><li>アイテム・液体・エネルギー輸送API、接続ノード、タンク、転送操作の候補を分類して診断レポートへ出力</li><li>加工レシピ、機械の進捗・加工時間・燃料・電力・副産物・稼働条件の候補を解析</li>
+<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>単純なJSON/TOML/properties設定をZeus設定画面へ移行し、秘密情報らしいキーを除外</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>機械状態を判定する条件式から、同一クラス内の限定された補助メソッドの戻り値由来も静的解析</li><li>Fabric / Forge / NeoForgeのイベント登録候補・初期化候補・タイマーを静的解析し、Zeusイベント候補と未対応理由を出力</li><li>Javaクラスの定数プール・メソッド・バイトコード・API呼び出しを解析</li><li>エネルギー・蓄電・発電・Create系回転動力／StressネットワークのAPI候補とフィールドを解析</li><li>アイテム・液体・エネルギー輸送API、接続ノード、タンク、転送操作の候補を分類して診断レポートへ出力</li><li>加工レシピ、機械の進捗・加工時間・燃料・電力・副産物・稼働条件の候補を解析</li>
 <li>機械GUI・メニュー・スロット・Widget・クリック操作・サーバー同期・GUI素材の候補を解析</li><li>Javaメソッドの安全な限定範囲をLuaへ変換し、未対応ロジックは再実装タスクに整理</li><li>検証済みの同一JAR内static補助メソッド呼び出し・void戻り・呼び出しグラフを再構築（再帰深度上限128）</li><li>クラスのメソッド・命令・呼び出し先を解析し、対応できるJava処理をLuaへ再実装</li><li>Javaの型・継承・インターフェース・フィールド既定値をLua互換レイヤーとして出力</li><li>JAR内のassets/dataを解析し、変換可能なテクスチャ・モデル・レシピ等を抽出</li><li>ブロック・アイテム・レシピ等のJSON資産をZeus形式へ変換し、Javaコード由来の機能と統合</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>Zeusが直接読み込める、metadata.jsonがZIP直下にある単体MOD ZIPを生成</li></ul>
 <p class="warn">重要：任意のJava MODを100%自動で完全移植できるわけではありません。現在は限定されたプリミティブ型staticメソッド（条件分岐・switch・ループ、void戻り、同一JAR内の検証済みstatic補助メソッド呼び出しを含む）をLuaへ再実装し、Java/Minecraft/ローダーAPIに依存する処理は機能別の再実装タスクとして出力します。Java型互換レイヤーは継承判定や既定値フィールドを扱う補助骨格であり、コンストラクタ・クラス初期化・Javaメソッド本体・完全なアクセス制御は実行しません。設定移行はZeus設定値の公開までで、元Javaの設定読み取りを自動接続しません。未対応コードを動くふりで置き換えることはしません。危険な武器関連機能は変換対象にしません。</p>
 </section>
@@ -76,7 +76,7 @@ function $(id){return document.getElementById(id)}
 function slug(s){return (s||"imported_mod").toLowerCase().replace(/[^a-z0-9_.-]/g,"_").replace(/^\.+/,"").slice(0,55).replace(/_+$/,"")||"imported_mod"}
 function unique(a){return Array.from(new Set(a))}
 function invalidateAnalysis(){
- jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;machineStateEventProducer=null;machineStateSourceAnalysis=null;machineStateGetterSemantics=null;machineStateWriteTrace=null,machineStateUpdateConditions=null,machineStateControlFlow=null,machineStateConditionOperands=null,machineStateCrossBlockDataflow=null;
+ jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;machineStateEventProducer=null;machineStateSourceAnalysis=null;machineStateGetterSemantics=null;machineStateWriteTrace=null,machineStateUpdateConditions=null,machineStateControlFlow=null,machineStateConditionOperands=null,machineStateCrossBlockDataflow=null,machineStateInterproceduralSummaries=null;
  $("build").disabled=true;
  $("out").textContent="ファイルまたは対象バージョンが変更されました。もう一度解析してください。";
  $("warning").textContent="再解析が必要です。";
@@ -85,7 +85,7 @@ $("jar").onchange=invalidateAnalysis;
 $("targetVersion").onchange=invalidateAnalysis;
 $("analyze").onclick=async function(){
  try{
-  jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;machineStateEventProducer=null;machineStateSourceAnalysis=null;machineStateGetterSemantics=null;machineStateWriteTrace=null,machineStateUpdateConditions=null,machineStateControlFlow=null,machineStateConditionOperands=null,machineStateCrossBlockDataflow=null;$("build").disabled=true;
+  jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;machineStateEventProducer=null;machineStateSourceAnalysis=null;machineStateGetterSemantics=null;machineStateWriteTrace=null,machineStateUpdateConditions=null,machineStateControlFlow=null,machineStateConditionOperands=null,machineStateCrossBlockDataflow=null,machineStateInterproceduralSummaries=null;$("build").disabled=true;
   if(!window.JSZip)throw Error("JSZipを読み込めません。インターネット接続を確認してください。");
   if(!window.Jar2ZeusArchive)throw Error("ZIP事前検査モジュールを読み込めません。");
   jarFile=$("jar").files[0];
