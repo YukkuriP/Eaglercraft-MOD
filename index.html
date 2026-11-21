@@ -27,6 +27,7 @@
 <script src="item-inventory-conversion.js"></script>
 <script src="block-entity-machine-state.js"></script>
 <script src="machine-power-systems.js"></script>
+<script src="transport-networks.js"></script>
 <script src="java-reimplementation-engine.js"></script>
 <script src="migration-pipeline.js"></script>
 <script src="zeus-api-contract.js"></script>
@@ -48,7 +49,7 @@
 <button id="build" disabled>Zeus MOD ZIP＋再実装レポートを出力</button>
 </section>
 <section class="card"><h2>このツールが行うこと</h2>
-<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>単純なJSON/TOML/properties設定をZeus設定画面へ移行し、秘密情報らしいキーを除外</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Fabric / Forge / NeoForgeのイベント登録候補・初期化候補・タイマーを静的解析し、Zeusイベント候補と未対応理由を出力</li><li>Javaクラスの定数プール・メソッド・バイトコード・API呼び出しを解析</li><li>エネルギー・蓄電・発電・Create系回転動力／StressネットワークのAPI候補とフィールドを解析</li><li>Javaメソッドの安全な限定範囲をLuaへ変換し、未対応ロジックは再実装タスクに整理</li><li>検証済みの同一JAR内static補助メソッド呼び出し・void戻り・呼び出しグラフを再構築（再帰深度上限128）</li><li>クラスのメソッド・命令・呼び出し先を解析し、対応できるJava処理をLuaへ再実装</li><li>Javaの型・継承・インターフェース・フィールド既定値をLua互換レイヤーとして出力</li><li>JAR内のassets/dataを解析し、変換可能なテクスチャ・モデル・レシピ等を抽出</li><li>ブロック・アイテム・レシピ等のJSON資産をZeus形式へ変換し、Javaコード由来の機能と統合</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>Zeusが直接読み込める、metadata.jsonがZIP直下にある単体MOD ZIPを生成</li></ul>
+<ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>単純なJSON/TOML/properties設定をZeus設定画面へ移行し、秘密情報らしいキーを除外</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>Fabric / Forge / NeoForgeのイベント登録候補・初期化候補・タイマーを静的解析し、Zeusイベント候補と未対応理由を出力</li><li>Javaクラスの定数プール・メソッド・バイトコード・API呼び出しを解析</li><li>エネルギー・蓄電・発電・Create系回転動力／StressネットワークのAPI候補とフィールドを解析</li><li>アイテム・液体・エネルギー輸送API、接続ノード、タンク、転送操作の候補を分類して診断レポートへ出力</li><li>Javaメソッドの安全な限定範囲をLuaへ変換し、未対応ロジックは再実装タスクに整理</li><li>検証済みの同一JAR内static補助メソッド呼び出し・void戻り・呼び出しグラフを再構築（再帰深度上限128）</li><li>クラスのメソッド・命令・呼び出し先を解析し、対応できるJava処理をLuaへ再実装</li><li>Javaの型・継承・インターフェース・フィールド既定値をLua互換レイヤーとして出力</li><li>JAR内のassets/dataを解析し、変換可能なテクスチャ・モデル・レシピ等を抽出</li><li>ブロック・アイテム・レシピ等のJSON資産をZeus形式へ変換し、Javaコード由来の機能と統合</li><li>親モデル継承・テクスチャ変数・上下左右の面テクスチャを解決し、対応するブロック／アイテムをZeus APIで登録</li><li>Zeus公式パッケージ形式のmetadata.json・main.lua・assets・dataを組み立て（4,096ファイル／64 MiBの上限を検査）</li><li>変換不能な機能や容量超過をレポートし、完全移植と誤表示しない</li><li>Zeusが直接読み込める、metadata.jsonがZIP直下にある単体MOD ZIPを生成</li></ul>
 <p class="warn">重要：任意のJava MODを100%自動で完全移植できるわけではありません。現在は限定されたプリミティブ型staticメソッド（条件分岐・switch・ループ、void戻り、同一JAR内の検証済みstatic補助メソッド呼び出しを含む）をLuaへ再実装し、Java/Minecraft/ローダーAPIに依存する処理は機能別の再実装タスクとして出力します。Java型互換レイヤーは継承判定や既定値フィールドを扱う補助骨格であり、コンストラクタ・クラス初期化・Javaメソッド本体・完全なアクセス制御は実行しません。設定移行はZeus設定値の公開までで、元Javaの設定読み取りを自動接続しません。未対応コードを動くふりで置き換えることはしません。危険な武器関連機能は変換対象にしません。</p>
 </section>
 <p class="muted">JARの解析と変換はブラウザ内で処理し、サーバーへ送信しません。ZIP作成時のみJSZipを読み込みます。</p>
@@ -142,6 +143,8 @@ $("analyze").onclick=async function(){
   var itemInventoryConversion=window.Jar2ZeusItemInventoryConversion.analyze({classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};})});
   var blockEntityMachineState=window.Jar2ZeusBlockEntityMachineState.analyze({classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};})});
   var machinePowerSystems=window.Jar2ZeusMachinePowerSystems.analyze({classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};})});
+  var transportNetworks=window.Jar2ZeusTransportNetworks.analyze({classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};})});
+  genericAnalysis.migrationAssessment.transportNetworks={status:transportNetworks.status,transportClasses:transportNetworks.totals.transportClasses,itemTransportClasses:transportNetworks.totals.itemTransportClasses,fluidTransportClasses:transportNetworks.totals.fluidTransportClasses,energyTransportClasses:transportNetworks.totals.energyTransportClasses,multiResourceClasses:transportNetworks.totals.multiResourceClasses,networkClasses:transportNetworks.totals.networkClasses,operationsObserved:transportNetworks.totals.operationsObserved,operationsReported:transportNetworks.totals.operationsReported,apiReferences:transportNetworks.totals.apiReferences,fieldsObserved:transportNetworks.totals.fieldsObserved,methodsObserved:transportNetworks.totals.methodsObserved,detailsTruncated:transportNetworks.totals.detailsTruncated};
   genericAnalysis.migrationAssessment.machinePowerSystems={status:machinePowerSystems.status,powerRelatedClasses:machinePowerSystems.totals.powerRelatedClasses,energyClasses:machinePowerSystems.totals.energyClasses,kineticClasses:machinePowerSystems.totals.kineticClasses,generatorOrStorageClasses:machinePowerSystems.totals.generatorOrStorageClasses,energyOperationsObserved:machinePowerSystems.totals.energyOperationsObserved,kineticOperationsObserved:machinePowerSystems.totals.kineticOperationsObserved,genericPowerOperationsObserved:machinePowerSystems.totals.genericPowerOperationsObserved,unmappedPowerOperations:machinePowerSystems.totals.unmappedPowerOperations,fieldsObserved:machinePowerSystems.totals.fieldsObserved,methodsObserved:machinePowerSystems.totals.methodsObserved,detailsTruncated:machinePowerSystems.totals.detailsTruncated};
   genericAnalysis.migrationAssessment.blockEntityMachineState={status:blockEntityMachineState.status,blockEntityClasses:blockEntityMachineState.totals.blockEntityClasses,machineLikeBlockEntities:blockEntityMachineState.totals.machineLikeBlockEntities,blockEntityOperations:blockEntityMachineState.totals.blockEntityOperations,persistenceOperations:blockEntityMachineState.totals.persistenceOperations,nbtOperations:blockEntityMachineState.totals.nbtOperations,tickMethods:blockEntityMachineState.totals.tickMethods,lifecycleMethods:blockEntityMachineState.totals.lifecycleMethods,dataFieldsObserved:blockEntityMachineState.totals.dataFieldsObserved,detailsTruncated:blockEntityMachineState.totals.detailsTruncated};
   genericAnalysis.migrationAssessment.itemInventoryConversion={status:itemInventoryConversion.status,itemClasses:itemInventoryConversion.totals.itemClasses,itemStackClasses:itemInventoryConversion.totals.itemStackClasses,inventoryClasses:itemInventoryConversion.totals.inventoryClasses,stackOperations:itemInventoryConversion.totals.stackOperations,inventoryOperations:itemInventoryConversion.totals.inventoryOperations,itemBehaviorOperations:itemInventoryConversion.totals.itemBehaviorOperations,registrationOperations:itemInventoryConversion.totals.registrationOperations,unmappedOperations:itemInventoryConversion.totals.unmappedOperations,detailsTruncated:itemInventoryConversion.totals.detailsTruncated};
@@ -166,12 +169,13 @@ $("analyze").onclick=async function(){
    item_inventory_conversion:itemInventoryConversion,
    block_entity_machine_state:blockEntityMachineState,
    machine_power_systems:machinePowerSystems,
+   transport_networks:transportNetworks,
    generic_analysis:genericAnalysis,
    target_zeus:{game_version:targetGameVersion,api_version:1,documentation:"https://dev.eaglercraft.com/docs/modding/api",target_html_required:false},
    conversion:{metadata:"解析済み",resources:"変換候補を抽出",java_logic:"Java bytecodeからZeus向けの限定的な再実装を試行",html_integration:"不要（Zeus専用出力）"}
   };
   $("out").textContent=JSON.stringify(jarReport,null,2);
-  $("warning").textContent="JAR解析完了。Javaクラス "+javaClassRecords.length+" 件を解析。Forge API呼び出し "+forgeApiCompatibility.totals.invocationSites+" 件、Fabric API呼び出し "+fabricApiCompatibility.totals.invocationSites+" 件、Minecraft本体API呼び出し "+minecraftInternalApiCompatibility.totals.invocationSites+" 件（いずれも未変換）。Block/BlockState候補 "+blockStateConversion.totals.detailsObserved+" 件（未変換）。BlockEntity候補 "+blockEntityMachineState.totals.blockEntityClasses+" 件、動力系候補 "+machinePowerSystems.totals.powerRelatedClasses+" クラス／"+machinePowerSystems.totals.operationsReported+" 操作（未変換）。Minecraft APIカテゴリ "+Object.keys(minecraftInternalApiCompatibility.categories).length+" 種。イベント登録候補 "+javaEventLifecycle.totals.eventRegistrationSites+" 件、タイマー候補 "+javaEventLifecycle.totals.timerSites+" 件（自動接続なし）。Zeus "+targetGameVersion+" 向けの部分移植診断を作成しました。";
+  $("warning").textContent="JAR解析完了。Javaクラス "+javaClassRecords.length+" 件を解析。Forge API呼び出し "+forgeApiCompatibility.totals.invocationSites+" 件、Fabric API呼び出し "+fabricApiCompatibility.totals.invocationSites+" 件、Minecraft本体API呼び出し "+minecraftInternalApiCompatibility.totals.invocationSites+" 件（いずれも未変換）。Block/BlockState候補 "+blockStateConversion.totals.detailsObserved+" 件、BlockEntity候補 "+blockEntityMachineState.totals.blockEntityClasses+" 件、動力系候補 "+machinePowerSystems.totals.powerRelatedClasses+" クラス、輸送系候補 "+transportNetworks.totals.transportClasses+" クラス／"+transportNetworks.totals.operationsReported+" 操作（いずれも未変換）。Zeus "+targetGameVersion+" 向けの部分移植診断を作成しました。";
   $("build").disabled=false;
  }catch(e){alert("解析失敗: "+e.message)}
 };
@@ -278,6 +282,7 @@ $("build").onclick=async function(){
  addPackageFile("item-inventory-conversion.json",JSON.stringify(jarReport.item_inventory_conversion,null,2),true);
  addPackageFile("block-entity-machine-state.json",JSON.stringify(jarReport.block_entity_machine_state,null,2),true);
  addPackageFile("machine-power-systems.json",JSON.stringify(jarReport.machine_power_systems,null,2),true);
+ addPackageFile("transport-networks.json",JSON.stringify(jarReport.transport_networks,null,2),true);
  addPackageFile("reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2),true);
  addPackageFile("generic-analysis.json",JSON.stringify(jarReport.generic_analysis,null,2),true);
  addPackageFile("conversion-assessment.json",JSON.stringify(jarReport.generic_analysis.migrationAssessment,null,2),true);
@@ -302,7 +307,7 @@ $("build").onclick=async function(){
    metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,
    textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,
    packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},
-   packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,eventLifecycle:jarReport.java_event_lifecycle,forgeApiCompatibility:jarReport.forge_api_compatibility,fabricApiCompatibility:jarReport.fabric_api_compatibility,minecraftInternalApiCompatibility:jarReport.minecraft_internal_api_compatibility,blockStateConversion:jarReport.block_state_conversion,itemInventoryConversion:jarReport.item_inventory_conversion,blockEntityMachineState:jarReport.block_entity_machine_state,machinePowerSystems:jarReport.machine_power_systems,
+   packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,eventLifecycle:jarReport.java_event_lifecycle,forgeApiCompatibility:jarReport.forge_api_compatibility,fabricApiCompatibility:jarReport.fabric_api_compatibility,minecraftInternalApiCompatibility:jarReport.minecraft_internal_api_compatibility,blockStateConversion:jarReport.block_state_conversion,itemInventoryConversion:jarReport.item_inventory_conversion,blockEntityMachineState:jarReport.block_entity_machine_state,machinePowerSystems:jarReport.machine_power_systems,transportNetworks:jarReport.transport_networks,
    reimplementation:javaReimplementation.report,javaTypeCompatibility:javaTypeCompatibility.report,recipeReport:converted.report,definitionReport:definitions.report,entityReport:entityModels.report,configReport:configSettings.report,
    apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}
   });
@@ -352,6 +357,7 @@ $("build").onclick=async function(){
  out.file("diagnostics/item-inventory-conversion.json",JSON.stringify(jarReport.item_inventory_conversion,null,2));
  out.file("diagnostics/block-entity-machine-state.json",JSON.stringify(jarReport.block_entity_machine_state,null,2));
  out.file("diagnostics/machine-power-systems.json",JSON.stringify(jarReport.machine_power_systems,null,2));
+ out.file("diagnostics/transport-networks.json",JSON.stringify(jarReport.transport_networks,null,2));
  out.file("diagnostics/reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2));
  out.file("diagnostics/entity-model-report.json",JSON.stringify(entityModels.report,null,2));
  out.file("diagnostics/machine-animation-report.json",JSON.stringify(jarReport.machine_animation_report,null,2));
