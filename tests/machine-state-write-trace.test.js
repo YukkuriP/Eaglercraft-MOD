@@ -183,3 +183,11 @@ test("rejects restricted class identifiers and makes no Java/runtime claims", ()
   assert.equal(report.liveValuesConnected, false);
   assert.equal(report.sourceReaderCallbacksGenerated, 0);
 });
+
+test("does not treat a PUTFIELD in an instruction window beyond the cap as observed evidence", () => {
+  const instructions = Array.from({ length: 6005 }, (_, i) => ins("nop", { pc: i }));
+  instructions.push(ins("aload_0"), ins("iconst_1"), ins("putfield", { member: field("progress") }));
+  const report = analyzer.analyze(data([method("setProgress", "()V", instructions)]));
+  assert.equal(report.writerMethods.length, 0);
+  assert.equal(report.totals.writerMethodsObserved, 0);
+});
