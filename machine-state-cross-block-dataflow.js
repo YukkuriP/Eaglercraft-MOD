@@ -39,7 +39,7 @@ function compact(v,depth){
  if(!v||typeof v!=="object")return {kind:"unknown-value"};
  if(depth>MAX_DEPTH)return {kind:"truncated-origin",category:v.category==null?null:v.category};
  const out={kind:v.kind||"unknown-value"};
- for(const k of ["pc","slot","parameterIndex","descriptor","owner","name","opcode","operator","constantKind","constantValue","constantLength","methodName","methodOwner","methodDescriptor","fieldStatic","arrayType","detail","category","reason"])if(v[k]!==undefined&&v[k]!==null)out[k]=v[k];
+ for(const k of ["pc","storedFromPc","slot","parameterIndex","descriptor","owner","name","opcode","operator","constantKind","constantValue","constantLength","methodName","methodOwner","methodDescriptor","fieldStatic","arrayType","detail","category","reason"])if(v[k]!==undefined&&v[k]!==null)out[k]=v[k];
  if(v.receiver)out.receiver=compact(v.receiver,depth+1);
  for(const k of ["operands","arguments","inputs"])if(Array.isArray(v[k]))out[k]=v[k].slice(0,MAX_ORIGINS).map(x=>compact(x,depth+1));
  return out;
@@ -148,7 +148,7 @@ function simulateBlock(instructions,block,startState,method,instructionBudget,br
    if(p.result.kind!=="void")push(origin("method-result",{pc:x.pc,methodOwner:clean(owner,180),methodName:clean(name,100),methodDescriptor:clean(desc,180),receiver,arguments:args,descriptor:p.result.descriptor,category:p.result.category}));
    continue;
   }
-  if(BINARY.has(n)){const cat=n[0]==="l"||n[0]==="d"?2:1,a=pop(cat,x.pc),b=pop(cat,x.pc),desc=cat===2?(n[0]==="l"?"J":"D"):(n[0]==="f"?"F":"I");push(origin("calculated-value",{pc:x.pc,operator:n,operands:[b,a],descriptor:desc,category:cat}));continue;}
+  if(BINARY.has(n)){const shift=/^(?:ishl|ishr|iushr|lshl|lshr|lushr)$/.test(n),cat=n[0]==="l"||n[0]==="d"?2:1,right=pop(shift?1:cat,x.pc),left=pop(cat,x.pc),desc=cat===2?(n[0]==="l"?"J":"D"):(n[0]==="f"?"F":"I");push(origin("calculated-value",{pc:x.pc,operator:n,operands:[left,right],descriptor:desc,category:cat}));continue;}
   if(UNARY.has(n)){const cat=n[0]==="l"||n[0]==="d"?2:1,a=pop(null,x.pc),dest={i2l:"J",i2f:"F",i2d:"D",l2i:"I",l2f:"F",l2d:"D",f2i:"I",f2l:"J",f2d:"D",d2i:"I",d2l:"J",d2f:"F",i2b:"I",i2c:"I",i2s:"I"}[n]||(n[0]==="l"?"J":n[0]==="d"?"D":n[0]==="f"?"F":"I");push(origin("calculated-value",{pc:x.pc,operator:n,operands:[a],descriptor:dest,category:dest==="J"||dest==="D"?2:1}));continue;}
   if(COMPARES.has(n)){const cat=n[0]==="l"||n[0]==="d"?2:1,a=pop(cat,x.pc),b=pop(cat,x.pc);push(origin("comparison-result",{pc:x.pc,operator:n,operands:[b,a],descriptor:"I",category:1}));continue;}
   if(n==="new"){push(origin("new-object",{pc:x.pc,descriptor:clean(x.className||"",180)||null,category:1}));continue;}
@@ -162,7 +162,7 @@ function simulateBlock(instructions,block,startState,method,instructionBudget,br
   if(n==="monitorenter"||n==="monitorexit"||n==="athrow"){pop(1,x.pc);continue;}
   if(CONDITIONAL.test(n)||n==="tableswitch"||n==="lookupswitch"){
    let count=1,kind="single-value-test";if(/^if_icmp/.test(n)){count=2;kind="integer-pair";}else if(/^if_acmp/.test(n)){count=2;kind="reference-pair";}else if(n==="ifnull"||n==="ifnonnull")kind="null-test";else if(n==="tableswitch"||n==="lookupswitch")kind="switch-key";
-   const operands=[];for(let i=0;i<count;i++)operands.unshift(pop(null,x.pc));
+   const operands=[];for(let i=0;i<count;i++)operands.unshift(pop(1,x.pc));
    branchTargets.push({pc:x.pc,opcode:n,branchKind:kind,operandOrigins:operands.map(v=>compact(v,0)),unknownOperandCount:operands.filter(v=>/^(?:unknown-value|unknown-stack-entry)$/.test(v.kind)).length});
    break;
   }
