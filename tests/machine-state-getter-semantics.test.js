@@ -135,7 +135,7 @@ test("reports missing method bodies and bounds details while preserving totals",
   assert.equal(report.getterAnalyses.length, 1);
   assert.equal(report.totals.methodsOmitted, 1);
   assert.equal(report.totals.detailsTruncated, true);
-  assert.equal(report.getterAnalyses[0].classification, "no-bytecode");
+  assert.equal(report.getterAnalyses[0].classification, "method-not-found-in-parsed-class");
 });
 
 test("never claims a Java bridge, callbacks, event wiring, or automatic telemetry", () => {
