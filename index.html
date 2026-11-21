@@ -84,7 +84,7 @@ $("jar").onchange=invalidateAnalysis;
 $("targetVersion").onchange=invalidateAnalysis;
 $("analyze").onclick=async function(){
  try{
-  jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;machineStateEventProducer=null;machineStateSourceAnalysis=null;machineStateGetterSemantics=null;machineStateWriteTrace=null,machineStateUpdateConditions=null,machineStateControlFlow=null,machineStateConditionOperands=null;$("build").disabled=true;
+  jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;machineStateEventProducer=null;machineStateSourceAnalysis=null;machineStateGetterSemantics=null;machineStateWriteTrace=null,machineStateUpdateConditions=null,machineStateControlFlow=null,machineStateConditionOperands=null,machineStateCrossBlockDataflow=null;$("build").disabled=true;
   if(!window.JSZip)throw Error("JSZipを読み込めません。インターネット接続を確認してください。");
   if(!window.Jar2ZeusArchive)throw Error("ZIP事前検査モジュールを読み込めません。");
   jarFile=$("jar").files[0];
