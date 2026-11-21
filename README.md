@@ -143,6 +143,14 @@ The role labels distinguish constructor initialization, setter/update methods, p
 
 The plan is exported as `machine-state-write-trace-plan.json` and `diagnostics/machine-state-write-trace-plan.json`. A `PUTFIELD` instruction proves a static write site only; the analyzer does not reconstruct the value on the operand stack, calculate the assignment expression, execute methods, or recover update timing. No tick hooks, callbacks, Java bridge, event publication or live machine values are generated. A source-MOD developer must verify the real update path and connect a supported source-owned value to the explicit Phase 24 publisher.
 
+## Machine-state write value provenance (Phase 28)
+
+`machine-state-write-value-analysis.js` follows a narrow, straight-line JVM operand stack up to each exact Phase 27 telemetry `PUTFIELD` / `PUTSTATIC` site. It can express a field assignment in terms of method arguments, numeric constants, initialized locals, same-object field reads, same-method earlier writes, and a limited set of arithmetic/conversion operations.
+
+The analysis requires a structurally verified method body and checks the target owner/name/descriptor/write offset. A previous write to the same object is retained as a symbolic value for a later field read where the supported path can be followed. Category-2 values (long/double) are accounted for in local slots and the operand stack. The output is `machine-state-write-value-analysis-plan.json` plus `diagnostics/machine-state-write-value-analysis-plan.json`.
+
+This is not JVM execution or a full data-flow verifier. Branches, switches, method calls, exception tables, unsupported opcodes, unknown receivers and complex stack operations stop the trace as unresolved. Symbolic expressions do not recover assigned runtime values, prove whether a write actually executes, establish update timing or determine server/client authority. No source reader, tick hook, Java bridge or event publication is generated.
+
 ## JVMバイトコード構造検証
 
 `bytecode-verifier.js` はデコード済みメソッドについて、命令バイト範囲の連続性、命令オフセットの重複・順序、分岐先とswitch分岐先の命令境界、例外テーブルの範囲、ローカル変数スロット、引数のlong/double 2スロットを含む `max_locals` 収容、戻り命令とメソッド戻り値descriptorの整合性を検査します。基本ブロック、通常分岐・switch分岐・例外辺、ループ候補、到達不能ブロックも構築します。
@@ -168,6 +176,7 @@ The plan is exported as `machine-state-write-trace-plan.json` and `diagnostics/m
 - `diagnostics/machine-state-source-analysis-plan.json`: 機械のフィールド候補と、JVMのgetter候補を結び付けた静的解析結果。
 - `diagnostics/machine-state-getter-semantics-plan.json`: getter本体の計算・分岐・呼び出し・状態変更を静的分類した診断。
 - `diagnostics/machine-state-write-trace-plan.json`: 機械フィールドのPUTFIELD/PUTSTATIC書き込み箇所と、ローカル呼び出し関係の静的追跡。
+- `diagnostics/machine-state-write-value-analysis-plan.json`: 書き込み時点の値を引数・定数・フィールド読み出し・限定的な演算式として追跡した静的証拠。
 - `diagnostics/archive-preflight-report.json`: 展開前のZIP/JAR検査結果。
 - `diagnostics/bytecode-analysis.json`: JVM命令・制御フロー・呼び出し関係の集計。
 - `diagnostics/reimplementation-report.json`: Javaメソッドごとの変換状況。
