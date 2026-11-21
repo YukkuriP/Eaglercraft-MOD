@@ -2,7 +2,7 @@ name: Node test suite
 
 on:
   push:
-    branches: [main]
+    branches: [main, phase-31-cross-block-dataflow]
   pull_request:
     branches: [main]
 
