@@ -95,20 +95,25 @@ function analyze(input,options){
   if(totals.totalCfgBlocks+graph.blocks.length>MAX_TOTAL_BLOCKS||totals.totalCfgEdges+graph.edges.length>MAX_TOTAL_EDGES){totals.writerMethodsOverBudget++;totals.detailsTruncated=true;continue;}
   totals.totalCfgBlocks+=graph.blocks.length;totals.totalCfgEdges+=graph.edges.length;
   totals.writerMethodsAnalyzed++;totals.controlFlowIterations+=graph.iterations+graph.postIterations;
-  const instructions=arr(code.instructions),blocks=graph.blocks;
+  const instructions=arr(code.instructions),instructionByPc=new Map(instructions.filter(x=>x&&Number.isInteger(x.pc)).map(x=>[x.pc,x])),blocks=graph.blocks;
   const normalBranchKinds=new Set(["conditional-true","conditional-false","switch-case","switch-default"]);
   const branchNodes=[];
   for(const b of blocks){
    if(!BRANCH.test(String(b.lastOpcode||"")))continue;
    const outs=graph.edges.filter(e=>e.from===b.id&&normalBranchKinds.has(e.kind)&&graph.reachable.has(e.to));
-   if(outs.length>=2)branchNodes.push({block:b,edges:outs});
+   const uniqueOuts=Array.from(new Map(outs.map(e=>[e.to,e])).values());
+   if(uniqueOuts.length>=2){
+    const branchPc=instructions.reduce((pc,x)=>x&&x.pc>=b.start&&x.pc<b.end&&x.name===b.lastOpcode?Math.max(pc,x.pc):pc,-1);
+    branchNodes.push({block:b,edges:uniqueOuts,branchPc:branchPc>=0?branchPc:null});
+   }
   }
   const writeResults=[];
   for(const write of arr(writer.writes)){
    totals.writesSeen++;
    if(writeBudget>=MAX_WRITES){totals.detailsTruncated=true;break;}
    writeBudget++;
-   const ins=instructions.find(x=>x&&x.pc===write.pc&&x.name===write.opcode);
+   const ins=instructionByPc.get(write.pc);
+   if(!ins||ins.name!==write.opcode){totals.writeInstructionsMissing++;writeResults.push({pc:write.pc,fieldName:write.fieldName,status:"write-instruction-not-found",controlDependenceCandidates:[],controlDependenceProven:false});continue;}
    if(!ins){totals.writeInstructionsMissing++;writeResults.push({pc:write.pc,fieldName:write.fieldName,status:"write-instruction-not-found",controlDependenceCandidates:[],controlDependenceProven:false});continue;}
    const block=blocks.find(b=>write.pc>=b.start&&write.pc<b.end);
    if(!block){totals.writeInstructionsMissing++;writeResults.push({pc:write.pc,fieldName:write.fieldName,status:"write-pc-outside-cfg-blocks",controlDependenceCandidates:[],controlDependenceProven:false});continue;}
@@ -121,7 +126,7 @@ function analyze(input,options){
     for(const edge of branch.edges){
      const successorPostdom=graph.postdom.get(edge.to);
      if(successorPostdom&&successorPostdom.has(block.id)){
-      candidates.push({branchBlockId:branchId,branchStartPc:branch.block.start,branchOpcode:branch.block.lastOpcode,branchPc:instructions.filter(x=>x&&x.pc>=branch.block.start&&x.pc<branch.block.end&&x.name===branch.block.lastOpcode).reduce((pc,x)=>Number.isInteger(x.pc)?Math.max(pc,x.pc):pc,-1),successorBlockId:edge.to,successorEdgeKind:edge.kind,branchBlockDominatesWriteBlock:true,writeBlockPostdominatesSuccessor:true,writeBlockPostdominatesBranchBlock:false,evidence:"structural-cfg-control-dependence"});
+      candidates.push({branchBlockId:branchId,branchStartPc:branch.block.start,branchOpcode:branch.block.lastOpcode,branchPc:branch.branchPc,successorBlockId:edge.to,successorEdgeKind:edge.kind,branchBlockDominatesWriteBlock:true,writeBlockPostdominatesSuccessor:true,writeBlockPostdominatesBranchBlock:false,evidence:"structural-cfg-control-dependence"});
       if(candidates.length>=MAX_CANDIDATES_PER_WRITE)break;
      }
     }
