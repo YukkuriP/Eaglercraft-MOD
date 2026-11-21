@@ -69,7 +69,7 @@
   const targetEvidence=input.targetRuntimeEvidence||{};
   if(targetEvidence.apiPresenceVerified!==true)warnings.push("Required Zeus API presence has not been verified in the selected game build");
   if(targetEvidence.versionVerified!==true)warnings.push("The running game version has not been confirmed by an in-game report; the package version is based on the selection");
-  const valid=errors.length===0;
+  let valid=errors.length===0;
   const skipped=!!(input.packageSkipped&&input.packageSkipped.length);
   const runtimeTested=input.runtimeTested===true;
   const gameplayVerified=input.gameplayVerified===true;
@@ -219,6 +219,7 @@
    (Number(configReport.excludedSensitiveKeys)||0);
   const restrictedResources=!!(input.analysis&&input.analysis.featureReview&&input.analysis.featureReview.restrictedPathCount>0);
   const unsupportedRuntime=!!(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length);
+  valid=errors.length===0;
   const conversionComplete=valid&&!skipped&&!incompleteJava&&skippedResources===0&&!restrictedResources&&!unsupportedRuntime;
   if(!conversionComplete)warnings.push("The generated package is a partial port; review skipped resources, restricted-content exclusions, Java reimplementation tasks and runtime indicators");
   const readyToImport=conversionComplete&&runtimeTested&&gameplayVerified&&targetEvidence.apiPresenceVerified===true&&targetEvidence.versionVerified===true;
