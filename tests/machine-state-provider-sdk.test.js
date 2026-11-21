@@ -73,7 +73,7 @@ test("does not generate or claim any real source readers", () => {
 });
 
 test("creates a companion-provider Lua template with the same ID the consumer can use", () => {
-  const result = sdk.convert(inputReports(), { providerId: "test_mod_state_provider" });
+  const result = sdk.convert(inputReports(), { providerId: "test_mod_state_provider", providerName: "Test Mod State Provider" });
 
   assert.match(result.lua, /^-- name: Test Mod State Provider/m);
   assert.match(result.lua, /^-- id: test_mod_state_provider/m);
