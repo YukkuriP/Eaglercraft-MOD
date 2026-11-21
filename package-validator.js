@@ -150,7 +150,16 @@
    (Number(blockEntityMachineState.totals&&blockEntityMachineState.totals.dataFieldsObserved)||0):0;
   if(blockEntityMachineStatePending>0)warnings.push(blockEntityMachineStatePending+" BlockEntity, persistence, NBT or machine-state details remain unmapped; a version-specific adapter and save/reload/tick checks are still required.");
   if(blockEntityMachineStateReportMissing)warnings.push("BlockEntity/machine-state analysis is missing; Java persistence and ticking behavior has not been reviewed.");
-  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing||minecraftInternalApiPending>0||minecraftInternalApiReportMissing||blockStatePending>0||blockStateReportMissing||itemInventoryPending>0||itemInventoryReportMissing||blockEntityMachineStatePending>0||blockEntityMachineStateReportMissing;
+  const machinePowerSystems=input.machinePowerSystems||{};
+  const machinePowerSystemsReportMissing=hasJavaClasses&&machinePowerSystems.schema!=="jar2zeus.machine-power-systems.v1";
+  const machinePowerSystemsPending=machinePowerSystems.schema==="jar2zeus.machine-power-systems.v1"?
+   (Number(machinePowerSystems.totals&&machinePowerSystems.totals.powerRelatedClasses)||0)+
+   (Number(machinePowerSystems.totals&&machinePowerSystems.totals.operationsReported)||0)+
+   (Number(machinePowerSystems.totals&&machinePowerSystems.totals.fieldsObserved)||0)+
+   (Number(machinePowerSystems.totals&&machinePowerSystems.totals.methodsObserved)||0):0;
+  if(machinePowerSystemsPending>0)warnings.push(machinePowerSystemsPending+" power/energy/kinetic classes, methods or fields remain unmapped; a version-specific adapter and network/transfer/tick validation are required.");
+  if(machinePowerSystemsReportMissing)warnings.push("Machine power analysis is missing; energy and kinetic API usage has not been reviewed.");
+  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing||minecraftInternalApiPending>0||minecraftInternalApiReportMissing||blockStatePending>0||blockStateReportMissing||itemInventoryPending>0||itemInventoryReportMissing||blockEntityMachineStatePending>0||blockEntityMachineStateReportMissing||machinePowerSystemsPending>0||machinePowerSystemsReportMissing;
   const skippedResources=(Array.isArray(recipeReport.skipped)?recipeReport.skipped.length:0)+
    (Array.isArray(recipeReport.excluded)?recipeReport.excluded.length:0)+
    (Array.isArray(definitionReport.skipped)?definitionReport.skipped.length:0)+
