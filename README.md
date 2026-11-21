@@ -115,6 +115,8 @@ Official API references: [API reference](https://dev.eaglercraft.com/docs/moddin
 - `diagnostics/reimplementation-plan.json`: 未実装機能の再実装タスク。
 - `diagnostics/entity-model-report.json`: 3D形状・ボーン・モーションの変換結果と未対応アニメーション。
 - `diagnostics/api-validation.json`: 使用したZeus APIの静的検証結果。
+- `diagnostics/machine-gui-state-bridge-plan.json`: 機械GUIデータ候補と、Zeusから直接読める情報・外部プロバイダーが必要な情報の区分。
+- `diagnostics/machine-gui-state-bridge.lua`: 座標指定によるブロックID確認と、任意のZeus外部プロバイダーの読み取り専用接続プローブ。
 - `diagnostics/zeus-runtime-probe.lua`: 対象ゲーム内でAPIの存在を確認する読み取り専用プローブ。
 
 Zeusのパッケージ制限に合わせ、展開後4,096ファイル・64 MiB以内を検査します。超過や欠落があればレポートに記録します。
