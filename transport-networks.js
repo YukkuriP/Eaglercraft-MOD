@@ -42,7 +42,8 @@ getSlot:"resource_slot_read",getAmount:"resource_amount_read",getResource:"resou
 getCapacity:"resource_capacity_read",getCapacityAsInt:"resource_capacity_read",
 getCapacityAsLong:"resource_capacity_read",size:"resource_handler_size",
 isValid:"resource_validity_check",supportsInsertion:"resource_insert_check",
-supportsExtraction:"resource_extract_check"
+supportsExtraction:"resource_extract_check",find:"transport_storage_lookup",
+registerForBlockEntity:"transport_storage_provider_register"
 };
 const FLUID_METHODS={
 fill:"fluid_transfer_fill",drain:"fluid_transfer_drain",
@@ -54,7 +55,8 @@ insert:"resource_insert",extract:"resource_extract",getAmount:"resource_amount_r
 getResource:"resource_read",getCapacity:"resource_capacity_read",
 getCapacityAsInt:"resource_capacity_read",getCapacityAsLong:"resource_capacity_read",
 size:"resource_handler_size",isValid:"resource_validity_check",
-supportsInsertion:"resource_insert_check",supportsExtraction:"resource_extract_check"
+supportsInsertion:"resource_insert_check",supportsExtraction:"resource_extract_check",find:"transport_storage_lookup",
+registerForBlockEntity:"transport_storage_provider_register"
 };
 const ENERGY_METHODS={
 receiveEnergy:"energy_transfer_receive",extractEnergy:"energy_transfer_extract",
@@ -80,6 +82,16 @@ push:"resource_push_candidate",pull:"resource_pull_candidate",send:"resource_sen
 receive:"resource_receive_candidate",insert:"resource_insert",extract:"resource_extract"
 };
 const TRANSPORT_CLASS_RE=/(?:pipe|piping|tube|duct|conveyor|transport|transfer|pump|tank|fluid|valve|itemhandler|itemstorage|fluidstorage|cable|wire|channel|endpoint|networknode|storagenode|resourcehandler)/i;
+const CAPABILITY_METHODS={
+getCapability:"transport_capability_lookup",hasCapability:"transport_capability_check",
+getCapabilityProvider:"transport_capability_provider_lookup",find:"transport_storage_lookup"
+};
+const TRANSACTION_METHODS={
+open:"resource_transaction_open",openRoot:"resource_transaction_open",
+openOuter:"resource_transaction_open",openNested:"resource_transaction_nested_open",
+commit:"resource_transaction_commit",abort:"resource_transaction_abort",
+close:"resource_transaction_close"
+};
 const ITEM_CONTEXT_RE=/(?:item|inventory|slot|stack|conveyor|chute|hopper|drawer|crate|container)/i;
 const FLUID_CONTEXT_RE=/(?:fluid|liquid|tank|pipe|pump|valve|reservoir|hose)/i;
 const ENERGY_CONTEXT_RE=/(?:energy|power|electric|battery|capacitor|generator|cable|wire)/i;
@@ -105,13 +117,15 @@ function kindsFor(owner){
  if(f==="generic-storage")return ["item","fluid"];
  return [];
 }
-function operation(owner,name){
- const f=family(owner);
+function operation(owner,name,descriptor,context){
+ const f=family(owner),evidence=String(owner||"")+" "+String(descriptor||"")+" "+String(context||"");
+ if(owner.includes("/transaction/")&&TRANSACTION_METHODS[name])return TRANSACTION_METHODS[name];
+ if(CAPABILITY_METHODS[name]&&/(?:capabilit|storage|handler|resource|direction|item|fluid|energy)/i.test(evidence))return CAPABILITY_METHODS[name];
  if(f==="item")return ITEM_METHODS[name]||null;
  if(f==="fluid")return FLUID_METHODS[name]||null;
  if(f==="energy")return ENERGY_METHODS[name]||null;
  if(f==="resource"||f==="generic-storage")return ITEM_METHODS[name]||FLUID_METHODS[name]||ENERGY_METHODS[name]||null;
- if(NETWORK_METHODS[name]&&NETWORK_CONTEXT_RE.test(owner))return NETWORK_METHODS[name];
+ if(NETWORK_METHODS[name]&&NETWORK_CONTEXT_RE.test(owner+" "+String(context||"")))return NETWORK_METHODS[name];
  return null;
 }
 function limitOf(v){const n=Number(v);return Number.isInteger(n)&&n>0?Math.min(n,LIMIT):LIMIT;}
