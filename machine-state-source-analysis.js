@@ -243,7 +243,7 @@ function analyze(input,options){
    getterCandidatesReported:getters.length,
    structurallyVerifiedGetterCandidates:verifiedCandidates,
    directFieldReadLinks:directReadLinks,
-   metricsWithGetterCandidates:mappedMetrics.size,
+   metricsWithGetterCandidates:mappedMetricsAll.size,
    metricsWithoutGetterEvidence:unmapped.length,
    methodsWithDecodeErrors:methodsWithDecodeErrors,
    methodsOmitted:Math.max(0,gettersSeen-getters.length),
