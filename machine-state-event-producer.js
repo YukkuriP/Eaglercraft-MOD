@@ -126,6 +126,7 @@ function buildLua(options){
   "",
   "mod.log(\"Machine-state event publisher helper loaded; no source callbacks are connected.\")",
   "-- event channel: "+luaString(providerEvent),
+  "-- Custom events are broadcast to every listening MOD; publish only non-sensitive game telemetry.",
   "-- source_id is mod.id and is self-asserted; the receiver does not authenticate the sender.",
   ""
  ].join("\n");
@@ -171,6 +172,7 @@ function convert(input,options){
    "The caller must supply actual values from a supported state source owned by the source MOD.",
    "The provider must already be installed and export the matching Phase 23 schema, API version and event name.",
    "Successful events.emit submission does not confirm that the provider received or displayed the values.",
+   "Custom events are broadcast to every listening MOD, not only the companion provider; publish only non-sensitive game telemetry.",
    "source_id is the MOD's self-reported mod.id; custom events do not authenticate the sender or prove value truth.",
    "Only the fixed Phase 23 scalar telemetry key/type allow-list is accepted."
   ],
