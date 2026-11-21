@@ -24,9 +24,11 @@ test("export creates a standalone Zeus package with root metadata and clear impo
 });
 
 test("outer diagnostics export includes the live GUI telemetry consumer",()=>{
- assert.match(html,/machine-gui-live-binding\\.js/);
- assert.match(html,/machineGuiLiveBindingFileCount:1/);
- assert.match(html,/machine-gui-live-binding-plan\\.json/);
+ assert.ok(html.includes("machine-gui-live-binding.js"));
+ assert.ok(html.includes("machineGuiLiveBindingFileCount:1"));
+ assert.ok(html.includes("machine-gui-live-binding-plan.json"));
+ assert.ok(html.includes("generatedMain+=") && html.includes("machineGuiLiveBinding.lua;"));
+ assert.ok(html.includes('out.file("diagnostics/machine-gui-live-binding.lua",machineGuiLiveBinding.lua)'));
 });
 
 test("outer diagnostics export includes the provider starter template",()=>{
