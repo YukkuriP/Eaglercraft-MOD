@@ -142,7 +142,15 @@
    (Number(itemInventoryConversion.totals&&itemInventoryConversion.totals.inventoryClasses)||0):0;
   if(itemInventoryPending>0)warnings.push(itemInventoryPending+" item, ItemStack or inventory classes/operations remain unmapped; a version-specific Zeus item adapter and in-game checks are still required.");
   if(itemInventoryReportMissing)warnings.push("Item/inventory conversion analysis is missing; Java item and inventory behavior has not been reviewed.");
-  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing||minecraftInternalApiPending>0||minecraftInternalApiReportMissing||blockStatePending>0||blockStateReportMissing||itemInventoryPending>0||itemInventoryReportMissing;
+  const blockEntityMachineState=input.blockEntityMachineState||{};
+  const blockEntityMachineStateReportMissing=hasJavaClasses&&blockEntityMachineState.schema!=="jar2zeus.block-entity-machine-state.v1";
+  const blockEntityMachineStatePending=blockEntityMachineState.schema==="jar2zeus.block-entity-machine-state.v1"?
+   (Number(blockEntityMachineState.totals&&blockEntityMachineState.totals.blockEntityClasses)||0)+
+   (Number(blockEntityMachineState.totals&&blockEntityMachineState.totals.operationsObserved)||0)+
+   (Number(blockEntityMachineState.totals&&blockEntityMachineState.totals.dataFieldsObserved)||0):0;
+  if(blockEntityMachineStatePending>0)warnings.push(blockEntityMachineStatePending+" BlockEntity, persistence, NBT or machine-state details remain unmapped; a version-specific adapter and save/reload/tick checks are still required.");
+  if(blockEntityMachineStateReportMissing)warnings.push("BlockEntity/machine-state analysis is missing; Java persistence and ticking behavior has not been reviewed.");
+  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing||minecraftInternalApiPending>0||minecraftInternalApiReportMissing||blockStatePending>0||blockStateReportMissing||itemInventoryPending>0||itemInventoryReportMissing||blockEntityMachineStatePending>0||blockEntityMachineStateReportMissing;
   const skippedResources=(Array.isArray(recipeReport.skipped)?recipeReport.skipped.length:0)+
    (Array.isArray(recipeReport.excluded)?recipeReport.excluded.length:0)+
    (Array.isArray(definitionReport.skipped)?definitionReport.skipped.length:0)+
