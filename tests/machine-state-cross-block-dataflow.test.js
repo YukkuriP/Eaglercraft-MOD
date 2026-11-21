@@ -5,7 +5,8 @@ require(path.join(__dirname, "..", "machine-state-cross-block-dataflow.js"));
 const analyzer = globalThis.Jar2ZeusMachineStateCrossBlockDataflow;
 const owner = "sample/machine/CrusherBlockEntity";
 function ins(name,pc,extra={}){return Object.assign({name,pc},extra);}
-function fixture({blocks,edges,instructions,descriptor="()V",className=owner,branches=null}){\n if(!branches){const branchIns=instructions[instructions.length-2],branchBlock=blocks.find(b=>branchIns.pc>=b.start&&branchIns.pc<b.end);branches=[{branchBlockId:branchBlock&&branchBlock.id,pc:branchIns.pc,opcode:branchIns.name,relatedWrites:[]}];}
+function fixture({blocks,edges,instructions,descriptor="()V",className=owner,branches=null}){
+ if(!branches){const branchIns=instructions[instructions.length-2],branchBlock=blocks.find(b=>branchIns.pc>=b.start&&branchIns.pc<b.end);branches=[{branchBlockId:branchBlock&&branchBlock.id,pc:branchIns.pc,opcode:branchIns.name,relatedWrites:[]}];}
  const method={name:"serverTick",descriptor,accessFlags:0,code:{instructions,verification:{valid:true,structuralOnly:true,controlFlow:{basicBlocks:blocks,edges}}}};
  return {conditionOperands:{schema:"jar2zeus.machine-condition-operands.v1",methods:[{methodId:className+".serverTick"+descriptor,sourceClass:className,methodName:"serverTick",methodDescriptor:descriptor,branches}]},classes:[{classInfo:{valid:true,className,methods:[method]}}]};
 }
