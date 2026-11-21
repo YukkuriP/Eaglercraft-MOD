@@ -18,6 +18,7 @@ test("browser entry point has syntactically valid inline scripts and loads the i
   assert.match(html, /resource-compatibility\.js/);
   assert.match(html, /machine-gui-converter/);
   assert.match(html, /machine-gui-state-bridge/);
+  assert.match(html, /machine-state-provider-sdk/);
   assert.match(html, /id="referenceHtml"/);
   assert.match(html, /pako@2\.1\.0/);
   assert.match(html, /xzwasm@0\.1\.2/);
