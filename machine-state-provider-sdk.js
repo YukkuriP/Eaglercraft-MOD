@@ -23,7 +23,7 @@ function luaString(v){
  return '"'+String(v==null?"":v).replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/\r/g,"\\r").replace(/\n/g,"\\n").replace(/\t/g,"\\t").replace(/[\u0000-\u001f\u007f]/g," ")+'"';
 }
 function validProviderId(v){
- return typeof v==="string"&&v.length>0&&v.length<=64&&/^[a-z0-9_-][a-z0-9_.-]*[a-z0-9.-]$/.test(v)&&!v.startsWith(".")&&!v.endsWith("_")&&!v.includes("..");
+ return typeof v==="string"&&/^[a-z0-9_.-]{1,64}$/.test(v)&&!v.startsWith(".")&&!v.endsWith("_");
 }
 function normalizeId(v,fallback){
  const clean=String(v==null?"":v).toLowerCase().replace(/[^a-z0-9_.-]/g,"_").replace(/^\.+/,"").replace(/_+$/,"").slice(0,64);
@@ -180,7 +180,7 @@ function buildLua(options){
   "end",
   "",
   "local function validSourceId(value)",
-  "  return type(value) == \"string\" and #value > 0 and #value <= 64 and string.match(value, \"^[a-z0-9_-][a-z0-9_.-]*[a-z0-9.-]$\") ~= nil",
+  "  return type(value) == \"string\" and #value > 0 and #value <= 64 and string.match(value, \"^[a-z0-9_.-]+$\") ~= nil and string.sub(value, 1, 1) ~= \".\" and string.sub(value, -1) ~= \"_\"",
   "end",
   "",
   "local eventHandle = on(EVENT_NAME, function(payload)",
