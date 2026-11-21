@@ -14,7 +14,7 @@ function safe(v){return typeof v==="string"&&!BLOCKED.test(v);}
 function clean(v,max){return String(v==null?"":v).replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max||180);}
 function norm(v){return String(v||"").replace(/\./g,"/").replace(/^L|;$/g,"");}
 function descriptorMatch(a,b){return !a||!b||a===b;}
-function methodId(owner,name,descriptor){return norm(owner)+"."+String(name||"")+"("+String(descriptor||"")+")";}
+function methodId(owner,name,descriptor){return norm(owner)+"."+String(name||"")+String(descriptor||"");}
 function key(owner,name,descriptor){return norm(owner)+"#"+String(name||"")+":"+(descriptor||"");}
 function flags(method){return Number(method&&method.accessFlags)||0;}
 function invocationEvidence(instructions){
