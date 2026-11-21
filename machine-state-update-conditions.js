@@ -10,9 +10,9 @@ const BRANCH=/^(?:if|goto|jsr|tableswitch|lookupswitch)/;
 const INVOKE=new Set(["invokevirtual","invokespecial","invokestatic","invokeinterface","invokedynamic"]);
 function arr(v){return Array.isArray(v)?v:[];}
 function safe(v){return typeof v==="string"&&!BLOCKED.test(v);}
-function norm(v){return String(v||"").replace(/\\./g,"/").replace(/^L|;$/g,"");}
+function norm(v){return String(v||"").replace(/\./g,"/").replace(/^L|;$/g,"");}
 function id(owner,name,desc){return norm(owner)+"."+String(name||"")+String(desc||"");}
-function clean(v,n){return String(v==null?"":v).replace(/[\\u0000-\\u001f\\u007f]/g," ").replace(/\\s+/g," ").trim().slice(0,n||160);}
+function clean(v,n){return String(v==null?"":v).replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,n||160);}
 function analyze(input,options){
  input=input&&typeof input==="object"?input:{};options=options&&typeof options==="object"?options:{};
  const trace=input.writeTrace||{},classes=arr(input.classes),classMap=new Map();
