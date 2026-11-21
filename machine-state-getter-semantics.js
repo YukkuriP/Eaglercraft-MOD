@@ -80,7 +80,7 @@ function summarizeMethod(candidate,holder){
    const m=ins.member;
    if(m&&safe(m.owner)&&safe(m.name)&&safe(m.descriptor||"")&&calls.length<MAX_CALLS)calls.push({pc:Number.isInteger(ins.pc)?ins.pc:null,owner:norm(m.owner),name:m.name,descriptor:m.descriptor||null,opcode:n});
   }
-  if(n==="invokedynamic"){helperDetected=true;if(calls.length<MAX_CALLS)calls.push({pc:Number.isInteger(ins.pc)?ins.pc:null,owner:"<dynamic>",name:text(ins.dynamic&&ins.dynamic.name||"invokedynamic",80),descriptor:text(ins.dynamic&&ins.dynamic.descriptor||"",120),opcode:n});}
+  if(n==="invokedynamic"){helperDetected=true;const dynamicName=text(ins.dynamic&&ins.dynamic.name||"invokedynamic",80),dynamicDescriptor=text(ins.dynamic&&ins.dynamic.descriptor||"",120);if(safe(dynamicName)&&safe(dynamicDescriptor)&&calls.length<MAX_CALLS)calls.push({pc:Number.isInteger(ins.pc)?ins.pc:null,owner:"<dynamic>",name:dynamicName,descriptor:dynamicDescriptor,opcode:n});}
   if(n==="monitorenter"||n==="monitorexit"||n==="athrow")monitorDetected=true;
   const cv=constFromInstruction(ins);if(cv&&constants.length<MAX_DETAILS)constants.push({pc:Number.isInteger(ins.pc)?ins.pc:null,value:cv.value,kind:cv.kind,opcode:n});
   if(BINARY.has(n)&&arithmetic.length<MAX_DETAILS)arithmetic.push({pc:Number.isInteger(ins.pc)?ins.pc:null,opcode:n});
