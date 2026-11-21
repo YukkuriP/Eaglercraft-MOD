@@ -73,7 +73,7 @@ test("maps known machine telemetry candidates to an explicit provider key allow-
     "thermal.temperature"
   ]);
   assert.equal(result.report.bindings.length, 4);
-  assert.equal(result.report.bindings[0].providerKey, "energy");
+  assert.equal(result.report.bindings[0].providerKey, "progress");
   assert.equal(result.report.bindings.every(row => row.runtimeConnected === false), true);
   assert.equal(result.report.liveValuesConnected, false);
   assert.equal(result.report.sourceValuesIndependentlyVerified, false);
@@ -112,7 +112,7 @@ test("generates a paginated read-only screen with automatic and manual refresh",
   assert.equal(result.report.polling.automatic, true);
   assert.equal(result.report.providerMustBeExplicit, true);
   assert.equal(result.report.sourceCallbacksRegistered, 0);
-  assert.equal(result.report.uiValueRows, 19);
+  assert.equal(result.report.totals.uiValueRows, 19);
   assert.equal(result.report.liveValuesConnected, false);
   assert.equal(lua.includes("setBlock("), false);
   assert.equal(lua.includes("setBlockState("), false);
