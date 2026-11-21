@@ -141,6 +141,8 @@ test("validates exact namespaced block IDs and source MOD IDs", () => {
   assert.match(result.lua, /not validSourceId\(payload\.source_id\)/);
   assert.equal(sdk.validProviderId("test_mod"), true);
   assert.equal(sdk.validProviderId("provider-01"), true);
+  assert.equal(sdk.validProviderId("a"), true);
+  assert.equal(sdk.validProviderId("a..b"), true);
   assert.equal(sdk.validProviderId(".hidden"), false);
   assert.equal(sdk.validProviderId("invalid_"), false);
   assert.equal(sdk.validProviderId("has space"), false);
