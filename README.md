@@ -22,6 +22,7 @@
    - `minecraft-internal-api-compat.js`
    - `block-state-conversion.js`
    - `item-inventory-conversion.js`
+   - `block-entity-machine-state.js`
    - `java-event-lifecycle.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
@@ -194,3 +195,11 @@ Zeus側は `main.lua` をMOD読み込み時に一度だけ先頭から実行し�
 現段階は**解析と移植タスクの生成まで**です。ItemStackの実行時数量・NBT値、コンストラクタ引数、アイテム使用時のコールバック、登録順序、クリエイティブタブ、装備属性、コンテナ同期を完全復元したり、Zeus APIへ自動置換したりはしません。API名が一致しただけで移植成功とは判定しません。アイテム・インベントリ関連の未解決候補・クラスが残るパッケージは `conversionComplete=false` となります。
 
 出力は `item-inventory-conversion.json` と `diagnostics/item-inventory-conversion.json` です。静的テストは解析結果の分類を確認するもので、Zeus 26.2 / 26.3上でのアイテム登録・使用・耐久値・インベントリ保存を証明しません。実ゲームでの確認は別途必要です。
+
+## BlockEntity・機械状態の移植インベントリ
+
+`block-entity-machine-state.js` は、Javaクラスの親クラス・フィールドdescriptor・バイトコード呼び出しからBlockEntity派生クラス、NBT型参照、永続化処理、同期処理、Tick／Lifecycleメソッドを抽出します。対象にはチェスト・かまど・ホッパー・樽・醸造台などの一般的なブロックエンティティと、一般機械系MODのBlockEntityを含みます。各検出結果に元クラス・メソッド・descriptor・PC・根拠を記録し、詳細配列ごとに最大5,000件を保持します。
+
+現段階は**解析と移植タスクの生成まで**です。NBTの実際のキー／値、フィールド実行時値、JavaコンストラクタやTick本体、保存順序、チャンク再読込、クライアント同期を完全復元したり、Zeus APIへ自動置換したりはしません。名前や型の一致だけで機械が動くとは判定しません。BlockEntityのクラス・操作・フィールドが残るパッケージは `conversionComplete=false` となります。
+
+出力は `block-entity-machine-state.json` と `diagnostics/block-entity-machine-state.json` です。静的解析はZeus 26.2 / 26.3上の保存・再読込・Tick・同期の動作を証明しません。実ゲームでの検証は別途必要です。
