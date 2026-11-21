@@ -272,11 +272,13 @@ test("does not leak restricted field identifiers encountered before a telemetry 
 });
 
 test("enforces per-method and aggregate instruction bounds", () => {
-  const instructions = Array.from({ length: 6001 }, (_, i) => ins("nop", { pc: i }));
+  const instructions = Array.from({ length: 5998 }, (_, i) => ins("nop", { pc: i }));
+  instructions.push(ins("aload_0", { pc: 5998 }), ins("iconst_1", { pc: 5999 }),
+    ins("putfield", { pc: 6000, member: field("progress") }));
   const methodRow = method("setProgress", "()V", instructions);
   const result = analyzer.analyze(data(
     [methodRow],
-    [writer("setProgress", "()V", "progress", "I", 6001)]
+    [writer("setProgress", "()V", "progress", "I", 6000)]
   ));
   assert.equal(result.writeAnalyses[0].status, "truncated");
   assert.equal(result.writeAnalyses[0].reason, "write-site-beyond-instruction-limit");
