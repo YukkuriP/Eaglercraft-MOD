@@ -161,6 +161,16 @@ This is a stronger static relationship than simple instruction proximity, but it
 
 The plan is exported as `machine-state-control-flow-plan.json` and `diagnostics/machine-state-control-flow-plan.json`.
 
+## Machine condition operand-origin tracing (Phase 30)
+
+`machine-state-condition-operands.js` examines selected Phase 29 branch candidates using a bounded abstract operand-stack trace within the branch's own basic block. In supported straight-line instruction sequences it records static origins such as method parameters/local slots, field reads, constants, arithmetic/conversion expressions, array reads, casts, and symbolic method-call results. It preserves a short provenance tree for the comparison operands.
+
+This is intentionally not a JVM interpreter. Each basic block is analyzed independently, so incoming operand-stack values and merges from predecessor blocks are unknown. Local values are tracked only within the selected block. Unsupported stack-manipulation opcodes, invalid references, and instruction-budget limits stop analysis for that branch instead of guessing. A symbolic method result does not imply that the callee was executed or inspected.
+
+**Important boundary:** the report may recover *where a comparison operand comes from in static bytecode*, but it does not recover the runtime numeric/string/object value, evaluate a comparison, predict which branch is taken, or determine update timing. No Java methods, callbacks, event publications, Java bridge or live telemetry reads are generated.
+
+The plan is exported as `machine-condition-operands-plan.json` and `diagnostics/machine-condition-operands-plan.json`.
+
 ## JVMバイトコード構造検証
 
 `bytecode-verifier.js` はデコード済みメソッドについて、命令バイト範囲の連続性、命令オフセットの重複・順序、分岐先とswitch分岐先の命令境界、例外テーブルの範囲、ローカル変数スロット、引数のlong/double 2スロットを含む `max_locals` 収容、戻り命令とメソッド戻り値descriptorの整合性を検査します。基本ブロック、通常分岐・switch分岐・例外辺、ループ候補、到達不能ブロックも構築します。
