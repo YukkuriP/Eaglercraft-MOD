@@ -41,10 +41,10 @@ test("reports missing write offsets and decode errors conservatively",()=>{
  assert.equal(report.totals.decodeErrors,1);
  assert.equal(report.writers.length,0);
 });
-test("bounds writer details and excludes blocked class names",()=>{
+test("excludes blocked class names from analyzed class records",()=>{
  const input=fixture([ins("aload_0",0),ins("putfield",1,{member:field})]);
  input.writeTrace.writerMethods.push(Object.assign({},input.writeTrace.writerMethods[0],{sourceClass:"sample/weapon/CannonEntity"}));
- const report=analyzer.analyze(input,{writerLimit:1});
+ const report=analyzer.analyze(input);
  assert.equal(report.writers.length,1);
- assert.equal(report.totals.writerMethodsOmitted,1);
+ assert.equal(report.totals.writerMethodsMissing,1);
 });
