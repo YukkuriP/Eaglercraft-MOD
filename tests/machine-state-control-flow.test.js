@@ -84,5 +84,7 @@ test("rejects malformed CFG edges and excludes blocked classes",()=>{
  input.updateConditions.writers.push(Object.assign({},input.updateConditions.writers[0],{sourceClass:"sample/weapon/CannonEntity"}));
  const report=analyzer.analyze(input);
  assert.equal(report.totals.writerMethodsWithInvalidCfg,1);
- assert.equal(report.totals.writerMethodsMissing,1);
+ assert.equal(report.totals.writerMethodsMissing,0);
+ assert.equal(report.totals.writerMethodsSeen,2);
+ assert.equal(report.writers.length,0);
 });
