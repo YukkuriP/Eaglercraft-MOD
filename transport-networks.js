@@ -9,7 +9,8 @@ const ITEM_OWNERS=new Set([
 "net/neoforged/neoforge/items/IItemHandlerModifiable","net/neoforged/neoforge/items/ItemStackHandler",
 "net/fabricmc/fabric/api/transfer/v1/item/ItemStorage",
 "net/fabricmc/fabric/api/transfer/v1/item/InventoryStorage",
-"net/fabricmc/fabric/api/transfer/v1/item/ItemVariant"
+"net/fabricmc/fabric/api/transfer/v1/item/ItemVariant",
+"net/neoforged/neoforge/transfer/ItemResource"
 ]);
 const FLUID_OWNERS=new Set([
 "net/minecraftforge/fluids/capability/IFluidHandler",
@@ -19,14 +20,12 @@ const FLUID_OWNERS=new Set([
 "net/neoforged/neoforge/fluids/capability/IFluidHandlerItem",
 "net/neoforged/neoforge/fluids/FluidTank",
 "net/fabricmc/fabric/api/transfer/v1/fluid/FluidStorage",
-"net/fabricmc/fabric/api/transfer/v1/fluid/FluidVariant"
+"net/fabricmc/fabric/api/transfer/v1/fluid/FluidVariant",
+"net/neoforged/neoforge/transfer/FluidResource"
 ]);
 const NEO_RESOURCE_OWNERS=new Set([
 "net/neoforged/neoforge/transfer/ResourceHandler",
-"net/neoforged/neoforge/transfer/Resource",
-"net/neoforged/neoforge/transfer/ItemResource",
-"net/neoforged/neoforge/transfer/FluidResource",
-"net/neoforged/neoforge/transfer/EnergyHandler"
+"net/neoforged/neoforge/transfer/Resource"
 ]);
 const FABRIC_STORAGE_OWNERS=new Set([
 "net/fabricmc/fabric/api/transfer/v1/storage/Storage",
@@ -151,11 +150,15 @@ function analyze(input,options){
   const methodEvidence=(info.methods||[]).filter(m=>METHOD_RE.test(String(m&&m.name||"")));
   const apiOwners=Array.from(refs).filter(r=>family(r));
   const context=[name,path,info.superName||"",...(info.interfaces||[]),...Array.from(refs)].join(" ");
-  const item=apiOwners.some(o=>kindsFor(o).includes("item"))||ITEM_CONTEXT_RE.test(context)&&fieldEvidence.some(f=>/(?:item|inventory|slot|stack|conveyor|hopper)/i.test(String(f.name||"")));
-  const fluid=apiOwners.some(o=>kindsFor(o).includes("fluid"))||FLUID_CONTEXT_RE.test(context)&&fieldEvidence.some(f=>/(?:fluid|liquid|tank|pump|valve)/i.test(String(f.name||"")));
-  const energy=apiOwners.some(o=>kindsFor(o).includes("energy"))||ENERGY_CONTEXT_RE.test(context)&&fieldEvidence.some(f=>/(?:energy|power|capacity|buffer)/i.test(String(f.name||"")));
+  const typedApiOwners=apiOwners.filter(o=>["item","fluid","energy"].includes(family(o)));
+  const genericApiOwners=apiOwners.filter(o=>["resource","generic-storage"].includes(family(o)));
+  const hasTypedApi=typedApiOwners.length>0,hasGenericApi=genericApiOwners.length>0;
+  const typedKinds=new Set(typedApiOwners.map(family));
+  const item=typedKinds.has("item")||!hasTypedApi&&(ITEM_CONTEXT_RE.test(context)&&fieldEvidence.some(f=>/(?:item|inventory|slot|stack|conveyor|hopper)/i.test(String(f.name||""))));
+  const fluid=typedKinds.has("fluid")||!hasTypedApi&&(FLUID_CONTEXT_RE.test(context)&&fieldEvidence.some(f=>/(?:fluid|liquid|tank|pump|valve)/i.test(String(f.name||""))));
+  const energy=typedKinds.has("energy")||!hasTypedApi&&(ENERGY_CONTEXT_RE.test(context)&&fieldEvidence.some(f=>/(?:energy|power|capacity|buffer)/i.test(String(f.name||""))));
   const network=NETWORK_CONTEXT_RE.test(context)&&(fieldEvidence.length>0||methodEvidence.some(m=>/(?:connect|network|neighbor|neighbour|route|endpoint|adjacent)/i.test(String(m.name||""))));
-  const resource=apiOwners.some(o=>["resource","generic-storage"].includes(family(o)));
+  const resource=hasGenericApi;
   const kindSet=new Set();
   if(item)kindSet.add("item");if(fluid)kindSet.add("fluid");if(energy)kindSet.add("energy");
   if(resource&&kindSet.size===0){
