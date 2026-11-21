@@ -53,7 +53,8 @@ const PERSISTENCE_NAMES=new Set(["load","loadAdditional","save","saveAdditional"
 function norm(v){return typeof v==="string"?v.replace(/\\./g,"/").replace(/^L|;$/g,""):"";}
 function isBlocked(v){return BLOCKED.test(String(v||""));}
 function isBERef(v){return typeof v==="string"&&(v.startsWith(BE_PREFIX)||BE_BASES.has(v));}
-function machineHint(name){return /(?:furnace|smoker|blastfurnace|chest|barrel|hopper|brewing|dispenser|dropper|beacon|campfire|lectern|spawner|machine|generator|processor|assembler|storage)/i.test(name);}
+function machineHint(name){return /(?:furnace|smoker|blastfurnace|brewing|dispenser|dropper|beacon|campfire|spawner|machine|generator|processor|assembler)/i.test(name);}
+function storageHint(name){return /(?:chest|barrel|hopper|storage|container)/i.test(name);}
 function operation(owner,name){
 const short=owner.split("/").pop();
 if(isBERef(owner)){
@@ -128,8 +129,8 @@ for(const entry of classes){
  const beRefs=Array.from(refs).filter(isBERef),nbtRefs=Array.from(refs).filter(r=>NBT_TYPES.has(r)||r.startsWith("net/minecraft/nbt/"));
  const isBlockEntity=entityClassNames.has(className)||beRefs.length>0||isBERef(norm(info.superName||""));
  if(!isBlockEntity)continue;
- const machine=machineHint(className)||machineHint(path);
- const record={sourcePath:path,className,superName:info.superName||null,blockEntityApiReferences:beRefs,blockEntityInheritanceChain:inheritanceChain(info),nbtApiReferences:nbtRefs,machineLike:machine,kind:machine?"machine-like-block-entity":"block-entity",persistenceStatus:"unresolved",tickStatus:"unresolved",syncStatus:"unresolved"};
+ const machine=machineHint(className)||machineHint(path),storage=storageHint(className)||storageHint(path);
+ const record={sourcePath:path,className,superName:info.superName||null,blockEntityApiReferences:beRefs,blockEntityInheritanceChain:inheritanceChain(info),nbtApiReferences:nbtRefs,machineLike:machine,kind:machine?"machine-like-block-entity":storage?"storage-block-entity":"block-entity",persistenceStatus:"unresolved",tickStatus:"unresolved",syncStatus:"unresolved"};
  entityMap.set(className,record);
  report.totals.blockEntityClasses++;
  if(machine)report.totals.machineLikeBlockEntities++;
