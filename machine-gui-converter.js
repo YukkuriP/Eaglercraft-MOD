@@ -29,7 +29,8 @@ function classify(name){
 }
 function mapWidget(kind){
  const known=new Set(["button","toggle","slider","textField","textArea","list","label","image","canvas","tab"]);
- if(known.has(kind))return {api:kind==="tab"?"button":kind,mode:"Zeus widget scaffold",status:"scaffold-only"};
+ if(known.has(kind)&&kind!=="image")return {api:kind==="tab"?"button":kind,mode:"Zeus widget scaffold",status:"scaffold-only"};
+ if(kind==="image")return {api:"label",mode:"image asset assignment placeholder",status:"manual-image-asset-assignment-required"};
  if(kind==="progress")return {api:"canvas",mode:"static progress-bar preview",status:"placeholder-no-live-data"};
  if(kind==="slot-grid")return {api:"canvas",mode:"slot-grid visual preview",status:"display-only-no-inventory-binding"};
  return {api:"label",mode:"evidence label only",status:"manual-widget-identification-required"};
