@@ -10,7 +10,7 @@ test("browser application inline JavaScript parses",()=>{
  for(const match of scripts){if(match[1].trim())assert.doesNotThrow(()=>new vm.Script(match[1]));}
 });
 test("browser application loads every migration engine module",()=>{
- for(const file of ["converter.js","resource-converter.js","definition-converter.js","generic-mod-analyzer.js","migration-pipeline.js","package-validator.js","machine-gui-state-bridge.js","machine-gui-live-binding.js","machine-state-provider-sdk.js","machine-state-event-producer.js"])
+ for(const file of ["converter.js","resource-converter.js","definition-converter.js","generic-mod-analyzer.js","migration-pipeline.js","package-validator.js","machine-gui-state-bridge.js","machine-gui-live-binding.js","machine-state-provider-sdk.js","machine-state-event-producer.js","machine-state-source-analysis.js"])
   assert.ok(html.includes('<script src="'+file+'"></script>'),"missing "+file);
 });
 
@@ -60,4 +60,12 @@ test("Phase 24 appends an opt-in event publisher and exports its diagnostics",()
  assert.ok(html.includes("generatedMain+=\"\\n\\n-- Jar2Zeus explicit machine-state event publisher helper (manual call only)\\n\"+machineStateEventProducer.lua;"));
  assert.ok(html.includes("machineStateEventProducer:jarReport.machine_state_event_producer"));
  assert.ok(html.includes("mod.export.publish_machine_state"));
+});
+
+test("Phase 25 maps machine field hints to static Java getter evidence",()=>{
+ assert.ok(html.includes("machine-state-source-analysis.js"));
+ assert.ok(html.includes("Jar2ZeusMachineStateSourceAnalysis.analyze"));
+ assert.ok(html.includes("machineStateSourceAnalysisFileCount:1"));
+ assert.ok(html.includes('addPackageFile("machine-state-source-analysis-plan.json"'));
+ assert.ok(html.includes('out.file("diagnostics/machine-state-source-analysis-plan.json"'));
 });
