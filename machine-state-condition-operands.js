@@ -114,7 +114,7 @@ function simulate(instructions,block,targetPc,method,instructionBudget){
   if(instructionCount>=instructionBudget)return {status:"unsupported",reason:"instruction-budget-exceeded",instructionCount,unknownStackEntries,branch:null};
   instructionCount++;
   const n=String(x.name||"");
-  const cv=constantValue(x);if(cv){cv.category=cv.descriptor==="J"||cv.descriptor==="D"?2:1;push(cv);continue;}
+  const cv=constantValue(x);if(cv){cv.category=x.name==="ldc2_w"||cv.descriptor==="J"||cv.descriptor==="D"?2:1;push(cv);continue;}
   if(LOAD.test(n)){
    const slot=localSlot(x);if(!Number.isInteger(slot)||slot<0){unsupported="invalid-local-load";break;}
    const v=localValue(slot,x.pc);push(origin(v.kind,Object.assign({},v,{pc:x.pc,opcode:n,slot,category:n[0]==="l"||n[0]==="d"?2:1})));continue;
