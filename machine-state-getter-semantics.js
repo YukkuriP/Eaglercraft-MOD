@@ -58,6 +58,8 @@ function summarizeMethod(candidate,holder){
  const decodeError=!!(code&&code.decodeError);
  const verification=code&&code.verification||{};
  const verified=verification.valid===true;
+ const exceptionHandlerCount=arr(code&&code.exceptions).length;
+ const exceptionFlowDetected=exceptionHandlerCount>0;
  const counts={},fieldReads=[],fieldWrites=[],calls=[],branches=[],constants=[],arithmetic=[],conversions=[],returnOps=[];
  let unsupported=[],writeDetected=false,branchDetected=false,helperDetected=false,monitorDetected=false;
  for(const ins of instructions.slice(0,MAX_INSTRUCTIONS_PER_METHOD)){
@@ -92,7 +94,7 @@ function summarizeMethod(candidate,holder){
  function runExpression(){
   if(decodeError||!code)return {status:"unavailable",value:null,error:decodeError?"bytecode-decode-error":"method-has-no-code"};
   if(instructions.length>MAX_INSTRUCTIONS_PER_METHOD)return {status:"unsupported",value:null,error:"method-instruction-limit-exceeded"};
-  if(branchDetected||helperDetected||writeDetected||monitorDetected)return {status:"unsupported",value:null,error:"control-flow-call-or-side-effect-present"};
+  if(branchDetected||helperDetected||writeDetected||monitorDetected||exceptionFlowDetected)return {status:"unsupported",value:null,error:"control-flow-call-or-side-effect-present"};
   for(const ins of instructions){
    const n=ins.name;
    if(allowedNoop.has(n))continue;
@@ -152,7 +154,7 @@ function summarizeMethod(candidate,holder){
  if(!code)classification="no-bytecode";
  else if(decodeError)classification="bytecode-decode-error";
  else if(writeDetected)classification="state-mutating-getter";
- else if(monitorDetected)classification="side-effect-or-exception-flow";
+ else if(monitorDetected||exceptionFlowDetected)classification="side-effect-or-exception-flow";
  else if(branchDetected)classification="conditional-or-loop-dependent";
  else if(helperDetected)classification="helper-call-dependent";
  else if(directReturn&&expressionStatus==="resolved"&&!hasArithmetic)classification="direct-field-return";
@@ -185,7 +187,7 @@ function summarizeMethod(candidate,holder){
   conversions:conversions.slice(0,MAX_DETAILS),returnInstructions:returnOps,
   matchedFieldReads:fieldMatchesRead,expressionStatus,expression:expressionSummary,
   helperCallObserved:helperDetected,stateWriteObserved:writeDetected,branchObserved:branchDetected,
-  monitorOrThrowObserved:monitorDetected,unknownBytecodeReason:expressionError,
+  monitorOrThrowObserved:monitorDetected,exceptionHandlerCount:exceptionHandlerCount,unknownBytecodeReason:expressionError,
   sourceRuntimeValueRecovered:false,javaMethodExecuted:false
  };
 }
@@ -196,29 +198,26 @@ function analyze(input,options){
  const candidates=arr(source.getterCandidates);
  const classes=arr(input.classes);
  const detailLimit=Number.isInteger(options.detailLimit)&&options.detailLimit>0?Math.min(options.detailLimit,MAX_CANDIDATES):MAX_CANDIDATES;
+ const classesOmitted=Math.max(0,classes.length-MAX_CLASSES);
  const classMap=new Map();
  for(const entry of classes.slice(0,MAX_CLASSES)){
   const info=entry&&entry.classInfo?entry.classInfo:entry;
   if(!info||info.valid!==true||!safe(info.className))continue;
   classMap.set(norm(info.className),{info,path:entry&&typeof entry.path==="string"?entry.path:null});
  }
- const getterAnalyses=[];const summary={};let candidatesSeen=0,bytecodeMethodsSeen=0,decodedMethods=0,verifiedMethods=0,instructionCount=0,methodsOmitted=0;
+ const getterAnalyses=[];const summary={};let candidatesSeen=0,decodedMethods=0,verifiedMethods=0,instructionCount=0,methodsOmitted=0;
  const maxTotal=MAX_TOTAL_INSTRUCTIONS;
  for(const candidate of candidates.slice(0,MAX_CANDIDATES)){
   if(!candidate||!safe(candidate.sourceClass)||!safe(candidate.methodName)||!safe(candidate.methodDescriptor||""))continue;
   candidatesSeen++;
   const holder=classMap.get(norm(candidate.sourceClass));
   const method=holder&&arr(holder.info.methods).find(m=>m&&m.name===candidate.methodName&&m.descriptor===candidate.methodDescriptor);
+  const methodInstructionCost=Math.min(arr(method&&method.code&&method.code.instructions).length,MAX_INSTRUCTIONS_PER_METHOD);
+  if(instructionCount+methodInstructionCost>maxTotal){methodsOmitted++;continue;}
   const row=summarizeMethod(Object.assign({},candidate,{method,instanceMethod:candidate.instanceMethod===true}),holder);
-  bytecodeMethodsSeen+=row.bytecodeDecoded?1:0;
   if(row.bytecodeDecoded)decodedMethods++;
   if(row.structuralVerificationValid)verifiedMethods++;
-  instructionCount+=row.instructionCount||0;
-  if(instructionCount>maxTotal){
-   methodsOmitted++;
-   instructionCount-=row.instructionCount||0;
-   continue;
-  }
+  instructionCount+=methodInstructionCost;
   summary[row.classification]=(summary[row.classification]||0)+1;
   if(getterAnalyses.length<detailLimit)getterAnalyses.push(row);else methodsOmitted++;
  }
@@ -244,9 +243,9 @@ function analyze(input,options){
   ],
   totals:{
    getterCandidatesSeen:candidatesSeen,getterAnalysesReported:getterAnalyses.length,
-   bytecodeMethodsSeen:bytecodeMethodsSeen,decodedMethods:decodedMethods,
+   decodedMethods:decodedMethods,
    structurallyVerifiedMethods:verifiedMethods,totalInstructionsAnalyzed:instructionCount,
-   methodsOmitted:methodsOmitted,detailsTruncated:methodsOmitted>0||candidates.length>MAX_CANDIDATES
+   methodsOmitted:methodsOmitted,classesOmitted:classesOmitted,detailsTruncated:methodsOmitted>0||candidates.length>MAX_CANDIDATES||classesOmitted>0
   },
   javaMethodsExecuted:false,sourceRuntimeValuesRecovered:false,
   sourceReaderCallbacksGenerated:0,eventPublicationsWired:0,
