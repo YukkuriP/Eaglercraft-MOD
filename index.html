@@ -208,6 +208,7 @@ $("analyze").onclick=async function(){
   $("out").textContent=JSON.stringify(jarReport,null,2);
   $("warning").textContent="JAR解析完了。Javaクラス "+javaClassRecords.length+" 件を解析。Forge API呼び出し "+forgeApiCompatibility.totals.invocationSites+" 件、Fabric API呼び出し "+fabricApiCompatibility.totals.invocationSites+" 件、Minecraft本体API呼び出し "+minecraftInternalApiCompatibility.totals.invocationSites+" 件（いずれも未変換）。Block/BlockState候補 "+blockStateConversion.totals.detailsObserved+" 件、BlockEntity候補 "+blockEntityMachineState.totals.blockEntityClasses+" 件、動力系候補 "+machinePowerSystems.totals.powerRelatedClasses+" クラス、輸送系候補 "+transportNetworks.totals.transportClasses+" クラス／"+transportNetworks.totals.operationsReported+" 操作、加工工程候補 "+machineProcessAnalysis.totals.machineRecipeCandidates+" レシピ／機械クラス "+machineProcessAnalysis.totals.machineProcessorClasses+" 件、レシピJSON異常 "+(machineProcessAnalysis.totals.recipeJsonInvalid+machineProcessAnalysis.totals.recipeJsonReadErrors)+" 件、GUI候補 "+machineGuiInteraction.totals.guiClasses+" クラス／同期候補 "+machineGuiInteraction.totals.guiSyncOperationsObserved+" 件、GUI JSON異常 "+(machineGuiInteraction.totals.guiJsonInvalid+machineGuiInteraction.totals.guiJsonReadErrors)+" 件（いずれも未変換）。Zeus "+targetGameVersion+" 向けの部分移植診断を作成しました。";
   $("warning").textContent+=" GUIプレビュー部品 "+machineGuiConversion.report.totals.controlsPlanned+" 件（スキャフォールドのみ）。";
+   $("warning").textContent+=" 機械状態フィールド候補 "+machineGuiStateBridge.report.totals.fieldCandidatesReported+" 件（実測値未接続）。";
   $("build").disabled=false;
  }catch(e){alert("解析失敗: "+e.message)}
 };
