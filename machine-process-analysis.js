@@ -98,7 +98,7 @@ function analyze(input,options){
  options=options&&typeof options==="object"?options:{};
  const limit=limitOf(options.detailLimit),classes=Array.isArray(input.classes)?input.classes:[],recipes=Array.isArray(input.recipes)?input.recipes:[];
  const report={schema:"jar2zeus.machine-process-analysis.v1",status:"no-machine-process-evidence",supportStatus:"static-analysis-and-migration-plan-only",detailLimit:limit,
- totals:{classesSeen:classes.length,classesAnalyzed:0,restrictedClassesSkipped:0,recipeRelatedClasses:0,machineProcessorClasses:0,recipeImplementationClasses:0,recipeSerializerClasses:0,recipeTypeClasses:0,recipeLookupClasses:0,recipeJsonFilesSeen:recipes.length,recipeJsonParsed:0,recipeJsonInvalid:0,recipeDefinitionsObserved:0,machineRecipeCandidates:0,vanillaRecipeDefinitions:0,customRecipeDefinitions:0,recipeInputsObserved:0,itemInputCandidates:0,fluidInputCandidates:0,chemicalOrGasInputCandidates:0,recipeOutputsObserved:0,itemOutputCandidates:0,fluidOutputCandidates:0,byproductCandidates:0,processingDurationCandidates:0,energyRequirementCandidates:0,fuelRequirementCandidates:0,conditionCandidates:0,operationsObserved:0,operationsReported:0,fieldsObserved:0,fieldsReported:0,classesReported:0,recipesReported:0,detailsTruncated:false},
+ totals:{classesSeen:classes.length,classesAnalyzed:0,restrictedClassesSkipped:0,recipeRelatedClasses:0,machineProcessorClasses:0,recipeImplementationClasses:0,recipeSerializerClasses:0,recipeTypeClasses:0,recipeLookupClasses:0,recipeJsonFilesSeen:recipes.length,recipeJsonParsed:0,recipeJsonInvalid:0,recipeJsonReadErrors:0,recipeDefinitionsObserved:0,machineRecipeCandidates:0,vanillaRecipeDefinitions:0,customRecipeDefinitions:0,recipeInputsObserved:0,itemInputCandidates:0,fluidInputCandidates:0,chemicalOrGasInputCandidates:0,recipeOutputsObserved:0,itemOutputCandidates:0,fluidOutputCandidates:0,byproductCandidates:0,processingDurationCandidates:0,energyRequirementCandidates:0,fuelRequirementCandidates:0,conditionCandidates:0,operationsObserved:0,operationsReported:0,fieldsObserved:0,fieldsReported:0,classesReported:0,recipesReported:0,detailsTruncated:false},
  recipeClasses:[],machineClasses:[],serializerClasses:[],recipeTypes:[],recipes:[],operations:[],fields:[],migrationTasks:[],limitations:[
  "Recipe files are parsed as data, but their custom serializer schemas and code-defined matching rules are not executed.",
  "RecipeType, RecipeSerializer, RecipeInput, matches, assemble and RecipeManager calls are recorded as static candidates; names do not prove their runtime behavior.",
@@ -205,6 +205,7 @@ function analyze(input,options){
   if(blocked(path))return;
   const match=path.match(RECIPE_PATH);
   if(!match)return;
+  if(entry&&entry.readError){report.totals.recipeJsonReadErrors++;return;}
   const id=match[1]+":"+match[2];
   let data;
   try{data=typeof entry.content==="string"?JSON.parse(entry.content):entry.json&&typeof entry.json==="object"?entry.json:null;}
