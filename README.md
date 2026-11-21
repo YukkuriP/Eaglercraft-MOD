@@ -21,6 +21,7 @@
    - `fabric-api-compat.js`
    - `minecraft-internal-api-compat.js`
    - `block-state-conversion.js`
+   - `item-inventory-conversion.js`
    - `java-event-lifecycle.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
@@ -185,3 +186,11 @@ Zeus側は `main.lua` をMOD読み込み時に一度だけ先頭から実行し�
 現段階は**解析と移植タスクの生成まで**です。BlockStateの値、プロパティ定義、コンストラクタ引数、形状、光量、音、loot、redstone、fluid、tick、設置・破壊コールバックをJava bytecodeから完全復元したり、Zeus APIへ自動置換したりはしません。API名が一致しただけで移植成功とは判定しません。ブロック関連の未解決候補・クラスが残るパッケージは `conversionComplete=false` となります。
 
 出力は `block-state-conversion.json` と `diagnostics/block-state-conversion.json` です。静的テストは解析結果の分類を確認するもので、Zeus 26.2 / 26.3上のブロック登録・表示・設置・保存を証明しません。実ゲームでの確認は別途必要です。
+
+## アイテム・インベントリ移植インベントリ
+
+`item-inventory-conversion.js` は、Javaクラスの継承・descriptor・バイトコード呼び出しからアイテムクラス、ItemStack、Container／Inventory／Slot参照、アイテム登録候補、アイテム使用・数量・耐久値・NBT・スロット操作を抽出します。各候補に元クラス・メソッド・descriptor・バイトコード位置・根拠・未変換状態を記録し、最大5,000件まで詳細を保持します。建築・装飾・収納・農業・一般ユーティリティ・機械系MODの通常アイテムとインベントリを対象とし、制限対象の機能は除外します。
+
+現段階は**解析と移植タスクの生成まで**です。ItemStackの実行時数量・NBT値、コンストラクタ引数、アイテム使用時のコールバック、登録順序、クリエイティブタブ、装備属性、コンテナ同期を完全復元したり、Zeus APIへ自動置換したりはしません。API名が一致しただけで移植成功とは判定しません。アイテム・インベントリ関連の未解決候補・クラスが残るパッケージは `conversionComplete=false` となります。
+
+出力は `item-inventory-conversion.json` と `diagnostics/item-inventory-conversion.json` です。静的テストは解析結果の分類を確認するもので、Zeus 26.2 / 26.3上でのアイテム登録・使用・耐久値・インベントリ保存を証明しません。実ゲームでの確認は別途必要です。
