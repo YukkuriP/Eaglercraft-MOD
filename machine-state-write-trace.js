@@ -49,7 +49,7 @@ function evidenceRole(methodName,calls,accessFlags){
  return {role:"other-writer",basis:"field-write-opcode",confidence:"structural-bytecode-evidence"};
 }
 function writeEvidence(method,fieldMap,className,path){
- const code=method&&method.code,ins=arr(code&&code.instructions);
+ const code=method&&method.code,allInstructions=arr(code&&code.instructions),ins=allInstructions.slice(0,MAX_METHOD_INSTRUCTIONS);
  const decodeError=!!(code&&code.decodeError);
  const verified=!!(code&&code.verification&&code.verification.valid===true);
  const writes=[],reads=[],branchSites=[],calls=invocationEvidence(ins);
@@ -80,7 +80,7 @@ function writeEvidence(method,fieldMap,className,path){
   sourceClass:className,sourcePath:path,methodName:method.name,methodDescriptor:method.descriptor||null,
   accessFlags:flags(method),staticMethod:!!(flags(method)&0x0008),visibility:(flags(method)&1)?"public":(flags(method)&4)?"protected":(flags(method)&2)?"private":"package",
   bytecodeDecoded:!!code&&!decodeError,decodeError:decodeError,
-  structuralVerificationValid:verified,codeInstructionCount:ins.length,
+  structuralVerificationValid:verified,codeInstructionCount:allInstructions.length,instructionsTruncated:allInstructions.length>ins.length,
   fieldWrites:writes,matchedFieldKeys:fieldIds,fieldReads:reads,methodCalls:calls,
   branchSites:branchSites,opcodeCounts:opcodeCounts,role:role,
   writeInstructionCount:writeSeen,hasMultipleWriteSites:writeSeen>1,
@@ -112,19 +112,21 @@ function analyze(input,options){
  }
  const limitedNames=Array.from(classNames).slice(0,MAX_CLASSES);
  const classMap=new Map();
- for(const entry of classes.slice(0,MAX_CLASSES)){
+ const selectedClasses=new Set(limitedNames);
+ for(const entry of classes){
   const info=entry&&entry.classInfo?entry.classInfo:entry;
   if(!info||info.valid!==true||!safe(info.className))continue;
   const name=norm(info.className);
-  if(!classNames.has(name))continue;
+  if(!selectedClasses.has(name)||classMap.has(name))continue;
   classMap.set(name,{info,path:entry&&typeof entry.path==="string"&&safe(entry.path)?entry.path:null});
  }
  const methodMap=new Map(),methodsSeen=[];
  let methodCandidatesSeen=0,methodsWithoutCode=0,methodsDecodeErrors=0,methodsTruncated=0,totalCost=0;
- for(const className of limitedNames){
+ scanMethods: for(const className of limitedNames){
   const holder=classMap.get(className);if(!holder)continue;
   for(const method of arr(holder.info.methods)){
    if(!method||!safe(method.name)||!safe(method.descriptor||""))continue;
+   if(methodsSeen.length>=MAX_METHODS){methodsTruncated++;break scanMethods;}
    methodCandidatesSeen++;
    const record={method,className,path:holder.path};
    methodsSeen.push(record);
