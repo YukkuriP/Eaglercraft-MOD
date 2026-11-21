@@ -90,7 +90,7 @@ function analyze(input,options){
  const classes=arr(input.classes);
  const state=input.stateBridge||{};
  const rawFields=arr(state.fieldCandidates);
- const fieldMap=new Map(),metricSet=new Set(),machineClassSet=new Set();
+ const fieldMap=new Map(),metricSet=new Set(),machineClassSet=new Set(),allFieldCandidates=[];
  let eligibleFieldsSeen=0;
  for(const row of rawFields){
   if(!row||!safe(row.sourceClass)||!safe(row.fieldName)||!safe(row.descriptor||""))continue;
@@ -109,6 +109,7 @@ function analyze(input,options){
    fieldKind:fieldKind,fieldTypeCompatible:fieldKind===null||fieldKind===kind,
    evidenceSource:row.source||"state-bridge-field-hint"
   });
+  allFieldCandidates.push({sourceClass:key,sourcePath:safe(row.sourcePath||"")?row.sourcePath:null,fieldName:row.fieldName,fieldDescriptor:row.descriptor||null,metric:metric,providerKey:METRIC_KEYS[metric],expectedKind:kind,fieldKind:fieldKind,fieldTypeCompatible:fieldKind===null||fieldKind===kind,evidenceSource:row.source||"state-bridge-field-hint"});
   metricSet.add(metric);machineClassSet.add(key);eligibleFieldsSeen++;
  }
  for(const row of arr(state.machineClasses))if(row&&safe(row.className))machineClassSet.add(norm(row.className));
@@ -116,6 +117,7 @@ function analyze(input,options){
  for(const row of arr(input.machinePowerSystems&&input.machinePowerSystems.systems))if(row&&safe(row.className))machineClassSet.add(norm(row.className));
  for(const row of arr(input.machineProcessAnalysis&&input.machineProcessAnalysis.machineClasses))if(row&&safe(row.className))machineClassSet.add(norm(row.className));
  const limitedClasses=Array.from(machineClassSet).slice(0,MAX_CLASSES);
+ const fieldLimit=Math.min(MAX_FIELDS,limit);
  const classInfoMap=new Map();
  for(const entry of classes){
   const info=entry&&entry.classInfo?entry.classInfo:entry;
@@ -213,11 +215,7 @@ function analyze(input,options){
   supportStatus:"static-source-method-worklist-only",
   target:{runtime:"JVM bytecode inspection",output:"manual Zeus source adapter plan"},
   machineClasses:limitedClasses,
-  fieldCandidates:rawFields.filter(row=>row&&row.source!=="gui-control"&&METRIC_KEYS[row.metric]).slice(0,MAX_FIELDS).map(row=>({
-   sourceClass:row.sourceClass,sourcePath:safe(row.sourcePath||"")?row.sourcePath:null,
-   fieldName:row.fieldName,fieldDescriptor:row.descriptor||null,metric:row.metric,
-   providerKey:METRIC_KEYS[row.metric],evidenceSource:row.source||null
-  })),
+  fieldCandidates:allFieldCandidates.slice(0,fieldLimit),
   getterCandidates:getters,
   metricSummary:metricSummary,
   metricsWithoutGetterEvidence:unmapped,
@@ -238,7 +236,8 @@ function analyze(input,options){
    machineClasses:limitedClasses.length,
    classesWithParsedBytecode:classInfoMap.size,
    fieldCandidatesSeen:eligibleFieldsSeen,
-   fieldCandidatesReported:Math.min(eligibleFieldsSeen,MAX_FIELDS),
+   fieldCandidatesReported:Math.min(eligibleFieldsSeen,fieldLimit),
+   fieldCandidatesOmitted:Math.max(0,eligibleFieldsSeen-fieldLimit),
    getterSignaturesObserved:signatureCandidates,
    getterCandidatesObserved:gettersSeen,
    getterCandidatesReported:getters.length,
@@ -249,7 +248,7 @@ function analyze(input,options){
    methodsWithDecodeErrors:methodsWithDecodeErrors,
    methodsOmitted:Math.max(0,gettersSeen-getters.length),
    machineClassesOmitted:Math.max(0,machineClassSet.size-limitedClasses.length),
-   detailsTruncated:machineClassSet.size>limitedClasses.length||eligibleFieldsSeen>MAX_FIELDS||gettersSeen>getters.length
+   detailsTruncated:machineClassSet.size>limitedClasses.length||eligibleFieldsSeen>fieldLimit||gettersSeen>getters.length
   },
   sourceReaderCallbacksGenerated:0,
   eventPublicationsWired:0,
