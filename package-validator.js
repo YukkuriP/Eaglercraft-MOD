@@ -125,7 +125,15 @@
    (Number(minecraftInternalApiCompatibility.totals&&minecraftInternalApiCompatibility.totals.classReferenceSites)||0):0;
   if(minecraftInternalApiPending>0)warnings.push(minecraftInternalApiPending+" Minecraft internal API call, field or class-reference candidates remain unmapped; version-specific manual porting is required.");
   if(minecraftInternalApiReportMissing)warnings.push("Minecraft internal API compatibility analysis is missing; vanilla game API references have not been reviewed.");
-  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing||minecraftInternalApiPending>0||minecraftInternalApiReportMissing;
+  const blockStateConversion=input.blockStateConversion||{};
+  const blockStateReportMissing=hasJavaClasses&&blockStateConversion.schema!=="jar2zeus.block-state-conversion.v1";
+  const blockStatePending=blockStateConversion.schema==="jar2zeus.block-state-conversion.v1"?
+   (Number(blockStateConversion.totals&&blockStateConversion.totals.unmappedOperations)||0)+
+   (Number(blockStateConversion.totals&&blockStateConversion.totals.blockClasses)||0)+
+   (Number(blockStateConversion.totals&&blockStateConversion.totals.blockStateClasses)||0):0;
+  if(blockStatePending>0)warnings.push(blockStatePending+" block/BlockState classes or operations remain unmapped; a version-specific Zeus block adapter and in-game checks are still required.");
+  if(blockStateReportMissing)warnings.push("Block/BlockState conversion analysis is missing; Java block behavior has not been reviewed.");
+  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing||minecraftInternalApiPending>0||minecraftInternalApiReportMissing||blockStatePending>0||blockStateReportMissing;
   const skippedResources=(Array.isArray(recipeReport.skipped)?recipeReport.skipped.length:0)+
    (Array.isArray(recipeReport.excluded)?recipeReport.excluded.length:0)+
    (Array.isArray(definitionReport.skipped)?definitionReport.skipped.length:0)+

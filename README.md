@@ -20,6 +20,7 @@
    - `generic-mod-analyzer.js`
    - `fabric-api-compat.js`
    - `minecraft-internal-api-compat.js`
+   - `block-state-conversion.js`
    - `java-event-lifecycle.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
@@ -175,3 +176,12 @@ Zeus側は `main.lua` をMOD読み込み時に一度だけ先頭から実行し�
 **自動接続はしません。** Javaコールバックの実体、ラムダのBootstrapMethods / MethodHandle、イベント引数オブジェクト、Forgeのアノテーション値、スレッド・キャンセルの意味を現行パーサーでは再構築できません。アノテーション属性を持つメソッドは `annotationCandidates` に個別記録しますが、属性名の存在だけではイベント購読を確認できず、注釈型・値・イベント型は未解決です。Zeus側は `on(name, fn, priority)` / `events.on` と `timer.after` / `timer.every` を提供しますが、Javaイベントの引数・実行タイミング・処理内容とは別物です。登録先Luaを自動生成せず、候補・根拠・手作業が必要な理由を `java-event-lifecycle.json` に記録します。パッケージ検証でも未解決候補が残る出力を完全移植扱いにしません。
 
 公式資料: [Events and timers](https://dev.eaglercraft.com/docs/modding/events-and-timers) / [How mods run](https://dev.eaglercraft.com/docs/modding/how-mods-run) / [API reference](https://dev.eaglercraft.com/docs/modding/api)
+
+
+## ブロック・BlockState移植インベントリ
+
+`block-state-conversion.js` は、Javaクラスの継承・descriptor・バイトコード呼び出しからブロッククラス、BlockState／StateDefinition／Property参照、状態プロパティ操作、BlockBehaviour.Properties設定、設置・破壊関連の呼び出し候補を抽出します。各候補に元クラス・メソッド・descriptor・バイトコード位置・根拠・未変換状態を記録し、最大5,000件まで詳細を保持します。建築・装飾・農業・収納・一般ユーティリティ・機械系のブロック解析を対象とし、制限対象の機能は除外します。
+
+現段階は**解析と移植タスクの生成まで**です。BlockStateの値、プロパティ定義、コンストラクタ引数、形状、光量、音、loot、redstone、fluid、tick、設置・破壊コールバックをJava bytecodeから完全復元したり、Zeus APIへ自動置換したりはしません。API名が一致しただけで移植成功とは判定しません。ブロック関連の未解決候補・クラスが残るパッケージは `conversionComplete=false` となります。
+
+出力は `block-state-conversion.json` と `diagnostics/block-state-conversion.json` です。静的テストは解析結果の分類を確認するもので、Zeus 26.2 / 26.3上のブロック登録・表示・設置・保存を証明しません。実ゲームでの確認は別途必要です。

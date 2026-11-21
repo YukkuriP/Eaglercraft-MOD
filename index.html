@@ -23,6 +23,7 @@
 <script src="forge-api-compat.js"></script>
 <script src="fabric-api-compat.js"></script>
 <script src="minecraft-internal-api-compat.js"></script>
+<script src="block-state-conversion.js"></script>
 <script src="java-reimplementation-engine.js"></script>
 <script src="migration-pipeline.js"></script>
 <script src="zeus-api-contract.js"></script>
@@ -134,6 +135,8 @@ $("analyze").onclick=async function(){
   var fabricApiCompatibility=window.Jar2ZeusFabricApiCompatibility.analyze({classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};}),loaderAnalysis:genericAnalysis});
   genericAnalysis.migrationAssessment.fabricApiCompatibility={status:fabricApiCompatibility.status,loaderDetected:fabricApiCompatibility.loaderDetected,classesWithFabricReferences:fabricApiCompatibility.totals.classesWithFabricReferences,fabricApiClassReferenceSites:fabricApiCompatibility.totals.fabricApiClassReferenceSites,loaderApiClassReferenceSites:fabricApiCompatibility.totals.loaderApiClassReferenceSites,commonApiClassReferenceSites:fabricApiCompatibility.totals.commonApiClassReferenceSites,invocationSites:fabricApiCompatibility.totals.invocationSites,fieldAccessSites:fabricApiCompatibility.totals.fieldAccessSites,knownCategorySites:fabricApiCompatibility.totals.knownCategorySites,unknownCategorySites:fabricApiCompatibility.totals.unknownCategorySites,candidateOperationSites:fabricApiCompatibility.totals.candidateOperationSites,unmappedSites:fabricApiCompatibility.totals.unmappedSites,uniqueApiClasses:fabricApiCompatibility.totals.uniqueApiClasses,entrypointsDeclared:fabricApiCompatibility.totals.entrypointsDeclared,entrypointsResolved:fabricApiCompatibility.totals.entrypointsResolved,entrypointsUnresolved:fabricApiCompatibility.totals.entrypointsUnresolved,detailsTruncated:fabricApiCompatibility.totals.detailsTruncated,entrypointDetailsTruncated:fabricApiCompatibility.totals.entrypointDetailsTruncated};
   var minecraftInternalApiCompatibility=window.Jar2ZeusMinecraftInternalApiCompatibility.analyze({classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};})});
+  var blockStateConversion=window.Jar2ZeusBlockStateConversion.analyze({classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};})});
+  genericAnalysis.migrationAssessment.blockStateConversion={status:blockStateConversion.status,blockClasses:blockStateConversion.totals.blockClasses,blockStateClasses:blockStateConversion.totals.blockStateClasses,statePropertyOperations:blockStateConversion.totals.statePropertyOperations,blockPropertyOperations:blockStateConversion.totals.blockPropertyOperations,placementBreakOperations:blockStateConversion.totals.placementBreakOperations,unmappedOperations:blockStateConversion.totals.unmappedOperations,detailsTruncated:blockStateConversion.totals.detailsTruncated};
   genericAnalysis.migrationAssessment.minecraftInternalApiCompatibility={status:minecraftInternalApiCompatibility.status,classesWithMinecraftApi:minecraftInternalApiCompatibility.totals.classesWithMinecraftApi,classReferenceSites:minecraftInternalApiCompatibility.totals.classReferenceSites,invocationSites:minecraftInternalApiCompatibility.totals.invocationSites,fieldAccessSites:minecraftInternalApiCompatibility.totals.fieldAccessSites,knownCategorySites:minecraftInternalApiCompatibility.totals.knownCategorySites,unknownCategorySites:minecraftInternalApiCompatibility.totals.unknownCategorySites,candidateOperationSites:minecraftInternalApiCompatibility.totals.candidateOperationSites,unmappedSites:minecraftInternalApiCompatibility.totals.unmappedSites,uniqueApiClasses:minecraftInternalApiCompatibility.totals.uniqueApiClasses,restrictedClassesSkipped:minecraftInternalApiCompatibility.totals.restrictedClassesSkipped,detailsTruncated:minecraftInternalApiCompatibility.totals.detailsTruncated};
   genericAnalysis.migrationAssessment.javaEventLifecycle={status:javaEventLifecycle.status,classesAnalyzed:javaEventLifecycle.totals.classesAnalyzed,restrictedClassesSkipped:javaEventLifecycle.totals.restrictedClassesSkipped,loaderEntrypoints:javaEventLifecycle.totals.loaderEntrypoints,entrypointsResolved:javaEventLifecycle.totals.entrypointsResolved,entrypointsUnresolved:javaEventLifecycle.totals.entrypointsUnresolved,lifecycleCandidates:javaEventLifecycle.totals.lifecycleCandidates,eventRegistrationSites:javaEventLifecycle.totals.eventRegistrationSites,ambiguousEventRegistrationSites:javaEventLifecycle.totals.ambiguousEventRegistrationSites,unclassifiedEventRegistrationSites:javaEventLifecycle.totals.unclassifiedEventRegistrationSites,eventReferenceCandidates:javaEventLifecycle.totals.eventReferenceCandidates,timerSites:javaEventLifecycle.totals.timerSites,oneShotTimerSites:javaEventLifecycle.totals.oneShotTimerSites,fixedRateTimerSites:javaEventLifecycle.totals.fixedRateTimerSites,fixedDelayTimerSites:javaEventLifecycle.totals.fixedDelayTimerSites,futureTimeoutSites:javaEventLifecycle.totals.futureTimeoutSites,delayedExecutorSites:javaEventLifecycle.totals.delayedExecutorSites,unresolvedTimerSignatures:javaEventLifecycle.totals.unresolvedTimerSignatures,blockingWaitSites:javaEventLifecycle.totals.blockingWaitSites,cancellationSites:javaEventLifecycle.totals.cancellationSites,autoWiredHandlers:javaEventLifecycle.totals.autoWiredHandlers,reportedCounts:javaEventLifecycle.reportedCounts,detailLimit:javaEventLifecycle.detailLimit,detailsTruncated:Object.values(javaEventLifecycle.truncation||{}).some(Boolean)};
   genericAnalysis.migrationAssessment.classObjectModel={classesModeled:classStructureAnalysis.totals.classesModeled,fields:classStructureAnalysis.totals.fields,instanceFields:classStructureAnalysis.totals.instanceFields,staticFields:classStructureAnalysis.totals.staticFields,constructors:classStructureAnalysis.totals.constructors,methods:classStructureAnalysis.totals.methods,constantFields:classStructureAnalysis.totals.constantFields,objectAllocations:classStructureAnalysis.totals.objectAllocations,arrayAllocations:classStructureAnalysis.totals.arrayAllocations,constructorCalls:classStructureAnalysis.totals.constructorCalls,constructorFieldWrites:classStructureAnalysis.totals.constructorFieldWrites,staticInitializerFieldWrites:classStructureAnalysis.totals.staticInitializerFieldWrites,internalCalls:classStructureAnalysis.totals.internalCalls,externalCalls:classStructureAnalysis.totals.externalCalls};
@@ -150,12 +153,13 @@ $("analyze").onclick=async function(){
    forge_api_compatibility:forgeApiCompatibility,
    fabric_api_compatibility:fabricApiCompatibility,
    minecraft_internal_api_compatibility:minecraftInternalApiCompatibility,
+   block_state_conversion:blockStateConversion,
    generic_analysis:genericAnalysis,
    target_zeus:{game_version:targetGameVersion,api_version:1,documentation:"https://dev.eaglercraft.com/docs/modding/api",target_html_required:false},
    conversion:{metadata:"解析済み",resources:"変換候補を抽出",java_logic:"Java bytecodeからZeus向けの限定的な再実装を試行",html_integration:"不要（Zeus専用出力）"}
   };
   $("out").textContent=JSON.stringify(jarReport,null,2);
-  $("warning").textContent="JAR解析完了。Javaクラス "+javaClassRecords.length+" 件を解析。Forge API呼び出し "+forgeApiCompatibility.totals.invocationSites+" 件、Fabric API呼び出し "+fabricApiCompatibility.totals.invocationSites+" 件、Minecraft本体API呼び出し "+minecraftInternalApiCompatibility.totals.invocationSites+" 件（いずれも未変換）。Minecraft APIカテゴリ "+Object.keys(minecraftInternalApiCompatibility.categories).length+" 種。イベント登録候補 "+javaEventLifecycle.totals.eventRegistrationSites+" 件、タイマー候補 "+javaEventLifecycle.totals.timerSites+" 件（自動接続なし）。Zeus "+targetGameVersion+" 向けの部分移植診断を作成しました。";
+  $("warning").textContent="JAR解析完了。Javaクラス "+javaClassRecords.length+" 件を解析。Forge API呼び出し "+forgeApiCompatibility.totals.invocationSites+" 件、Fabric API呼び出し "+fabricApiCompatibility.totals.invocationSites+" 件、Minecraft本体API呼び出し "+minecraftInternalApiCompatibility.totals.invocationSites+" 件（いずれも未変換）。Block/BlockState候補 "+blockStateConversion.totals.detailsObserved+" 件（未変換）。Minecraft APIカテゴリ "+Object.keys(minecraftInternalApiCompatibility.categories).length+" 種。イベント登録候補 "+javaEventLifecycle.totals.eventRegistrationSites+" 件、タイマー候補 "+javaEventLifecycle.totals.timerSites+" 件（自動接続なし）。Zeus "+targetGameVersion+" 向けの部分移植診断を作成しました。";
   $("build").disabled=false;
  }catch(e){alert("解析失敗: "+e.message)}
 };
@@ -258,6 +262,7 @@ $("build").onclick=async function(){
  addPackageFile("forge-api-compatibility.json",JSON.stringify(jarReport.forge_api_compatibility,null,2),true);
  addPackageFile("fabric-api-compatibility.json",JSON.stringify(jarReport.fabric_api_compatibility,null,2),true);
  addPackageFile("minecraft-internal-api-compatibility.json",JSON.stringify(jarReport.minecraft_internal_api_compatibility,null,2),true);
+ addPackageFile("block-state-conversion.json",JSON.stringify(jarReport.block_state_conversion,null,2),true);
  addPackageFile("reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2),true);
  addPackageFile("generic-analysis.json",JSON.stringify(jarReport.generic_analysis,null,2),true);
  addPackageFile("conversion-assessment.json",JSON.stringify(jarReport.generic_analysis.migrationAssessment,null,2),true);
@@ -282,7 +287,7 @@ $("build").onclick=async function(){
    metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,
    textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,
    packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},
-   packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,eventLifecycle:jarReport.java_event_lifecycle,forgeApiCompatibility:jarReport.forge_api_compatibility,fabricApiCompatibility:jarReport.fabric_api_compatibility,minecraftInternalApiCompatibility:jarReport.minecraft_internal_api_compatibility,
+   packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,eventLifecycle:jarReport.java_event_lifecycle,forgeApiCompatibility:jarReport.forge_api_compatibility,fabricApiCompatibility:jarReport.fabric_api_compatibility,minecraftInternalApiCompatibility:jarReport.minecraft_internal_api_compatibility,blockStateConversion:jarReport.block_state_conversion,
    reimplementation:javaReimplementation.report,javaTypeCompatibility:javaTypeCompatibility.report,recipeReport:converted.report,definitionReport:definitions.report,entityReport:entityModels.report,configReport:configSettings.report,
    apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}
   });
@@ -301,7 +306,7 @@ $("build").onclick=async function(){
   metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,
   textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,
   packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},
-  packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,eventLifecycle:jarReport.java_event_lifecycle,
+  packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,eventLifecycle:jarReport.java_event_lifecycle,forgeApiCompatibility:jarReport.forge_api_compatibility,fabricApiCompatibility:jarReport.fabric_api_compatibility,minecraftInternalApiCompatibility:jarReport.minecraft_internal_api_compatibility,blockStateConversion:jarReport.block_state_conversion,
   reimplementation:javaReimplementation.report,javaTypeCompatibility:javaTypeCompatibility.report,recipeReport:converted.report,definitionReport:definitions.report,entityReport:entityModels.report,configReport:configSettings.report,
   apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}
  });
@@ -328,6 +333,7 @@ $("build").onclick=async function(){
  out.file("diagnostics/forge-api-compatibility.json",JSON.stringify(jarReport.forge_api_compatibility,null,2));
  out.file("diagnostics/fabric-api-compatibility.json",JSON.stringify(jarReport.fabric_api_compatibility,null,2));
  out.file("diagnostics/minecraft-internal-api-compatibility.json",JSON.stringify(jarReport.minecraft_internal_api_compatibility,null,2));
+ out.file("diagnostics/block-state-conversion.json",JSON.stringify(jarReport.block_state_conversion,null,2));
  out.file("diagnostics/reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2));
  out.file("diagnostics/entity-model-report.json",JSON.stringify(entityModels.report,null,2));
  out.file("diagnostics/machine-animation-report.json",JSON.stringify(jarReport.machine_animation_report,null,2));
