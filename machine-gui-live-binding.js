@@ -64,7 +64,7 @@ function buildLua(providerModId){
   "local PROVIDER_API_VERSION = 1",
   "local POLL_SECONDS = 0.5",
   "local VALUE_SPECS = { "+specs+" }",
-  "local selected = { x = nil, y = nil, z = nil, provider_id = "+luaString(providerModId)+" },
+  "local selected = { x = nil, y = nil, z = nil, provider_id = "+luaString(providerModId)+" }",
   "local pollTimer = nil",
   "local activeScreen = nil",
   "local statusLabel = nil",
