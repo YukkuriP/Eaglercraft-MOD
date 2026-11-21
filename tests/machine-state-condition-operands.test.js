@@ -81,3 +81,10 @@ test("labels numeric conversion result types in nested comparison origins",()=>{
  assert.equal(operand.operator,"i2l");
  assert.equal(operand.descriptor,"J");
 });
+
+test("treats ldc2_w dynamic constants as category-2 stack values",()=>{
+ const input=fixture({instructions:[ins("ldc2_w",0,{constantTag:17}),ins("pop2",3),ins("iconst_0",4),ins("ifeq",5,{target:10})],branchPc:5,branchOpcode:"ifeq",blockEnd:8,descriptor:"()V"});
+ const report=analyzer.analyze(input);
+ assert.equal(report.methods[0].branches[0].status,"resolved");
+ assert.equal(report.methods[0].branches[0].branch.operandOrigins[0].constantKind,"integer");
+});
