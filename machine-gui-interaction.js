@@ -238,7 +238,7 @@ function analyze(input,options){
  for(const row of input.machineClassNames||[])if(typeof row==="string")machineClassNames.add(norm(row));
  for(const [name,ev] of evidence){
   if(!ev.guiLike)continue;
-  const isMachine=machineClassNames.has(name)||MACHINE_UI_RE.test(name+" "+ev.path)||ev.refs.some(r=>machineClassNames.has(r)||MACHINE_UI_RE.test(short(r))&&/(?:blockentity|machine|processor)/i.test(r));
+  const isMachine=machineClassNames.has(name)||MACHINE_UI_RE.test(name+" "+ev.path)||Array.from(ev.refs).some(r=>machineClassNames.has(r)||MACHINE_UI_RE.test(short(r))&&/(?:blockentity|machine|processor)/i.test(r));
   const chain=[];
   const seen=new Set(),queue=ev.parents.slice();
   while(queue.length){const p=queue.shift();if(seen.has(p))continue;seen.add(p);chain.push(p);const pe=evidence.get(p);if(pe)queue.push(...pe.parents);}
