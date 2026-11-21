@@ -93,9 +93,9 @@ function blocked(v){return BLOCKED.test(String(v||""));}
 function family(owner){
  if(ITEM_OWNERS.has(owner)||/(?:\/item\/(?:ItemStorage|InventoryStorage|ItemVariant)|\/items\/(?:IItemHandler|ItemStackHandler))$/.test(owner))return "item";
  if(FLUID_OWNERS.has(owner)||/(?:\/fluid\/(?:FluidStorage|FluidVariant)|\/fluids\/capability\/IFluidHandler|\/fluids\/FluidTank)$/.test(owner))return "fluid";
- if(NEO_RESOURCE_OWNERS.has(owner)||/\/transfer\/(?:ResourceHandler|ItemResource|FluidResource|EnergyHandler)$/.test(owner))return "resource";
- if(FABRIC_STORAGE_OWNERS.has(owner)||/\/transfer\/v1\/storage\/(?:Storage|StorageView)$/.test(owner))return "generic-storage";
  if(/(?:IEnergyStorage|EnergyStorage|EnergyHandler)$/.test(owner))return "energy";
+ if(NEO_RESOURCE_OWNERS.has(owner)||/\/transfer\/(?:ResourceHandler|ItemResource|FluidResource)$/.test(owner))return "resource";
+ if(FABRIC_STORAGE_OWNERS.has(owner)||/\/transfer\/v1\/storage\/(?:Storage|StorageView)$/.test(owner))return "generic-storage";
  return null;
 }
 function kindsFor(owner){
