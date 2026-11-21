@@ -147,3 +147,12 @@ test("never claims a Java bridge, callbacks, event wiring, or automatic telemetr
   assert.equal(report.liveValuesConnected, false);
   assert.equal(report.arbitraryJavaBlockEntityAccess, false);
 });
+
+test("reports exception-table control flow without symbolically executing the method", () => {
+  const body = method("getProgress", "()I", directInstructions());
+  body.code.exceptions = [{ startPc: 0, endPc: 2, handlerPc: 4, catchType: null }];
+  const row = analyzer.analyze(data([body])).getterAnalyses[0];
+  assert.equal(row.classification, "side-effect-or-exception-flow");
+  assert.equal(row.exceptionHandlerCount, 1);
+  assert.equal(row.expression, null);
+});
