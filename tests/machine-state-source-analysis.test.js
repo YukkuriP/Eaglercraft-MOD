@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 
 require(path.join(__dirname, "..", "machine-state-source-analysis.js"));
+require(path.join(__dirname, "..", "machine-state-getter-semantics.js"));
 require(path.join(__dirname, "..", "package-validator.js"));
 const analyzer = globalThis.Jar2ZeusMachineStateSourceAnalysis;
 const validator = globalThis.Jar2ZeusPackageValidator;
@@ -144,7 +145,7 @@ function packageInput() {
   const packageFiles = [
     "metadata.json", "main.lua", "machine-gui-state-bridge-plan.json",
     "machine-gui-live-binding-plan.json", "machine-state-provider-sdk-plan.json",
-    "machine-state-event-producer-plan.json", "machine-state-source-analysis-plan.json"
+    "machine-state-event-producer-plan.json", "machine-state-source-analysis-plan.json", "machine-state-getter-semantics-plan.json"
   ].map(path => ({ path, size: 0 }));
   return {
     metadata: { id: "sample_mod", name: "Sample Mod", version: "1.0.0", main: "main.lua", api: 1, minecraft: ["26.3"], permissions: [] },
@@ -221,6 +222,16 @@ function packageInput() {
       sourceRuntimeValuesRecovered: false, arbitraryJavaBlockEntityAccess: false
     },
     machineStateSourceAnalysisFileCount: 1,
+    machineStateGetterSemantics: {
+      schema: "jar2zeus.machine-state-getter-semantics.v1",
+      getterAnalyses: [{ classification: "direct-field-return", javaMethodExecuted: false }],
+      classificationSummary: [{ classification: "direct-field-return", count: 1 }],
+      totals: { getterCandidatesSeen: 1, getterAnalysesReported: 1 },
+      javaMethodsExecuted: false, sourceRuntimeValuesRecovered: false,
+      sourceReaderCallbacksGenerated: 0, eventPublicationsWired: 0,
+      liveValuesConnected: false, arbitraryJavaBlockEntityAccess: false
+    },
+    machineStateGetterSemanticsFileCount: 1,
     reimplementation: { schema: "jar2zeus.reimplementation.v1", methodsPending: 0, methodsSkipped: 0, utilityMethodsTranslated: 0 },
     recipeReport: {}, definitionReport: {}, configReport: {}
   };
@@ -265,4 +276,32 @@ test("validator reports a missing source-analysis plan instead of treating it as
   assert.equal(result.valid, true);
   assert.equal(result.conversionComplete, false);
   assert.ok(result.warnings.some(text => text.includes("Machine-state source-analysis plan is missing")));
+});
+
+test("validator accepts static getter-body evidence but keeps conversion incomplete", () => {
+  const input = packageInput();
+  const result = validator.validate(input);
+  assert.equal(result.valid, true);
+  assert.equal(result.conversionComplete, false);
+  assert.ok(result.warnings.some(text => text.includes("getter bodies remain static evidence only")));
+});
+
+test("validator rejects claims that getter semantics executed Java or recovered runtime values", () => {
+  const input = packageInput();
+  input.machineStateGetterSemantics.javaMethodsExecuted = true;
+  const result = validator.validate(input);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some(text => text.includes("getter-semantics report incorrectly claims")));
+});
+
+test("validator flags a missing getter-semantics plan when Phase 25 candidates exist", () => {
+  const input = packageInput();
+  input.machineStateGetterSemantics = {};
+  input.machineStateGetterSemanticsFileCount = 0;
+  input.packageFiles = input.packageFiles.filter(file => file.path !== "machine-state-getter-semantics-plan.json");
+  input.packageLimits.files = input.packageFiles.length;
+  const result = validator.validate(input);
+  assert.equal(result.valid, true);
+  assert.equal(result.conversionComplete, false);
+  assert.ok(result.warnings.some(text => text.includes("getter-semantics plan is missing")));
 });
