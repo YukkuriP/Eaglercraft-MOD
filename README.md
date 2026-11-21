@@ -69,17 +69,17 @@ The generated `diagnostics/machine-gui-scaffold.lua` is a separately reviewable 
 
 The scaffold uses the documented Zeus screen/widget API and drawing Canvas API. This is a conversion foundation only: the original machine GUI is not considered ported until its layout, data sources, permissions, callbacks, inventory behavior and synchronization are separately implemented and tested in the target game.
 
-## Machine GUI state bridge (Phase 20)
+## Machine GUI state bridge and provider contract (Phases 20–21)
 
 `machine-gui-state-bridge.js` combines the Phase 14 BlockEntity field inventory, Phase 15 power-field inventory, Phase 17 processing fields and Phase 19 GUI candidates into a semantic binding plan. It labels likely candidates such as progress, energy, temperature, fluid, fuel and operating state. These remain static name/category hints; it does not recover runtime values from Java bytecode.
 
 The generated `diagnostics/machine-gui-state-bridge.lua` is a read-only probe. From a container screen it opens a small utility screen where the user enters exact block coordinates. It reads the block ID through the documented `world.exists()` and `world.block(x, y, z)` APIs. It does not write to the world or modify inventories.
 
-For optional telemetry, the probe can query a separate running Zeus MOD through `mods.get(providerId)`. That companion MOD must explicitly export `mod.export.read_machine_state(x, y, z, blockId)` and return a table of scalar values. The probe displays only a fixed allow-list of values. This is an integration contract, not an automatic bridge into an unrelated Java MOD; a companion provider still needs a legitimate source for its values.
+For optional telemetry, the probe can query a separate running Zeus MOD through `mods.get(providerId)`. Phase 21 versions this contract as `jar2zeus.machine-state-provider.v1` (API version 1). The provider export declares `schema`, `api_version` and `read_machine_state(x, y, z, blockId)`; returned envelopes must include the provider ID, exact coordinates, exact block ID and a `values` table. The probe checks these fields, restricts values to an allow-list of scalar keys and validates primitive types/ranges. It rejects mismatched IDs, coordinates, block IDs, schemas and unsupported value types. These checks validate the envelope, not the truth of the provider’s underlying source.
 
 **Important API boundary:** the reviewed public Zeus API reference documents block-ID reads and general world context, but does not document a general reader for arbitrary Java BlockEntity objects or their NBT contents. The tool therefore marks energy, progress, temperature, fluid, fuel and similar telemetry as provider-required instead of pretending those values were extracted. The state-bridge report keeps `machineValuesConnected=false`, `runtimeValuesRecovered=false` and `worldWritesPerformed=false`.
 
-Reports are `machine-gui-state-bridge-plan.json` and `diagnostics/machine-gui-state-bridge-plan.json`; the read-only probe is `diagnostics/machine-gui-state-bridge.lua`.
+Reports are `machine-gui-state-bridge-plan.json` and `diagnostics/machine-gui-state-bridge-plan.json`; the read-only probe is `diagnostics/machine-gui-state-bridge.lua`. A companion-provider starter is exported separately as `diagnostics/machine-state-provider-template.lua`. It intentionally returns an empty `values` table until its author connects a genuine, supported data source; it is a development template, not a ready-made machine reader.
 
 Official API references: [API reference](https://dev.eaglercraft.com/docs/modding/api), [Screens and menus](https://dev.eaglercraft.com/docs/modding/screens), [Share code with other mods](https://dev.eaglercraft.com/docs/modding/packaging).
 

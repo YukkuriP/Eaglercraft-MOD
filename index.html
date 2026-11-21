@@ -411,6 +411,7 @@ $("build").onclick=async function(){
   out.file("diagnostics/machine-gui-scaffold.lua",machineGuiConversion.luaScaffold);
   out.file("diagnostics/machine-gui-state-bridge-plan.json",JSON.stringify(jarReport.machine_gui_state_bridge,null,2));
   out.file("diagnostics/machine-gui-state-bridge.lua",machineGuiStateBridge.scaffoldLua);
+  out.file("diagnostics/machine-state-provider-template.lua",machineGuiStateBridge.providerTemplateLua);
  out.file("diagnostics/reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2));
  out.file("diagnostics/entity-model-report.json",JSON.stringify(entityModels.report,null,2));
  out.file("diagnostics/machine-animation-report.json",JSON.stringify(jarReport.machine_animation_report,null,2));
