@@ -113,7 +113,7 @@ The generated companion ZIP is a development starter, not a finished machine-sta
 
 The sender is callable but deliberately inert until source logic calls it. It does not create a source-state reader, inspect Java BlockEntity/NBT data, register a tick callback, schedule a timer, scan the world, or publish on its own. A developer must connect a real state source already owned by the converted MOD and call the helper from a supported source-owned callback. The companion provider must also be installed and configured to accept the matching block ID and keys.
 
-A successful `events.emit` call means only that submission did not throw; it does not confirm provider receipt or display. The `source_id` is self-reported through `mod.id`, not authenticated. The diagnostics are `machine-state-event-producer-plan.json` and `diagnostics/machine-state-event-producer.lua`. No in-game event-delivery test is implied by static validation.
+A successful `events.emit` call means only that submission did not throw; it does not confirm provider receipt or display. Zeus custom events are broadcast to every listening MOD, not only the companion provider, so publish only non-sensitive game telemetry. The `source_id` is self-reported through `mod.id`, not authenticated. The diagnostics are `machine-state-event-producer-plan.json` and `diagnostics/machine-state-event-producer.lua`. No in-game event-delivery test is implied by static validation.
 
 Official API references: [Share code with other mods](https://dev.eaglercraft.com/docs/modding/packaging), [Events and timers](https://dev.eaglercraft.com/docs/modding/events-and-timers), [API reference](https://dev.eaglercraft.com/docs/modding/api).
 
