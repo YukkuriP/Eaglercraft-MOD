@@ -53,6 +53,7 @@ function collectFields(v,out,depth){
 function uniqueRows(rows,keyFn){const seen=new Set(),out=[];for(const row of rows){const k=keyFn(row);if(!seen.has(k)){seen.add(k);out.push(row);}}return out;}
 function summarizeMethod(candidate,holder){
  const method=candidate.method;
+ const methodMissing=!method;
  const code=method&&method.code;
  const instructions=arr(code&&code.instructions);
  const decodeError=!!(code&&code.decodeError);
@@ -151,7 +152,8 @@ function summarizeMethod(candidate,holder){
  const hasArithmetic=arithmetic.length>0||conversions.length>0;
  const multipleFields=uniqueFieldReads.length>1;
  let classification="unresolved-body";
- if(!code)classification="no-bytecode";
+ if(methodMissing)classification="method-not-found-in-parsed-class";
+ else if(!code)classification="no-bytecode";
  else if(decodeError)classification="bytecode-decode-error";
  else if(writeDetected)classification="state-mutating-getter";
  else if(monitorDetected||exceptionFlowDetected)classification="side-effect-or-exception-flow";
@@ -176,6 +178,7 @@ function summarizeMethod(candidate,holder){
  return {
   candidateId:idOf(candidate.sourceClass,candidate.methodName+candidate.methodDescriptor),
   sourceClass:candidate.sourceClass,sourcePath:candidate.sourcePath||null,
+  classParsed:!!holder,methodFound:!methodMissing,
   methodName:candidate.methodName,methodDescriptor:candidate.methodDescriptor,
   metricMatches:matched.slice(0,12).map(f=>({metric:f.metric,providerKey:f.providerKey,fieldName:f.fieldName,fieldDescriptor:f.fieldDescriptor||null})),
   classification,confidence:verified?"structural-bytecode-evidence":"low-unverified-bytecode-evidence",
