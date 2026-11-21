@@ -145,7 +145,7 @@ function convert(input,options){
   target:{runtime:"Zeus Lua API v1",minecraft:targetVersion},
   producer:{sourceModId:sourceModId},
   provider:{id:providerId,eventName:providerId+":machine_state_update"},
-  contract:{schema:EVENT_SCHEMA,apiVersion:API_VERSION,providerSchema:"jar2zeus.machine-state-provider.v1",providerApiVersion:1},
+  contract:{schema:EVENT_SCHEMA,apiVersion:API_VERSION,eventName:providerId+":machine_state_update",providerSchema:"jar2zeus.machine-state-provider.v1",providerApiVersion:1},
   publisherFunction:"mod.export.publish_machine_state",
   publisherHelperGenerated:true,
   sourceReaderCallbacksGenerated:0,
