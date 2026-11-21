@@ -51,7 +51,7 @@ test("finds exact PUTFIELD writes and maps them to telemetry fields", () => {
   const report = analyzer.analyze(data([writer]));
   assert.equal(report.schema, "jar2zeus.machine-state-write-trace.v1");
   assert.equal(report.status, "static-field-write-evidence-found");
-  assert.equal(report.writerMethodsObserved, undefined);
+  assert.equal(report.totals.writerMethodsObserved, 1);
   assert.equal(report.writerMethods[0].fieldWrites[0].fieldName, "progress");
   assert.equal(report.writerMethods[0].role.role, "setter-or-update");
   assert.equal(report.fieldSummaries[0].writerMethodCount, 1);
