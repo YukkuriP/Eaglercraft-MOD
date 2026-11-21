@@ -296,6 +296,17 @@
   if(machineStateUpdateConditionsMissing)warnings.push("Machine-state update-conditions plan is missing; nearby condition context has not been inspected.");
   if(machineStateUpdateConditionsUnsafe)errors.push("Machine-state update-conditions report incorrectly claims Java execution, proven control dependence, recovered operands/values/timing, runtime connection or generated callbacks.");
   if(machineStateUpdateConditionsShapeInvalid)errors.push("Machine-state update-conditions report has an invalid schema shape.");
+
+  const machineStateControlFlow=input.machineStateControlFlow||{};
+  const machineStateControlFlowFileCount=Number(input.machineStateControlFlowFileCount)||0;
+  const machineStateControlFlowFilePresent=packageFiles.some(file=>file&&file.path==="machine-state-control-flow-plan.json");
+  const machineStateControlFlowRequired=machineStateUpdateConditions.schema==="jar2zeus.machine-state-update-conditions.v1";
+  const machineStateControlFlowMissing=machineStateControlFlowRequired&&(machineStateControlFlow.schema!=="jar2zeus.machine-state-control-flow.v1"||machineStateControlFlowFileCount<1||!machineStateControlFlowFilePresent);
+  const machineStateControlFlowUnsafe=machineStateControlFlow.schema==="jar2zeus.machine-state-control-flow.v1"&&(machineStateControlFlow.javaMethodsExecuted!==false||machineStateControlFlow.controlDependenceRecovered!==false||machineStateControlFlow.conditionOperandsRecovered!==false||machineStateControlFlow.branchOutcomesRecovered!==false||machineStateControlFlow.assignmentValuesRecovered!==false||machineStateControlFlow.updateTimingRecovered!==false||machineStateControlFlow.sourceRuntimeValuesRecovered!==false||machineStateControlFlow.sourceReaderCallbacksGenerated!==0||machineStateControlFlow.eventPublicationsWired!==0||machineStateControlFlow.liveValuesConnected!==false||machineStateControlFlow.arbitraryJavaBlockEntityAccess!==false);
+  const machineStateControlFlowShapeInvalid=machineStateControlFlow.schema==="jar2zeus.machine-state-control-flow.v1"&&(!Array.isArray(machineStateControlFlow.writers)||!Array.isArray(machineStateControlFlow.manualTasks)||!machineStateControlFlow.totals||!Number.isFinite(Number(machineStateControlFlow.totals.writesSeen)));
+  if(machineStateControlFlowMissing)warnings.push("Machine-state control-flow plan is missing; structural branch/write relationships have not been reviewed.");
+  if(machineStateControlFlowUnsafe)errors.push("Machine-state control-flow report incorrectly claims Java execution, recovered control dependence/conditions/values/timing, runtime connection or generated callbacks.");
+  if(machineStateControlFlowShapeInvalid)errors.push("Machine-state control-flow report has an invalid schema shape.");
   if(machineStateGetterSemanticsReportMissing)warnings.push("Machine-state getter-semantics plan is missing; getter bodies have not been reviewed for calculations, branches, helper calls or state writes.");
   if(machineStateGetterSemanticsPending>0)warnings.push(machineStateGetterSemanticsPending+" machine-state getter bodies remain static evidence only; no Java code was executed or adapted.");
   if(machineStateGetterSemanticsUnsafeClaim)errors.push("Machine-state getter-semantics report incorrectly claims Java execution, recovered runtime values, connected values, source callbacks, event wiring or arbitrary Java BlockEntity access.");
