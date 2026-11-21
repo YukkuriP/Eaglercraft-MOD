@@ -54,13 +54,13 @@ function parseMethodDescriptor(desc){
 function constant(ins){
  const n=ins.name||"";
  let m=/^iconst_(-1|0|1|2|3|4|5)$/.exec(n);
- if(m)return {value:Number(m[1]),kind:"number",slots:1};
- m=/^lconst_([01])$/.exec(n);if(m)return {value:Number(m[1]),kind:"number",slots:2};
- m=/^fconst_([012])$/.exec(n);if(m)return {value:Number(m[1]),kind:"number",slots:1};
- m=/^dconst_([01])$/.exec(n);if(m)return {value:Number(m[1]),kind:"number",slots:2};
- if((n==="bipush"||n==="sipush")&&Number.isFinite(ins.operand))return {value:Number(ins.operand),kind:"number",slots:1};
+ if(m)return {value:Number(m[1]),slots:1};
+ m=/^lconst_([01])$/.exec(n);if(m)return {value:Number(m[1]),slots:2};
+ m=/^fconst_([012])$/.exec(n);if(m)return {value:Number(m[1]),slots:1};
+ m=/^dconst_([01])$/.exec(n);if(m)return {value:Number(m[1]),slots:2};
+ if((n==="bipush"||n==="sipush")&&Number.isFinite(ins.operand))return {value:Number(ins.operand),slots:1};
  if(["ldc","ldc_w","ldc2_w"].includes(n)&&typeof ins.constant==="number"&&Number.isFinite(ins.constant))
-  return {value:ins.constant,kind:"number",slots:n==="ldc2_w"?2:1};
+  return {value:ins.constant,slots:n==="ldc2_w"?2:1};
  return null;
 }
 function expr(kind,data,slots){
@@ -195,7 +195,7 @@ function traceToWrite(writer,method,target,options){
   if(n==="monitorenter"||n==="monitorexit"||n==="athrow"||n==="return"||/^[ilfda]return$/.test(n))
    return fail("side-effect-or-method-exit-before-write",ins.pc);
   const cv=constant(ins);
-  if(cv){if(!push(expr("constant",cv,cv.slots)))return fail("operand-stack-limit-exceeded",ins.pc);steps.push({pc:ins.pc,operation:"constant"});continue;}
+  if(cv){if(!push(expr("constant",{value:cv.value},cv.slots)))return fail("operand-stack-limit-exceeded",ins.pc);steps.push({pc:ins.pc,operation:"constant"});continue;}
   if(n==="aconst_null")return fail("null-reference-before-write",ins.pc);
   if(["aload_0","aload_1","aload_2","aload_3","aload","iload_0","iload_1","iload_2","iload_3","iload","lload_0","lload_1","lload_2","lload_3","lload","fload_0","fload_1","fload_2","fload_3","fload","dload_0","dload_1","dload_2","dload_3","dload"].includes(n)){
    const kind=localKind(n),indexValue=localIndex(ins,kind);
@@ -220,7 +220,7 @@ function traceToWrite(writer,method,target,options){
    const indexValue=Number.isInteger(ins.local)?ins.local:ins.operand;
    const old=locals.get(indexValue);
    if(!old||old.slots!==1||!Number.isFinite(ins.increment))return fail("iinc-local-not-initialized-or-not-category1",ins.pc);
-   locals.set(indexValue,expr("binary",{op:"+",left:old,right:expr("constant",{value:ins.increment,kind:"number",slots:1},1),opcode:"iinc"},1));
+   locals.set(indexValue,expr("binary",{op:"+",left:old,right:expr("constant",{value:ins.increment},1),opcode:"iinc"},1));
    steps.push({pc:ins.pc,operation:"iinc",local:indexValue});continue;
   }
   if(n==="getfield"||n==="getstatic"){
