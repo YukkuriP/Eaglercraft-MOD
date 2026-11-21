@@ -83,6 +83,45 @@ test("uses only documented read APIs and an optional explicit provider", () => {
   assert.ok(!lua.includes("getBlockState("));
 });
 
+test("generates a versioned machine-state provider contract with strict envelope checks", () => {
+  const result = bridge.convert(sampleInputs(), { targetVersion: "26.3" });
+  const contract = result.report.optionalProvider;
+  assert.equal(contract.schema, "jar2zeus.machine-state-provider.v1");
+  assert.equal(contract.apiVersion, 1);
+  assert.equal(contract.providerValuesIndependentlyVerified, false);
+  assert.deepEqual(contract.envelopeFields, ["schema", "api_version", "provider_id", "x", "y", "z", "block_id", "values"]);
+  const lua = result.scaffoldLua;
+  for (const fragment of [
+    "provider.schema ~= PROVIDER_SCHEMA",
+    "provider.api_version ~= PROVIDER_API_VERSION",
+    "state.schema ~= PROVIDER_SCHEMA",
+    "state.provider_id ~= providerId",
+    "state.x ~= x or state.y ~= y or state.z ~= z",
+    "state.block_id ~= blockId",
+    "type(state.values) ~= \"table\"",
+    "value ~= value or value == math.huge",
+    "type(value) ~= \"boolean\"",
+    "type(value) ~= \"string\"",
+    "table.concat(lines, string.char(10))",
+    "^[a-z0-9_.-]+$"
+  ]) assert.ok(lua.includes(fragment), "missing provider check: " + fragment);
+  assert.ok(!lua.includes("setBlock("));
+  assert.ok(!lua.includes("setBlockState("));
+});
+
+test("exports a companion provider starter without inventing machine readings", () => {
+  const result = bridge.convert(sampleInputs(), {});
+  const template = result.providerTemplateLua;
+  assert.ok(template.includes("local values = {}"));
+  assert.ok(template.includes("schema = PROVIDER_SCHEMA"));
+  assert.ok(template.includes("api_version = 1"));
+  assert.ok(template.includes("provider_id = mod.id"));
+  assert.ok(template.includes("mod.export.read_machine_state = readMachineState"));
+  assert.ok(template.includes("does not prove their origin"));
+  assert.equal(result.report.providerTemplateFile, "diagnostics/machine-state-provider-template.lua");
+  assert.equal(result.report.providerValuesIndependentlyVerified, false);
+});
+
 test("bounds the reported fields and machine classes", () => {
   const input = {
     blockEntityMachineState: {
@@ -142,6 +181,8 @@ test("validator accepts explicit read-only and unconnected state bridge status",
     machineValuesConnected: false,
     runtimeValuesRecovered: false,
     worldWritesPerformed: false,
+    providerValuesIndependentlyVerified: false,
+    optionalProvider: { schema: "jar2zeus.machine-state-provider.v1", apiVersion: 1, providerValuesIndependentlyVerified: false },
     totals: { machineClasses: 0, fieldsObserved: 0, operationCandidates: 0 }
   };
   const result = validator.validate(input);
@@ -157,6 +198,8 @@ test("validator keeps observed machine telemetry candidates incomplete", () => {
     machineValuesConnected: false,
     runtimeValuesRecovered: false,
     worldWritesPerformed: false,
+    providerValuesIndependentlyVerified: false,
+    optionalProvider: { schema: "jar2zeus.machine-state-provider.v1", apiVersion: 1, providerValuesIndependentlyVerified: false },
     totals: { machineClasses: 1, fieldsObserved: 2, operationCandidates: 1 }
   };
   const result = validator.validate(input);
