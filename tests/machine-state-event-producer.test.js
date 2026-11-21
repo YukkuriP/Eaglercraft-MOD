@@ -45,7 +45,7 @@ test("uses the exact provider ID and event channel contract", () => {
   assert.match(result.lua, /provider\.api_version ~= API_VERSION/);
   assert.match(result.lua, /provider\.event_name ~= eventName/);
   assert.match(result.lua, /local eventName = PROVIDER_ID \.\. ":machine_state_update"/);
-  assert.match(result.lua, /events\.emit, eventName, payload/);
+  assert.match(result.lua, /events\.emit\(eventName, payload\)/);
 });
 
 test("exports a callable helper but creates no automatic source or tick callbacks", () => {
