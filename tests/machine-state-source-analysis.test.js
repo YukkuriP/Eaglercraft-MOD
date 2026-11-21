@@ -145,7 +145,7 @@ function packageInput() {
   const packageFiles = [
     "metadata.json", "main.lua", "machine-gui-state-bridge-plan.json",
     "machine-gui-live-binding-plan.json", "machine-state-provider-sdk-plan.json",
-    "machine-state-event-producer-plan.json", "machine-state-source-analysis-plan.json", "machine-state-getter-semantics-plan.json", "machine-state-write-trace-plan.json"
+    "machine-state-event-producer-plan.json", "machine-state-source-analysis-plan.json", "machine-state-getter-semantics-plan.json", "machine-state-write-trace-plan.json", "machine-state-write-value-analysis-plan.json"
   ].map(path => ({ path, size: 0 }));
   return {
     metadata: { id: "sample_mod", name: "Sample Mod", version: "1.0.0", main: "main.lua", api: 1, minecraft: ["26.3"], permissions: [] },
@@ -243,6 +243,17 @@ function packageInput() {
       eventPublicationsWired: 0, liveValuesConnected: false, arbitraryJavaBlockEntityAccess: false
     },
     machineStateWriteTraceFileCount: 1,
+    machineStateWriteValueAnalysis: {
+      schema: "jar2zeus.machine-state-write-value-analysis.v1",
+      writeAnalyses: [{ status: "resolved", assignedRuntimeValueRecovered: false }],
+      classificationSummary: [{ status: "resolved", count: 1 }],
+      totals: { writeSitesSeen: 1, writeSitesAnalyzed: 1, resolvedWriteExpressions: 1, unresolvedWriteExpressions: 0, methodsOmitted: 0 },
+      symbolicAssignmentExpressionsRecovered: true, assignedRuntimeValuesRecovered: false,
+      javaMethodsExecuted: false, updateTimingRecovered: false, sourceRuntimeValuesRecovered: false,
+      sourceReaderCallbacksGenerated: 0, eventPublicationsWired: 0,
+      liveValuesConnected: false, arbitraryJavaBlockEntityAccess: false
+    },
+    machineStateWriteValueAnalysisFileCount: 1,
     reimplementation: { schema: "jar2zeus.reimplementation.v1", methodsPending: 0, methodsSkipped: 0, utilityMethodsTranslated: 0 },
     recipeReport: {}, definitionReport: {}, configReport: {}
   };
@@ -342,4 +353,31 @@ test("validator flags a missing Phase 27 report when Phase 26 getter analysis ex
   assert.equal(result.valid, true);
   assert.equal(result.conversionComplete, false);
   assert.ok(result.warnings.some(text => text.includes("write-trace plan is missing")));
+});
+
+test("validator accepts symbolic write expressions but keeps runtime conversion incomplete", () => {
+  const result = validator.validate(packageInput());
+  assert.equal(result.valid, true);
+  assert.equal(result.conversionComplete, false);
+  assert.ok(result.warnings.some(text => text.includes("write sites remain static expression evidence only")));
+});
+
+test("validator rejects claims that write-value analysis recovered runtime values or update timing", () => {
+  const input = packageInput();
+  input.machineStateWriteValueAnalysis.assignedRuntimeValuesRecovered = true;
+  const result = validator.validate(input);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some(text => text.includes("write-value-analysis report incorrectly claims")));
+});
+
+test("validator flags a missing Phase 28 write-value report when Phase 27 exists", () => {
+  const input = packageInput();
+  input.machineStateWriteValueAnalysis = {};
+  input.machineStateWriteValueAnalysisFileCount = 0;
+  input.packageFiles = input.packageFiles.filter(file => file.path !== "machine-state-write-value-analysis-plan.json");
+  input.packageLimits.files = input.packageFiles.length;
+  const result = validator.validate(input);
+  assert.equal(result.valid, true);
+  assert.equal(result.conversionComplete, false);
+  assert.ok(result.warnings.some(text => text.includes("write-value-analysis plan is missing")));
 });
