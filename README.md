@@ -24,6 +24,8 @@
    - `item-inventory-conversion.js`
    - `block-entity-machine-state.js`
    - `machine-power-systems.js`
+   - `transport-networks.js`
+   - `machine-process-analysis.js`
    - `java-event-lifecycle.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
@@ -220,3 +222,15 @@ Zeus側は `main.lua` をMOD読み込み時に一度だけ先頭から実行し�
 現段階は**静的解析と移植タスク生成まで**です。接続形状、隣接ブロック探索、面ごとの接続可否、フィルター、搬送優先度、実転送量、転送速度、経路探索、トランザクション確定条件、チャンク境界、Tick順序は復元しません。Fabricの汎用StorageやNeoForgeの型付きResourceHandlerを、型情報なしに特定の資源種別と断定もしません。検出された候補をZeus用のパイプ・ポンプ・コンベア・ネットワークとして自動実装したとは扱わず、未解決のクラス・API参照・操作・フィールド・メソッドが残るパッケージは `conversionComplete=false` となります。
 
 出力は `transport-networks.json` と `diagnostics/transport-networks.json` です。静的解析はZeus 26.2／26.3上での搬送速度・接続・フィルター・永続化・同期を証明しません。実ゲームでの検証は別途必要です。
+
+## 機械加工・生産工程の解析
+
+`machine-process-analysis.js` は、JAR内の機械系Javaクラスと `data/<namespace>/recipe(s)/<path>.json` のレシピ定義を組み合わせて解析します。レシピ実装・RecipeType・RecipeSerializer・RecipeManager・Ingredient・RecipeInputの参照、`matches`／`assemble`／レシピ検索等の操作候補、機械側の進捗・加工時間・燃料・電力・入力・出力・稼働条件・Tick処理を静的に抽出します。JSON側では型、入力候補、液体／化学物質候補、完成品、副産物、加工時間、エネルギー／燃料条件、温度・圧力等の条件を候補として記録します。各詳細配列は最大5,000件で、元クラス・メソッド・descriptor・バイトコード位置または元JSONパスを保持します。レシピJSONの解析入力は1ファイル2 MiB・合計64 MiBを上限とし、上限超過または読込失敗は `recipeJsonReadErrors`、不正JSONは `recipeJsonInvalid` と `recipeParseIssues` に記録して完全移植判定を止めます。
+
+MinecraftのバージョンやローダーでレシピのJSON形式とJava APIは異なります。たとえば、近年のNeoForge資料ではデータレシピを `data/<namespace>/recipe/` に置き、独自レシピは `Recipe`・`RecipeType`・`RecipeSerializer` を組み合わせる構成として説明しています。Fabric資料もレシピJSONとデータ生成を扱い、旧バージョンの資料では `recipes` という複数形ディレクトリが使われています。そのため本解析器は両方のフォルダ名を認識し、ローダー間の独自フィールドを一つの固定スキーマとして決めつけません。
+
+現段階は**静的解析と移植タスク生成まで**です。カスタムSerializerのdecode／encode、レシピの実際のmatches／assemble、機械の入力検証、進捗のTick更新、燃料・電力の実消費、完成処理、副産物の確率、流体の単位、温度・圧力・環境・レッドストーン条件は実行・再現しません。JSONに加工時間や燃料が見つからなくても、Javaコードや設定ファイルに存在しないとは断定しません。未解決のレシピ・Serializer・機械クラス・操作・フィールドが残るパッケージは `conversionComplete=false` となります。
+
+出力は `machine-process-analysis.json` と `diagnostics/machine-process-analysis.json` です。合成データでの分類テストはZeus 26.2／26.3上で実際に機械が稼働することを証明しません。材料消費、加工時間、エネルギー／燃料、完成品・副産物、保存・再読込、サーバー同期の実ゲーム検証は別途必要です。
+
+参考資料：<https://docs.neoforged.net/docs/1.21.1/resources/server/recipes/>、<https://docs.neoforged.net/docs/1.21.10/resources/server/recipes/custom/>、<https://docs.fabricmc.net/develop/data-generation/recipes>、<https://wiki.fabricmc.net/tutorial:recipes>。
