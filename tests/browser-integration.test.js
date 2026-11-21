@@ -10,7 +10,7 @@ test("browser application inline JavaScript parses",()=>{
  for(const match of scripts){if(match[1].trim())assert.doesNotThrow(()=>new vm.Script(match[1]));}
 });
 test("browser application loads every migration engine module",()=>{
- for(const file of ["converter.js","resource-converter.js","definition-converter.js","generic-mod-analyzer.js","migration-pipeline.js","package-validator.js","machine-gui-state-bridge.js","machine-gui-live-binding.js"])
+ for(const file of ["converter.js","resource-converter.js","definition-converter.js","generic-mod-analyzer.js","migration-pipeline.js","package-validator.js","machine-gui-state-bridge.js","machine-gui-live-binding.js","machine-state-provider-sdk.js"])
   assert.ok(html.includes('<script src="'+file+'"></script>'),"missing "+file);
 });
 
@@ -35,4 +35,17 @@ test("outer diagnostics export includes the live GUI telemetry consumer",()=>{
 test("outer diagnostics export includes the provider starter template",()=>{
  assert.match(html,/diagnostics\/machine-state-provider-template\.lua/);
  assert.match(html,/machineGuiStateBridge\.providerTemplateLua/);
+});
+
+test("Phase 23 exports a separate companion provider ZIP and matching default ID",()=>{
+ assert.ok(html.includes("machine-state-provider-sdk.js"));
+ assert.ok(html.includes("providerModId:providerModId"));
+ assert.ok(html.includes("providerId:providerModId"));
+ assert.ok(html.includes("machineStateProviderSdkFileCount:1"));
+ assert.ok(html.includes("machine-state-provider-sdk-plan.json"));
+ assert.ok(html.includes("diagnostics/machine-state-provider-sdk.lua"));
+ assert.ok(html.includes('providerZip.file("metadata.json"'));
+ assert.ok(html.includes('providerZip.file("main.lua",machineStateProviderSdk.lua)'));
+ assert.ok(html.includes("out.file(machineStateProviderSdk.report.packageFileName,providerZipBlob)"));
+ assert.ok(html.includes('generatedMain+="\\n\\n-- Jar2Zeus live machine telemetry utility (read-only)\\n"+machineGuiLiveBinding.lua;'));
 });
