@@ -27,13 +27,14 @@ function luaString(v){
 function inferMetric(name,category){
  const n=String(name||"").toLowerCase().replace(/[^a-z0-9]+/g,"_");
  const c=String(category||"").toLowerCase();
- if(/(?:progress|maxprogress|cooktime|burntime|processtime|processingtime|worktime)/.test(n))return n.includes("max")?"processing.progress_max":"processing.progress";
- if(/(?:duration|ticktime|totaltime|maxcooktime)/.test(n)||c==="duration")return "processing.duration";
+ if(/(?:fuel|burn)/.test(n)||c==="fuel")return /(?:max|capacity)/.test(n)?"fuel.capacity":"fuel.remaining";
+ if(/(?:energy|power|rf|joule|fe|charge|storedenergy)/.test(n)||c==="energy")return /(?:capacity|max)/.test(n)?"energy.capacity":/(?:usage|consumption|production|rate)/.test(n)?"energy.rate":"energy.stored";
  if(/(?:temperature|temp|heat)/.test(n)||c==="temperature")return "thermal.temperature";
  if(/(?:pressure)/.test(n)||c==="pressure")return "thermal.pressure";
  if(/(?:fluid|tank)/.test(n)||c==="fluid")return /(?:capacity|max)/.test(n)?"fluid.capacity":/(?:amount|quantity|stored|level)/.test(n)?"fluid.amount":"fluid.state";
- if(/(?:energy|power|rf|joule|fe|charge|storedenergy)/.test(n)||c==="energy")return /(?:capacity|max)/.test(n)?"energy.capacity":/(?:usage|consumption|production|rate)/.test(n)?"energy.rate":"energy.stored";
- if(/(?:fuel|burn)/.test(n)||c==="fuel")return /(?:max|capacity)/.test(n)?"fuel.capacity":"fuel.remaining";
+ if(/(?:maxprogress|maxcooktime|progressmax)/.test(n))return "processing.progress_max";
+ if(/(?:progress|cooktime|workdone|workprogress)/.test(n))return "processing.progress";
+ if(/(?:duration|processtime|processingtime|ticktime|totaltime|worktime)/.test(n)||c==="duration")return "processing.duration";
  if(/(?:active|working|running|processing|enabled)/.test(n)||c==="process-state")return "processing.active";
  if(/(?:speed|rpm|rotation)/.test(n))return "kinetic.speed";
  if(/(?:stress|torque)/.test(n))return "kinetic.stress";
