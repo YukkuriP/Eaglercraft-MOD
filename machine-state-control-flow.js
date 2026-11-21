@@ -5,7 +5,7 @@
 (function(root){
 "use strict";
 const BLOCKED=/(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i;
-const MAX_METHODS=1000,MAX_BLOCKS=512,MAX_EDGES=4096,MAX_WRITES=2000,MAX_ITERATIONS=512,MAX_CANDIDATES_PER_WRITE=24,MAX_REPORT_WRITERS=1200;
+const MAX_METHODS=500,MAX_BLOCKS=256,MAX_EDGES=2048,MAX_TOTAL_BLOCKS=3000,MAX_TOTAL_EDGES=6000,MAX_WRITES=2000,MAX_ITERATIONS=64,MAX_CANDIDATES_PER_WRITE=24,MAX_REPORT_WRITERS=1200;
 const BRANCH=/^(?:ifeq|ifne|iflt|ifge|ifgt|ifle|if_icmpeq|if_icmpne|if_icmplt|if_icmpge|if_icmpgt|if_icmple|if_acmpeq|if_acmpne|ifnull|ifnonnull|tableswitch|lookupswitch)$/;
 function arr(v){return Array.isArray(v)?v:[];}
 function safe(v){return typeof v==="string"&&!BLOCKED.test(v);}
@@ -75,7 +75,7 @@ function analyze(input,options){
   if(c&&c.valid===true&&safe(c.className))classMap.set(norm(c.className),c);
  }
  const methodLimit=Math.min(MAX_METHODS,Number.isInteger(options.methodLimit)&&options.methodLimit>0?options.methodLimit:MAX_METHODS);
- const reportWriters=[],totals={writerMethodsSeen:0,writerMethodsAnalyzed:0,writerMethodsMissing:0,writerMethodsWithoutValidCfg:0,writerMethodsWithInvalidCfg:0,writesSeen:0,writesAnalyzed:0,controlDependenceCandidates:0,writesWithNoControlDependenceFound:0,writeInstructionsMissing:0,unreachableWriteBlocks:0,controlFlowIterations:0,detailsTruncated:false};
+ const reportWriters=[],totals={writerMethodsSeen:0,writerMethodsAnalyzed:0,writerMethodsMissing:0,writerMethodsWithoutValidCfg:0,writerMethodsWithInvalidCfg:0,writerMethodsOverBudget:0,totalCfgBlocks:0,totalCfgEdges:0,writesSeen:0,writesAnalyzed:0,controlDependenceCandidates:0,writesWithNoControlDependenceFound:0,writeInstructionsMissing:0,unreachableWriteBlocks:0,controlFlowIterations:0,detailsTruncated:false};
  let methodSeen=0,writeBudget=0;
  for(const writer of arr(update.writers)){
   if(methodSeen>=methodLimit){totals.detailsTruncated=true;break;}
@@ -92,6 +92,8 @@ function analyze(input,options){
    else totals.writerMethodsWithoutValidCfg++;
    continue;
   }
+  if(totals.totalCfgBlocks+graph.blocks.length>MAX_TOTAL_BLOCKS||totals.totalCfgEdges+graph.edges.length>MAX_TOTAL_EDGES){totals.writerMethodsOverBudget++;totals.detailsTruncated=true;continue;}
+  totals.totalCfgBlocks+=graph.blocks.length;totals.totalCfgEdges+=graph.edges.length;
   totals.writerMethodsAnalyzed++;totals.controlFlowIterations+=graph.iterations+graph.postIterations;
   const instructions=arr(code.instructions),blocks=graph.blocks;
   const normalBranchKinds=new Set(["conditional-true","conditional-false","switch-case","switch-default"]);
@@ -119,7 +121,7 @@ function analyze(input,options){
     for(const edge of branch.edges){
      const successorPostdom=graph.postdom.get(edge.to);
      if(successorPostdom&&successorPostdom.has(block.id)){
-      candidates.push({branchBlockId:branchId,branchStartPc:branch.block.start,branchOpcode:branch.block.lastOpcode,branchPc:(instructions.find(x=>x&&x.pc>=branch.block.start&&x.pc<branch.block.end&&x.name===branch.block.lastOpcode)||{}).pc??null,successorBlockId:edge.to,successorEdgeKind:edge.kind,branchBlockDominatesWriteBlock:true,writeBlockPostdominatesSuccessor:true,writeBlockPostdominatesBranchBlock:false,evidence:"structural-cfg-control-dependence"});
+      candidates.push({branchBlockId:branchId,branchStartPc:branch.block.start,branchOpcode:branch.block.lastOpcode,branchPc:instructions.filter(x=>x&&x.pc>=branch.block.start&&x.pc<branch.block.end&&x.name===branch.block.lastOpcode).reduce((pc,x)=>Number.isInteger(x.pc)?Math.max(pc,x.pc):pc,-1),successorBlockId:edge.to,successorEdgeKind:edge.kind,branchBlockDominatesWriteBlock:true,writeBlockPostdominatesSuccessor:true,writeBlockPostdominatesBranchBlock:false,evidence:"structural-cfg-control-dependence"});
       if(candidates.length>=MAX_CANDIDATES_PER_WRITE)break;
      }
     }
@@ -135,7 +137,7 @@ function analyze(input,options){
  totals.writerMethodsOmitted=Math.max(0,arr(update.writers).length-methodSeen);
  totals.writesReported=reportWriters.reduce((n,w)=>n+w.writes.length,0);
  totals.detailsTruncated=totals.detailsTruncated||totals.writesSeen>MAX_WRITES||reportWriters.length>MAX_REPORT_WRITERS;
- return {schema:"jar2zeus.machine-state-control-flow.v1",status:totals.controlDependenceCandidates?"cfg-control-dependence-candidates-found":totals.writerMethodsAnalyzed?"structural-cfg-analyzed-no-control-dependence-found":"control-flow-analysis-unavailable",supportStatus:"bounded-structural-cfg-dominator-and-postdominator-analysis",sourceUpdateConditionsSchema:update.schema||null,writers:reportWriters.slice(0,MAX_REPORT_WRITERS),manualTasks:[{area:"control-dependence",status:"structural-cfg-candidate-only",reason:"Candidates use the verifier CFG's dominator and postdominator relations. The CFG is structural, exception-table edges are conservative approximations, and this is not proof of runtime branch evaluation or Java control semantics."},{area:"branch-condition-value",status:"not-recovered",reason:"No comparison operands, boolean values, stack provenance or runtime branch outcomes are evaluated."},{area:"execution-order-and-timing",status:"not-recovered",reason:"Static reachability does not establish runtime call order, tick schedule, threading, server/client authority or external dispatch."}],limitations:["Only methods with a valid structural verification report and a bounded CFG are analyzed.","Dominators and postdominators are computed over the verifier's full edge set, including conservative exception-table edges where present.","A candidate requires the branch block to dominate the write block, the write block to postdominate one branch successor, and the write block not to postdominate the branch block.","The analyzer does not execute Java, evaluate conditions, recover assignment values, determine runtime timing or create event hooks.","Reflection, virtual dispatch, native code, dynamically linked targets, and external methods are unresolved."],totals,javaMethodsExecuted:false,controlDependenceRecovered:false,conditionOperandsRecovered:false,branchOutcomesRecovered:false,assignmentValuesRecovered:false,updateTimingRecovered:false,sourceRuntimeValuesRecovered:false,sourceReaderCallbacksGenerated:0,eventPublicationsWired:0,liveValuesConnected:false,arbitraryJavaBlockEntityAccess:false,reportFile:"machine-state-control-flow-plan.json"};
+ return {schema:"jar2zeus.machine-state-control-flow.v1",status:totals.controlDependenceCandidates?"cfg-control-dependence-candidates-found":totals.writerMethodsAnalyzed?"structural-cfg-analyzed-no-control-dependence-found":"control-flow-analysis-unavailable",supportStatus:"bounded-structural-cfg-dominator-and-postdominator-analysis",sourceUpdateConditionsSchema:update.schema||null,writers:reportWriters.slice(0,MAX_REPORT_WRITERS),manualTasks:[{area:"control-dependence",status:"structural-cfg-candidate-only",reason:"Candidates use the verifier CFG's dominator and postdominator relations. The CFG is structural, exception-table edges are conservative approximations, and this is not proof of runtime branch evaluation or Java control semantics."},{area:"branch-condition-value",status:"not-recovered",reason:"No comparison operands, boolean values, stack provenance or runtime branch outcomes are evaluated."},{area:"execution-order-and-timing",status:"not-recovered",reason:"Static reachability does not establish runtime call order, tick schedule, threading, server/client authority or external dispatch."}],limitations:["Only methods with a valid structural verification report and a bounded CFG are analyzed.","Per-method and aggregate block/edge/iteration budgets prevent excessive CFG work; over-budget methods are left unresolved.","Dominators and postdominators are computed over the verifier's full edge set, including conservative exception-table edges where present.","A candidate requires the branch block to dominate the write block, the write block to postdominate one branch successor, and the write block not to postdominate the branch block.","The analyzer does not execute Java, evaluate conditions, recover assignment values, determine runtime timing or create event hooks.","Reflection, virtual dispatch, native code, dynamically linked targets, and external methods are unresolved."],totals,javaMethodsExecuted:false,controlDependenceRecovered:false,conditionOperandsRecovered:false,branchOutcomesRecovered:false,assignmentValuesRecovered:false,updateTimingRecovered:false,sourceRuntimeValuesRecovered:false,sourceReaderCallbacksGenerated:0,eventPublicationsWired:0,liveValuesConnected:false,arbitraryJavaBlockEntityAccess:false,reportFile:"machine-state-control-flow-plan.json"};
 }
 root.Jar2ZeusMachineStateControlFlow={analyze:analyze};
 })(typeof globalThis!=="undefined"?globalThis:this);
