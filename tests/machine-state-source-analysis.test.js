@@ -135,7 +135,7 @@ test("bounds very large field evidence and marks truncation", () => {
   }));
   const report = analyzer.analyze(data, { detailLimit: 10 });
   assert.equal(report.fieldCandidates.length, 10);
-  assert.equal(report.getterCandidates.length, 1);
+  assert.equal(report.getterCandidates.length, 3);
   assert.equal(report.totals.fieldCandidatesReported, 3000);
   assert.equal(report.totals.detailsTruncated, true);
 });
