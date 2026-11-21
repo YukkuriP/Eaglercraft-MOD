@@ -10,7 +10,7 @@ test("browser application inline JavaScript parses",()=>{
  for(const match of scripts){if(match[1].trim())assert.doesNotThrow(()=>new vm.Script(match[1]));}
 });
 test("browser application loads every migration engine module",()=>{
- for(const file of ["converter.js","resource-converter.js","definition-converter.js","generic-mod-analyzer.js","migration-pipeline.js","package-validator.js","machine-gui-state-bridge.js","machine-gui-live-binding.js","machine-state-provider-sdk.js"])
+ for(const file of ["converter.js","resource-converter.js","definition-converter.js","generic-mod-analyzer.js","migration-pipeline.js","package-validator.js","machine-gui-state-bridge.js","machine-gui-live-binding.js","machine-state-provider-sdk.js","machine-state-event-producer.js"])
   assert.ok(html.includes('<script src="'+file+'"></script>'),"missing "+file);
 });
 
@@ -48,4 +48,16 @@ test("Phase 23 exports a separate companion provider ZIP and matching default ID
  assert.ok(html.includes('providerZip.file("main.lua",machineStateProviderSdk.lua)'));
  assert.ok(html.includes("out.file(machineStateProviderSdk.report.packageFileName,providerZipBlob)"));
  assert.ok(html.includes('generatedMain+="\\n\\n-- Jar2Zeus live machine telemetry utility (read-only)\\n"+machineGuiLiveBinding.lua;'));
+});
+
+test("Phase 24 appends an opt-in event publisher and exports its diagnostics",()=>{
+ assert.ok(html.includes("machine-state-event-producer.js"));
+ assert.ok(html.includes("Jar2ZeusMachineStateEventProducer.convert"));
+ assert.ok(html.includes("machineStateEventProducer.lua"));
+ assert.ok(html.includes("machine-state-event-producer-plan.json"));
+ assert.ok(html.includes("diagnostics/machine-state-event-producer.lua"));
+ assert.ok(html.includes("machineStateEventProducerFileCount:1"));
+ assert.ok(html.includes("generatedMain+=\"\\n\\n-- Jar2Zeus explicit machine-state event publisher helper (manual call only)\\n\"+machineStateEventProducer.lua;"));
+ assert.ok(html.includes("machineStateEventProducer:jarReport.machine_state_event_producer"));
+ assert.ok(html.includes("mod.export.publish_machine_state"));
 });
