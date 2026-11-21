@@ -137,7 +137,7 @@ function simulateBlock(instructions,block,startState,method,instructionBudget,br
    if(!t){fail("invalid-field-descriptor");break;}
    push(origin("field-read",{pc:x.pc,opcode:n,owner:clean(norm(mm.owner),180),name:clean(mm.name,100),descriptor:clean(desc,180),fieldStatic:n==="getstatic",receiver:recv,category:t.category}));continue;
   }
-  if(n==="putfield"||n==="putstatic"){pop(n==="putfield"?1:null,x.pc);pop(n==="putfield"?null:1,x.pc);continue;}
+  if(n==="putfield"){pop(null,x.pc);pop(1,x.pc);continue;}\n  if(n==="putstatic"){pop(null,x.pc);continue;}
   if(INVOKE.has(n)){
    const mm=x.member||{},desc=n==="invokedynamic"?x.dynamic&&x.dynamic.descriptor:mm.descriptor,p=parseMethod(desc);
    if(!p){fail("invalid-invocation-descriptor");break;}
@@ -145,7 +145,7 @@ function simulateBlock(instructions,block,startState,method,instructionBudget,br
    let receiver=null;if(n!=="invokestatic"&&n!=="invokedynamic")receiver=pop(1,x.pc);
    const owner=mm.owner?norm(mm.owner):"<dynamic>",name=mm.name||x.dynamic&&x.dynamic.name||"invokedynamic";
    if(!safe(name)||(owner!=="<dynamic>"&&!safe(owner))){fail("unsafe-or-invalid-method-reference");break;}
-   if(p.result.kind!=="void")push(origin("method-result",{pc:x.pc,methodOwner:clean(owner,180),methodName:clean(name,100),methodDescriptor:clean(desc,180),receiver,descriptor:p.result.descriptor,category:p.result.category}));
+   if(p.result.kind!=="void")push(origin("method-result",{pc:x.pc,methodOwner:clean(owner,180),methodName:clean(name,100),methodDescriptor:clean(desc,180),receiver,arguments:args,descriptor:p.result.descriptor,category:p.result.category}));
    continue;
   }
   if(BINARY.has(n)){const cat=n[0]==="l"||n[0]==="d"?2:1,a=pop(cat,x.pc),b=pop(cat,x.pc),desc=cat===2?(n[0]==="l"?"J":"D"):(n[0]==="f"?"F":"I");push(origin("calculated-value",{pc:x.pc,operator:n,operands:[b,a],descriptor:desc,category:cat}));continue;}
