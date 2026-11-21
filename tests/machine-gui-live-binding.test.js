@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 
 require(path.join(__dirname, "..", "machine-gui-live-binding.js"));
+require(path.join(__dirname, "..", "machine-gui-state-bridge.js"));
 require(path.join(__dirname, "..", "zeus-api-contract.js"));
 require(path.join(__dirname, "..", "package-validator.js"));
 
@@ -58,6 +59,43 @@ function sampleGuiConversion() {
   };
 }
 
+test("maps real Phase 20 field classifications into Phase 22 provider keys", () => {
+  const bridge = globalThis.Jar2ZeusMachineGuiStateBridge.convert({
+    guiConversion: { controls: [] },
+    blockEntityMachineState: {
+      blockEntities: [],
+      dataFields: [
+        { sourceClass: "sample/machine/CrusherBlockEntity", name: "progress", descriptor: "I" },
+        { sourceClass: "sample/machine/TankBlockEntity", name: "fluidAmount", descriptor: "I" }
+      ]
+    },
+    machinePowerSystems: {
+      systems: [],
+      fields: [
+        { sourceClass: "sample/machine/GeneratorBlockEntity", name: "energyStored", descriptor: "I" },
+        { sourceClass: "sample/machine/GeneratorBlockEntity", name: "maxEnergy", descriptor: "I" }
+      ]
+    },
+    machineProcessAnalysis: {
+      machineClasses: [],
+      fields: [
+        { sourceClass: "sample/machine/CrusherMachine", name: "maxProgress", descriptor: "I" },
+        { sourceClass: "sample/machine/CrusherMachine", name: "burnTime", descriptor: "I" }
+      ]
+    }
+  }, { targetVersion: "26.3" });
+  const result = binding.convert({ stateBridge: bridge.report, guiConversion: { controls: [] } });
+  const pairs = result.report.bindings.map(row => [row.sourceField, row.providerKey]);
+  for (const expected of [
+    ["progress", "progress"],
+    ["fluidAmount", "fluid_amount"],
+    ["energyStored", "energy"],
+    ["maxEnergy", "energy_max"],
+    ["maxProgress", "progress_max"],
+    ["burnTime", "fuel_remaining"]
+  ]) assert.ok(pairs.some(pair => pair[0] === expected[0] && pair[1] === expected[1]));
+});
+
 test("maps known machine telemetry candidates to an explicit provider key allow-list", () => {
   const result = binding.convert({
     stateBridge: sampleStateBridge(),
@@ -103,6 +141,7 @@ test("generates a paginated read-only screen with automatic and manual refresh",
     "on(\"world_leave\"",
     "Previous page",
     "Next page",
+    "valueLabels = {}",
     "Refresh now",
     "state.x ~= selected.x",
     "state.block_id ~= blockId"
