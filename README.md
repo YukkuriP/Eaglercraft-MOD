@@ -89,6 +89,23 @@ The display is restricted to the fixed telemetry key/type allow-list and recheck
 
 The consumer cannot create a real data source. A separate Zeus provider must explicitly register genuine readers for block IDs it can legitimately inspect. Static Java field names remain hints and are never treated as runtime values. Reports are `machine-gui-live-binding-plan.json` and `diagnostics/machine-gui-live-binding-plan.json`; the generated Lua consumer is `diagnostics/machine-gui-live-binding.lua`. No in-game runtime test is implied by static checks.
 
+## Machine-state provider SDK and event bridge (Phase 23)
+
+`machine-state-provider-sdk.js` generates a separate companion-provider template ZIP. Its ID is derived from the analyzed MOD ID with the `_state_provider` suffix, and the Phase 22 telemetry screen is prefilled with that same ID. The companion package contains `metadata.json` and `main.lua`; its report and standalone Lua source are also exported under `diagnostics/machine-state-provider-sdk-*`.
+
+The generated provider is deliberately empty. It does not register any block reader, invent progress/energy/temperature values, or read arbitrary Java BlockEntity/NBT internals. It provides two explicit integration paths for real, supported sources:
+
+- **Callback reader:** call the template's local `registerMachineReader(blockId, declaredKeys, reader)` for a namespaced block ID. The callback must obtain those values from state that the provider MOD legitimately owns or can read.
+- **Event reader:** call `registerEventReader(blockId, declaredKeys)`. A source Zeus MOD that owns the data can publish `jar2zeus.machine-state-event.v1` using `events.emit`; the provider listens with `on`, validates the payload, and keeps a bounded short-lived cache.
+
+Both paths enforce declared telemetry keys and primitive types. Coordinates, block IDs, reader count, cache size and age, and numeric ranges are bounded. The registry remains local to the provider; other MODs can only call the exported `read_machine_state` function. The exported event name lets an explicit producer obtain the channel through `mods.get(providerId)`.
+
+**Important trust boundary:** custom MOD events are a transport, not authentication. The `source_id` field is self-asserted and does not prove the origin or truth of a value. The provider template contains no automatic source integration. A Java class/field name found in a JAR is only a static hint; it is not a live data source. The package validator requires the provider SDK report and matching provider IDs, and rejects claims that source readers or verified values were created automatically.
+
+The generated companion ZIP is a development starter, not a finished machine-state integration. Register an actual source and test it in the exact Zeus 26.2/26.3 client before expecting live values. The synthetic tests do not replace an in-game test.
+
+Official API references: [Share code with other mods](https://dev.eaglercraft.com/docs/modding/packaging), [Events and timers](https://dev.eaglercraft.com/docs/modding/events-and-timers), [API reference](https://dev.eaglercraft.com/docs/modding/api).
+
 Official API references: [API reference](https://dev.eaglercraft.com/docs/modding/api), [Screens and menus](https://dev.eaglercraft.com/docs/modding/screens), [Share code with other mods](https://dev.eaglercraft.com/docs/modding/packaging).
 
 ## JVMバイトコード構造検証

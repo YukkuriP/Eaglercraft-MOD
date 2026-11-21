@@ -229,8 +229,8 @@ function validPackageInput() {
     },
     adapterReport: { schema: "jar2zeus.pipeline.v1", adapters: [] },
     apiValidation: { schema: "jar2zeus.zeus-api-validation.v1", valid: true, requiredApis: [] },
-    packageFiles: [{ path: "metadata.json", size: 0 }, { path: "main.lua", size: 0 }],
-    packageLimits: { files: 2, bytes: 0, maxFiles: 4096, maxBytes: 64 * 1024 * 1024 },
+    packageFiles: [{ path: "metadata.json", size: 0 }, { path: "main.lua", size: 0 }, { path: "machine-state-provider-sdk-plan.json", size: 0 }],
+    packageLimits: { files: 3, bytes: 0, maxFiles: 4096, maxBytes: 64 * 1024 * 1024 },
     packageSkipped: [],
     runtimeTested: true,
     gameplayVerified: true,
@@ -280,9 +280,19 @@ function validPackageInput() {
       sourceValuesIndependentlyVerified: false,
       worldWritesPerformed: false,
       sourceCallbacksRegistered: 0,
+      providerContract: { providerModId: "test_mod_state_provider" },
       totals: { candidateBindingsReported: 0 }
     },
     machineGuiLiveBindingFileCount: 1,
+    machineStateProviderSdk: {
+      schema: "jar2zeus.machine-state-provider-sdk.v1",
+      provider: { id: "test_mod_state_provider", name: "Test Provider" },
+      contract: { schema: "jar2zeus.machine-state-provider.v1", apiVersion: 1, eventSchema: "jar2zeus.machine-state-event.v1", exportName: "read_machine_state" },
+      readerRegistrationsGenerated: 0, eventReaderRegistrationsGenerated: 0,
+      realSourceReadersRegistered: false, valuesConnected: false,
+      sourceValuesIndependentlyVerified: false, arbitraryJavaBlockEntityAccess: false
+    },
+    machineStateProviderSdkFileCount: 1,
     reimplementation: {
       schema: "jar2zeus.reimplementation.v1",
       methodsPending: 0,
@@ -331,4 +341,29 @@ test("package validator accepts an explicitly disconnected empty binding report"
   assert.equal(result.conversionComplete, true);
   assert.equal(result.runtimeTested, true);
   assert.equal(result.gameplayVerified, true);
+});
+
+test("package validator requires the provider SDK package and report", () => {
+  const input = validPackageInput();
+  delete input.machineStateProviderSdk;
+  const result = packageValidator.validate(input);
+  assert.equal(result.valid, true);
+  assert.equal(result.conversionComplete, false);
+  assert.ok(result.warnings.some(message => message.includes("Machine-state provider SDK package/report is missing")));
+});
+
+test("package validator rejects provider templates claiming a real reader exists", () => {
+  const input = validPackageInput();
+  input.machineStateProviderSdk.readerRegistrationsGenerated = 1;
+  const result = packageValidator.validate(input);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some(message => message.includes("incorrectly claims that readers")));
+});
+
+test("package validator requires the same provider ID in SDK and GUI consumer", () => {
+  const input = validPackageInput();
+  input.machineStateProviderSdk.provider.id = "different_provider";
+  const result = packageValidator.validate(input);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some(message => message.includes("provider ID does not match")));
 });
