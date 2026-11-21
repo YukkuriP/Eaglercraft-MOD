@@ -126,7 +126,7 @@ function analyze(input,options){
   if(!safe(name)||!safe(path))continue;
   classInfoMap.set(name,{info,path});
  }
- const getters=[],unmapped=[],metricSummary=[];
+ const getters=[],unmapped=[],metricSummary=[],mappedMetricsAll=new Set(),getterMetricCounts=new Map();
  let gettersSeen=0,signatureCandidates=0,verifiedCandidates=0,directReadLinks=0,methodsSkipped=0,methodsWithDecodeErrors=0;
  for(const className of limitedClasses){
   const holder=classInfoMap.get(className);
@@ -168,6 +168,7 @@ function analyze(input,options){
    }
    if(!matchedFields.length)continue;
    gettersSeen++;
+   for(const match of matchedFields){mappedMetricsAll.add(match.metric);getterMetricCounts.set(match.metric,(getterMetricCounts.get(match.metric)||0)+1);}
    const code=method.code||null;
    const decoded=!!(code&&Array.isArray(code.instructions)&&!code.decodeError);
    const verificationValid=!!(code&&code.verification&&code.verification.valid===true);
@@ -199,15 +200,14 @@ function analyze(input,options){
    if(getters.length<limit)getters.push(row);
   }
  }
- const mappedMetrics=new Set(getters.flatMap(row=>row.fieldMatches.map(field=>field.metric)));
  for(const metric of Array.from(metricSet).sort()){
   metricSummary.push({
    metric,providerKey:METRIC_KEYS[metric],
-   fieldCandidates:(rawFields.filter(row=>row&&row.metric===metric&&row.source!=="gui-control")).length,
-   getterCandidates:getters.filter(row=>row.fieldMatches.some(field=>field.metric===metric)).length,
-   mappedToGetter:mappedMetrics.has(metric)
+   fieldCandidates:allFieldCandidates.filter(row=>row.metric===metric).length,
+   getterCandidates:getterMetricCounts.get(metric)||0,
+   mappedToGetter:mappedMetricsAll.has(metric)
   });
-  if(!mappedMetrics.has(metric))unmapped.push(metric);
+  if(!mappedMetricsAll.has(metric))unmapped.push(metric);
  }
  const report={
   schema:"jar2zeus.machine-state-source-analysis.v1",
