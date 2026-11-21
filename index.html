@@ -322,7 +322,7 @@ $("build").onclick=async function(){
    }catch(guiAssetError){guiAsset.status="read-error";recordPackageSkip(guiAsset.sourcePath,"GUI texture read failed");}
   }
   jarReport.machine_gui_conversion=machineGuiConversion.report;
-  addPackageFile("machine-gui-conversion-plan.json",JSON.stringify(machineGuiConversion.report,null,2),true);
+  if(!addPackageFile("machine-gui-conversion-plan.json",JSON.stringify(machineGuiConversion.report,null,2),true))throw Error("machine-gui-conversion-plan.jsonをZIPへ追加できません");
  addPackageFile("reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2),true);
  addPackageFile("generic-analysis.json",JSON.stringify(jarReport.generic_analysis,null,2),true);
  addPackageFile("conversion-assessment.json",JSON.stringify(jarReport.generic_analysis.migrationAssessment,null,2),true);
