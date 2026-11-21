@@ -212,3 +212,11 @@ Zeus側は `main.lua` をMOD読み込み時に一度だけ先頭から実行し�
 現段階は**静的解析と移植タスク生成まで**です。数値の実行時値、単位、符号規約、ネットワーク接続トポロジー、エネルギー損失、転送順序、Tickタイミング、レッドストーン条件は復元しません。似た名前のAPIを見つけただけでZeus側の動作へ自動置換したり、発電・蓄電・動力ネットワークが動くと判定したりはしません。未解決の動力系クラス・操作・フィールド・メソッドが残るパッケージは `conversionComplete=false` となります。
 
 出力は `machine-power-systems.json` と `diagnostics/machine-power-systems.json` です。静的テストはZeus 26.2 / 26.3上での発電・蓄電・エネルギー転送・動力ネットワークの動作を証明しません。実ゲームでの検証は別途必要です。
+
+## アイテム・液体・エネルギー輸送ネットワーク解析
+
+`transport-networks.js` は、搬送・配管・タンク・ポンプ・コンベア・接続ノード等のクラス名、親クラス、インターフェース、descriptor、フィールド、バイトコード呼び出しから、アイテム／液体／エネルギーの輸送候補とネットワーク操作を抽出します。Forge系の `IItemHandler`／`IFluidHandler`、Fabric Transfer APIの `Storage`／`ItemVariant`／`FluidVariant`、NeoForgeの `ResourceHandler`／`ItemResource`／`FluidResource` 系を別のAPI系列として記録します。NeoForgeの `EnergyHandler` は汎用リソースハンドラーと区別します。クラス継承をたどってMOD内の独自実装も候補に含め、元クラス・API owner・メソッド・descriptor・PC・根拠・未変換状態を保持します。詳細配列は各最大5,000件です。
+
+現段階は**静的解析と移植タスク生成まで**です。接続形状、隣接ブロック探索、面ごとの接続可否、フィルター、搬送優先度、実転送量、転送速度、経路探索、トランザクション確定条件、チャンク境界、Tick順序は復元しません。Fabricの汎用StorageやNeoForgeの型付きResourceHandlerを、型情報なしに特定の資源種別と断定もしません。検出された候補をZeus用のパイプ・ポンプ・コンベア・ネットワークとして自動実装したとは扱わず、未解決のクラス・API参照・操作・フィールド・メソッドが残るパッケージは `conversionComplete=false` となります。
+
+出力は `transport-networks.json` と `diagnostics/transport-networks.json` です。静的解析はZeus 26.2／26.3上での搬送速度・接続・フィルター・永続化・同期を証明しません。実ゲームでの検証は別途必要です。
