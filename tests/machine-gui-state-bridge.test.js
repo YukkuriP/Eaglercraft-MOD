@@ -149,6 +149,22 @@ test("validator accepts explicit read-only and unconnected state bridge status",
   assert.equal(result.conversionComplete, true);
 });
 
+test("validator keeps observed machine telemetry candidates incomplete", () => {
+  const input = validatorInput();
+  input.machineGuiStateBridgeFileCount = 1;
+  input.machineGuiStateBridge = {
+    schema: "jar2zeus.machine-gui-state-bridge.v1",
+    machineValuesConnected: false,
+    runtimeValuesRecovered: false,
+    worldWritesPerformed: false,
+    totals: { machineClasses: 1, fieldsObserved: 2, operationCandidates: 1 }
+  };
+  const result = validator.validate(input);
+  assert.equal(result.valid, true);
+  assert.equal(result.conversionComplete, false);
+  assert.ok(result.warnings.some(w => w.includes("machine-state evidence candidates remain disconnected")));
+});
+
 test("validator rejects claims that machine values are already connected or recovered", () => {
   const input = validatorInput();
   input.machineGuiStateBridgeFileCount = 1;
