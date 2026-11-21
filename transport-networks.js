@@ -223,7 +223,7 @@ function analyze(input,options){
   const isNetwork=ev.network||NETWORK_CONTEXT_RE.test(hints);
   const isBuffer=/(?:tank|reservoir|buffer|storage|accumulator|container)/i.test(hints)||ev.fieldEvidence.some(f=>/(?:capacity|amount|stored|buffer)/i.test(String(f.name||"")));
   const record={sourcePath:path,className:name,superName:info.superName||null,interfaces:(info.interfaces||[]).map(norm),inheritanceChain:parentChain,resourceKinds:Array.from(kinds),apiOwners:ev.apiOwners,networkNodeCandidate:isNetwork,bufferOrTankCandidate:isBuffer,adapterStatus:"unmapped",runtimeTopologyRecovered:false};
-  systems.push(record);report.totals.transportClasses++;
+  if(systems.length<limit)systems.push(record);report.totals.transportClasses++;
   if(kinds.has("item"))report.totals.itemTransportClasses++;
   if(kinds.has("fluid"))report.totals.fluidTransportClasses++;
   if(kinds.has("energy"))report.totals.energyTransportClasses++;
@@ -272,7 +272,7 @@ function analyze(input,options){
  report.totals.apiReferences=apiSeen;report.totals.fieldsObserved=fieldSeen;report.totals.fieldsReported=fields.length;
  report.totals.methodsObserved=methodSeen;report.totals.methodsReported=methods.length;
  report.totals.operationsObserved=opSeen;report.totals.operationsReported=operations.length;
- report.totals.detailsTruncated=opSeen>operations.length||fieldSeen>fields.length||methodSeen>methods.length||apiSeen>apiRefs.length;
+ report.totals.detailsTruncated=opSeen>operations.length||fieldSeen>fields.length||methodSeen>methods.length||apiSeen>apiRefs.length||report.totals.transportClasses>systems.length;
  if(systems.length||opSeen||fieldSeen||methodSeen)report.status="manual-transport-system-port-required";
  const taskMap=new Map();
  for(const op of operations){
