@@ -65,6 +65,7 @@ const ENERGY_KEY_RE=/(?:energy|power|rf|fe|joule|consumption|usage|cost)/i;
 const FUEL_KEY_RE=/(?:fuel|burn|combustion)/i;
 const DURATION_KEY_RE=/(?:process|processing|cook|work|duration|time|ticks|progress)/i;
 const CONDITION_KEY_RE=/(?:condition|conditions|requirement|requirements|temperature|pressure|heat|redstone|environment|biome|dimension|catalyst|fuel|minimum|maximum)/i;
+const PROCESS_RECIPE_HINT_RE=/(?:processing|process|energy|power|fuel|burn|byproduct|secondary|residue|waste|fluid|chemical|gas|catalyst|temperature|pressure|heat|progress)/i;
 const VANILLA_RECIPE_TYPE_RE=/^minecraft:(?:crafting_shaped|crafting_shapeless|smelting|blasting|smoking|campfire_cooking|stonecutting|smithing_transform|smithing_trim|crafting_transmute)$/;
 function norm(v){return typeof v==="string"?v.replace(/\\./g,"/").replace(/^L|;$/g,""):"";}
 function blocked(v){return BLOCKED.test(String(v||""));}
@@ -216,7 +217,8 @@ function analyze(input,options){
   function walk(value,keyPath,depth){
    nodes++;if(nodes>4000||depth>12||fieldsFound.length>=200)return;
    if(value==null)return;
-   const leaf=keyPath.split(".").pop().replace(/\[\d+\]$/,"").toLowerCase();
+   const leafRaw=keyPath.split(".").pop().replace(/\[\d+\]$/,"");
+   const leaf=leafRaw.replace(/([a-z0-9])([A-Z])/g,"$1_$2").toLowerCase();
    if(INPUT_KEY_RE.test(leaf)||/(?:^|\.)(?:ingredient|ingredients|input|inputs)(?:\.|$)/i.test(keyPath)){
     counts.inputs++;
     if(FLUID_KEY_RE.test(keyPath))counts.fluidInputs++;
@@ -243,9 +245,9 @@ function analyze(input,options){
   const typeHint=!!type&&MACHINE_NAME_RE.test(type);
   const processFields=fieldsFound.length>0;
   const multiResource=counts.fluidInputs>0||counts.fluidOutputs>0||counts.chemicalOrGasInputs>0;
-  const machineCandidate=(customType&&(pathHint||typeHint||processFields||multiResource||counts.energy>0||counts.fuel>0||counts.byproducts>0))||
-    pathHint||typeHint||multiResource||counts.energy>0||counts.fuel>0||counts.byproducts>0||
-    fieldsFound.some(f=>/(?:processing|process|cooktime|duration|energy|power|fuel|temperature|pressure|byproduct|secondary)/i.test(f));
+  const processFieldCandidate=fieldsFound.some(f=>PROCESS_RECIPE_HINT_RE.test(f));
+  const machineCandidate=(customType&&(pathHint||typeHint||processFieldCandidate||multiResource||counts.energy>0||counts.fuel>0||counts.byproducts>0))||
+    pathHint||typeHint||multiResource||counts.energy>0||counts.fuel>0||counts.byproducts>0||processFieldCandidate;
   if(VANILLA_RECIPE_TYPE_RE.test(type||""))report.totals.vanillaRecipeDefinitions++;else if(customType)report.totals.customRecipeDefinitions++;
   if(machineCandidate)report.totals.machineRecipeCandidates++;
   report.totals.recipeDefinitionsObserved++;
@@ -269,7 +271,10 @@ function analyze(input,options){
  report.totals.recipesReported=recipeDetails.length;
  report.totals.operationsObserved=operationsSeen;report.totals.operationsReported=operations.length;
  report.totals.fieldsObserved=Math.max(report.totals.fieldsObserved,fieldsSeen);report.totals.fieldsReported=fields.length;
- report.totals.detailsTruncated=operationsSeen>operations.length||fieldsSeen>fields.length||classesSeen>recipeClasses.length+machineClasses.length+serializers.length+types.length||report.totals.machineRecipeCandidates>recipeDetails.length;
+ report.totals.detailsTruncated=operationsSeen>operations.length||fieldsSeen>fields.length||
+  report.totals.recipeRelatedClasses>recipeClasses.length||report.totals.machineProcessorClasses>machineClasses.length||
+  report.totals.recipeSerializerClasses>serializers.length||report.totals.recipeTypeClasses>types.length||
+  report.totals.recipeDefinitionsObserved>recipeDetails.length;
  if(report.totals.recipeRelatedClasses||report.totals.machineProcessorClasses||report.totals.recipeDefinitionsObserved||report.totals.operationsObserved||report.totals.fieldsObserved)report.status="manual-machine-process-port-required";
  if(report.totals.recipeDefinitionsObserved||report.totals.recipeRelatedClasses)report.migrationTasks.push({area:"recipe-definition-and-serializer",status:"unmapped",requiredWork:"Map the exact recipe type/serializer schema, item and fluid ingredients, result templates, recipe lookup and matching rules."});
  if(report.totals.machineProcessorClasses||report.totals.machineRecipeCandidates)report.migrationTasks.push({area:"machine-processing-state",status:"unmapped",requiredWork:"Implement input validation, progress/tick updates, duration, fuel/energy use, completion and cancellation semantics."});
