@@ -83,9 +83,10 @@ function classRecipeEvidence(name,info){
  const processFields=(info.fields||[]).filter(f=>PROCESS_FIELD_RE.test(String(f&&f.name||"")));
  const nameHint=MACHINE_NAME_RE.test(name);
  const recipeName=/(?:recipe|serializer|recipetype|ingredient)/i.test(name);
- const serializerClass=/(?:serializer|codec)/i.test(name)||owners.some(o=>/RecipeSerializer/.test(o));
- const recipeTypeClass=/(?:RecipeType|recipe_type)/i.test(name)||owners.some(o=>/RecipeType$/.test(o));
- const recipeImplementationOwner=owners.some(o=>o==="net/minecraft/world/item/crafting/Recipe"||o==="net/minecraft/world/item/crafting/RecipeInput"||o==="net/minecraft/world/item/crafting/SingleRecipeInput"||o==="net/minecraft/world/item/crafting/CraftingInput");
+ const parents=[norm(info.superName||""),...(info.interfaces||[]).map(norm)];
+ const serializerClass=/(?:recipe)?serializer$/i.test(name)||/RecipeCodec$/i.test(name)||parents.some(o=>o==="net/minecraft/world/item/crafting/RecipeSerializer");
+ const recipeTypeClass=/(?:RecipeTypes?|recipe_type)$/i.test(name)||parents.some(o=>o==="net/minecraft/world/item/crafting/RecipeType");
+ const recipeImplementationOwner=parents.some(o=>o==="net/minecraft/world/item/crafting/Recipe"||o==="net/minecraft/world/item/crafting/RecipeInput"||o==="net/minecraft/world/item/crafting/SingleRecipeInput"||o==="net/minecraft/world/item/crafting/CraftingInput");
  const recipeClass=recipeImplementationOwner||(!serializerClass&&!recipeTypeClass&&recipeName)||recipeMethodCount>=2;
  const machineClass=!recipeClass&&!serializerClass&&!recipeTypeClass&&((nameHint&&(processMethodCount>0||processFields.length>0))||
    processFields.some(f=>/(?:progress|process|cook|burn|fuel|energyusage|byproduct)/i.test(String(f.name||"")))&&processMethodCount>0);
@@ -220,7 +221,7 @@ function analyze(input,options){
    if(value==null)return;
    const leafRaw=keyPath.split(".").pop();
    const leaf=leafRaw.replace(/([a-z0-9])([A-Z])/g,"$1_$2").toLowerCase();
-   if(INPUT_KEY_RE.test(leaf)||/(?:^|\.)(?:ingredient|ingredients|input|inputs)(?:\.|$)/i.test(keyPath)){
+   if(INPUT_KEY_RE.test(leaf)){
     counts.inputs++;
     if(FLUID_KEY_RE.test(keyPath))counts.fluidInputs++;
     else if(GAS_KEY_RE.test(keyPath))counts.chemicalOrGasInputs++;
