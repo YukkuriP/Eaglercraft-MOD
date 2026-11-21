@@ -191,3 +191,14 @@ test("does not treat a PUTFIELD in an instruction window beyond the cap as obser
   assert.equal(report.writerMethods.length, 0);
   assert.equal(report.totals.writerMethodsObserved, 0);
 });
+
+test("propagates upstream Phase 25 field-candidate truncation", () => {
+  const input = data([method("setProgress", "()V", [
+    ins("aload_0"), ins("iconst_1"), ins("putfield", { member: field("progress") }), ins("return")
+  ])]);
+  input.sourceAnalysis.totals = { fieldCandidatesSeen: 50 };
+  const report = analyzer.analyze(input);
+  assert.equal(report.totals.fieldCandidatesSeen, 50);
+  assert.equal(report.totals.sourceFieldCandidatesOmitted, 48);
+  assert.equal(report.totals.detailsTruncated, true);
+});
