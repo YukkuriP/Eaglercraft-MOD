@@ -102,11 +102,11 @@ function analyze(input,options){
   const row={sourceClass:owner,fieldName,fieldDescriptor:desc||null,metric:f.metric||null,providerKey:f.providerKey||null,evidenceSource:f.evidenceSource||null};
   const k=key(owner,fieldName,desc);
   if(!fieldMap.has(k))fieldMap.set(k,[]);
-  fieldMap.get(k).push(row);
+  const pushUnique=(mapKey)=>{if(!fieldMap.has(mapKey))fieldMap.set(mapKey,[]);if(!fieldMap.get(mapKey).some(existing=>existing.metric===row.metric&&existing.providerKey===row.providerKey))fieldMap.get(mapKey).push(row);};
+  pushUnique(k);
   const loose=key(owner,fieldName,"");
-  if(!fieldMap.has(loose))fieldMap.set(loose,[]);
-  fieldMap.get(loose).push(row);
-  fieldRows.push(row);classNames.add(owner);if(f.metric)metrics.add(f.metric);fieldsSeen++;
+  if(loose!==k)pushUnique(loose);
+  if(!fieldRows.some(existing=>key(existing.sourceClass,existing.fieldName,existing.fieldDescriptor)===k&&existing.metric===row.metric&&existing.providerKey===row.providerKey))fieldRows.push(row);classNames.add(owner);if(f.metric)metrics.add(f.metric);fieldsSeen++;
  }
  const limitedNames=Array.from(classNames).slice(0,MAX_CLASSES);
  const classMap=new Map();
@@ -157,9 +157,11 @@ function analyze(input,options){
   if(row.fieldWrites.length){
    writesObserved+=row.writeInstructionCount;
    for(const write of row.fieldWrites){
-    const k=key(write.fieldOwner,write.fieldName,write.fieldDescriptor);
+    const k=key(write.fieldOwner,write.fieldName,write.fieldDescriptor),loose=key(write.fieldOwner,write.fieldName,"");
     if(!writesByField.has(k))writesByField.set(k,[]);
-    writesByField.get(k).push(row);
+    if(!writesByField.get(k).some(existing=>existing.methodId===row.methodId))writesByField.get(k).push(row);
+    if(!writesByField.has(loose))writesByField.set(loose,[]);
+    if(!writesByField.get(loose).some(existing=>existing.methodId===row.methodId))writesByField.get(loose).push(row);
    }
    allWrites.push(row);
   }
@@ -173,7 +175,7 @@ function analyze(input,options){
  const fieldSummaries=[];
  for(const f of fieldRows.slice(0,MAX_FIELDS)){
   const k=key(f.sourceClass,f.fieldName,f.fieldDescriptor);
-  const writers=writesByField.get(k)||[];
+  const writers=writesByField.get(k)||writesByField.get(key(f.sourceClass,f.fieldName,""))||[];
   const uniqueWriters=Array.from(new Map(writers.map(w=>[w.methodId,w])).values());
   const roles=Array.from(new Set(uniqueWriters.map(w=>w.role.role)));
   fieldSummaries.push({
