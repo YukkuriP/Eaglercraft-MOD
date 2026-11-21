@@ -99,7 +99,7 @@ function analyze(input,options){
  const limit=limitOf(options.detailLimit),classes=Array.isArray(input.classes)?input.classes:[],recipes=Array.isArray(input.recipes)?input.recipes:[];
  const report={schema:"jar2zeus.machine-process-analysis.v1",status:"no-machine-process-evidence",supportStatus:"static-analysis-and-migration-plan-only",detailLimit:limit,
  totals:{classesSeen:classes.length,classesAnalyzed:0,restrictedClassesSkipped:0,recipeRelatedClasses:0,machineProcessorClasses:0,recipeImplementationClasses:0,recipeSerializerClasses:0,recipeTypeClasses:0,recipeLookupClasses:0,recipeJsonFilesSeen:recipes.length,recipeJsonParsed:0,recipeJsonInvalid:0,recipeJsonReadErrors:0,recipeDefinitionsObserved:0,machineRecipeCandidates:0,vanillaRecipeDefinitions:0,customRecipeDefinitions:0,recipeInputsObserved:0,itemInputCandidates:0,fluidInputCandidates:0,chemicalOrGasInputCandidates:0,recipeOutputsObserved:0,itemOutputCandidates:0,fluidOutputCandidates:0,byproductCandidates:0,processingDurationCandidates:0,energyRequirementCandidates:0,fuelRequirementCandidates:0,conditionCandidates:0,operationsObserved:0,operationsReported:0,fieldsObserved:0,fieldsReported:0,classesReported:0,recipesReported:0,detailsTruncated:false},
- recipeClasses:[],machineClasses:[],serializerClasses:[],recipeTypes:[],recipes:[],operations:[],fields:[],migrationTasks:[],limitations:[
+ recipeClasses:[],machineClasses:[],serializerClasses:[],recipeTypes:[],recipes:[],recipeParseIssues:[],operations:[],fields:[],migrationTasks:[],limitations:[
  "Recipe files are parsed as data, but their custom serializer schemas and code-defined matching rules are not executed.",
  "RecipeType, RecipeSerializer, RecipeInput, matches, assemble and RecipeManager calls are recorded as static candidates; names do not prove their runtime behavior.",
  "Processing duration, progress, fuel and energy requirements may be stored in JSON, code constants, configuration, or runtime state; absence from a recipe file is not proof that a machine has no requirement.",
@@ -186,7 +186,12 @@ function analyze(input,options){
    }
   }
  }
- const recipeDetails=[];
+ const recipeDetails=[],recipeParseIssues=[];
+ let recipeParseIssuesObserved=0;
+ function addParseIssue(path,reason){
+  recipeParseIssuesObserved++;
+  if(recipeParseIssues.length<limit)recipeParseIssues.push({sourcePath:path,reason});
+ }
  function addCounter(key,n){report.totals[key]+=n;}
  function collectIds(value,path,out,seen,depth){
   if(depth>10||out.length>=100)return;
@@ -205,12 +210,12 @@ function analyze(input,options){
   if(blocked(path))return;
   const match=path.match(RECIPE_PATH);
   if(!match)return;
-  if(entry&&entry.readError){report.totals.recipeJsonReadErrors++;return;}
+  if(entry&&entry.readError){report.totals.recipeJsonReadErrors++;addParseIssue(path,entry.readErrorReason||"read-error");return;}
   const id=match[1]+":"+match[2];
   let data;
   try{data=typeof entry.content==="string"?JSON.parse(entry.content):entry.json&&typeof entry.json==="object"?entry.json:null;}
-  catch(e){report.totals.recipeJsonInvalid++;return;}
-  if(!data||typeof data!=="object"||Array.isArray(data)){report.totals.recipeJsonInvalid++;return;}
+  catch(e){report.totals.recipeJsonInvalid++;addParseIssue(path,"invalid-json");return;}
+  if(!data||typeof data!=="object"||Array.isArray(data)){report.totals.recipeJsonInvalid++;addParseIssue(path,"not-a-json-object");return;}
   report.totals.recipeJsonParsed++;
   const type=typeof data.type==="string"?data.type:null;
   const customType=!!type&&!VANILLA_RECIPE_TYPE_RE.test(type);
@@ -271,7 +276,7 @@ function analyze(input,options){
   if(recipeDetails.length<limit)recipeDetails.push({sourcePath:path,recipeId:id,type,classification:machineCandidate?"machine-processing-candidate":customType?"custom-recipe":"general-recipe",machineCandidate,counts,fieldPaths:fieldsFound.slice(0,100),numericCandidates:numericValues.slice(0,100),resourceIdentifiers:resourceIds.slice(0,100),analysisNodes:Math.min(nodes,4000),truncated:walkTruncated||fieldPathsTruncated});
  }
  for(const recipe of recipes)inspectRecipe(recipe);
- report.recipeClasses=recipeClasses;report.machineClasses=machineClasses;report.serializerClasses=serializers;report.recipeTypes=types;report.recipes=recipeDetails;report.operations=operations;report.fields=fields;
+ report.recipeClasses=recipeClasses;report.machineClasses=machineClasses;report.serializerClasses=serializers;report.recipeTypes=types;report.recipes=recipeDetails;report.recipeParseIssues=recipeParseIssues;report.operations=operations;report.fields=fields;
  report.totals.classesReported=recipeClasses.length+machineClasses.length+serializers.length+types.length;
  report.totals.recipesReported=recipeDetails.length;
  report.totals.operationsObserved=operationsSeen;report.totals.operationsReported=operations.length;
@@ -279,8 +284,9 @@ function analyze(input,options){
  report.totals.detailsTruncated=operationsSeen>operations.length||fieldsSeen>fields.length||
   report.totals.recipeRelatedClasses>recipeClasses.length||report.totals.machineProcessorClasses>machineClasses.length||
   report.totals.recipeSerializerClasses>serializers.length||report.totals.recipeTypeClasses>types.length||
-  report.totals.recipeDefinitionsObserved>recipeDetails.length;
- if(report.totals.recipeRelatedClasses||report.totals.machineProcessorClasses||report.totals.recipeDefinitionsObserved||report.totals.operationsObserved||report.totals.fieldsObserved)report.status="manual-machine-process-port-required";
+  report.totals.recipeDefinitionsObserved>recipeDetails.length||recipeParseIssuesObserved>recipeParseIssues.length;
+ if(report.totals.recipeRelatedClasses||report.totals.machineProcessorClasses||report.totals.recipeDefinitionsObserved||report.totals.recipeJsonInvalid||report.totals.recipeJsonReadErrors||report.totals.operationsObserved||report.totals.fieldsObserved)report.status="manual-machine-process-port-required";
+ if(report.totals.recipeJsonInvalid||report.totals.recipeJsonReadErrors)report.migrationTasks.push({area:"recipe-json-review",status:"blocked",requiredWork:"Review each file listed in recipeParseIssues; invalid or unreadable recipe JSON cannot be treated as converted."});
  if(report.totals.recipeDefinitionsObserved||report.totals.recipeRelatedClasses)report.migrationTasks.push({area:"recipe-definition-and-serializer",status:"unmapped",requiredWork:"Map the exact recipe type/serializer schema, item and fluid ingredients, result templates, recipe lookup and matching rules."});
  if(report.totals.machineProcessorClasses||report.totals.machineRecipeCandidates)report.migrationTasks.push({area:"machine-processing-state",status:"unmapped",requiredWork:"Implement input validation, progress/tick updates, duration, fuel/energy use, completion and cancellation semantics."});
  if(report.totals.byproductCandidates||report.totals.fluidInputCandidates||report.totals.fluidOutputCandidates||report.totals.chemicalOrGasInputCandidates)report.migrationTasks.push({area:"secondary-and-fluid-products",status:"unmapped",requiredWork:"Implement fluid/chemical units, secondary output chance, residue and multi-output routing."});
