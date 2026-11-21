@@ -1,0 +1,26 @@
+name: Node test suite
+
+on:
+  push:
+    branches: [main, phase-31-cross-block-dataflow]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run tests
+        run: >-
+          node --test
+          tests/index-smoke.test.js
+          tests/machine-state-control-flow.test.js
+          tests/machine-state-condition-operands.test.js
+          tests/machine-state-cross-block-dataflow.test.js

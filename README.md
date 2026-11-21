@@ -171,6 +171,16 @@ This is intentionally not a JVM interpreter. Each basic block is analyzed indepe
 
 The plan is exported as `machine-condition-operands-plan.json` and `diagnostics/machine-condition-operands-plan.json`.
 
+## Machine condition cross-block data-flow analysis (Phase 31)
+
+`machine-state-cross-block-dataflow.js` takes the branch candidates from Phase 30 and performs a bounded abstract data-flow pass over the verifier's structural CFG. It initializes `this` and method parameters from the method descriptor, transfers a conservative JVM instruction subset through each basic block, and repeatedly merges predecessor locals and operand-stack values until the bounded fixed point stabilizes. Values that agree across predecessors retain their origin; differing static origins become a bounded `merged-value` with a small set of alternatives.
+
+Normal control-flow edges carry abstract locals and stack values. Exception edges deliberately reset locals and introduce an unknown exception object. Stack-height/category mismatches, unsupported instructions, malformed CFGs, instruction/method/branch limits, and non-convergent loops remain unresolved. Loop-carried `iinc` values that have already merged become unknown rather than expanding an unbounded expression tree. Method calls remain symbolic results; the analyzer does not execute callees.
+
+**Important boundary:** this recovers only bounded *static origin evidence across CFG blocks*. A merged origin is a set of possible bytecode sources, not proof of a runtime path. The analyzer does not recover runtime values, evaluate expressions, determine branch outcomes, recover final field assignments, prove update timing, invoke Java, generate callbacks, or connect live telemetry. Exception-path state is intentionally conservative.
+
+The plan is exported as `machine-state-cross-block-dataflow-plan.json` and `diagnostics/machine-state-cross-block-dataflow-plan.json`.
+
 ## JVMバイトコード構造検証
 
 `bytecode-verifier.js` はデコード済みメソッドについて、命令バイト範囲の連続性、命令オフセットの重複・順序、分岐先とswitch分岐先の命令境界、例外テーブルの範囲、ローカル変数スロット、引数のlong/double 2スロットを含む `max_locals` 収容、戻り命令とメソッド戻り値descriptorの整合性を検査します。基本ブロック、通常分岐・switch分岐・例外辺、ループ候補、到達不能ブロックも構築します。

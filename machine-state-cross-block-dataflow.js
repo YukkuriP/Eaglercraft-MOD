@@ -39,7 +39,7 @@ function compact(v,depth){
  if(!v||typeof v!=="object")return {kind:"unknown-value"};
  if(depth>MAX_DEPTH)return {kind:"truncated-origin",category:v.category==null?null:v.category};
  const out={kind:v.kind||"unknown-value"};
- for(const k of ["pc","slot","parameterIndex","descriptor","owner","name","opcode","operator","constantKind","constantValue","constantLength","methodName","methodOwner","methodDescriptor","fieldStatic","arrayType","detail","category","reason"])if(v[k]!==undefined&&v[k]!==null)out[k]=v[k];
+ for(const k of ["pc","storedFromPc","slot","parameterIndex","descriptor","owner","name","opcode","operator","constantKind","constantValue","constantLength","methodName","methodOwner","methodDescriptor","fieldStatic","arrayType","detail","category","reason"])if(v[k]!==undefined&&v[k]!==null)out[k]=v[k];
  if(v.receiver)out.receiver=compact(v.receiver,depth+1);
  for(const k of ["operands","arguments","inputs"])if(Array.isArray(v[k]))out[k]=v[k].slice(0,MAX_ORIGINS).map(x=>compact(x,depth+1));
  return out;
@@ -124,7 +124,7 @@ function simulateBlock(instructions,block,startState,method,instructionBudget,br
   const n=String(x.name||"");const cv=constValue(x);if(cv){push(cv);continue;}
   if(LOAD.test(n)){const slot=localSlot(x),cat=n[0]==="l"||n[0]==="d"?2:1;if(!Number.isInteger(slot)||slot<0){fail("invalid-local-load");break;}push(localValue(slot,x.pc,cat));continue;}
   if(STORE.test(n)){const slot=localSlot(x),cat=n[0]==="l"||n[0]==="d"?2:1;if(!Number.isInteger(slot)||slot<0){fail("invalid-local-store");break;}const v=pop(cat,x.pc);state.locals.set(slot,origin(v.kind,Object.assign({},v,{slot,storedFromPc:v.pc,pc:x.pc,category:cat})));if(cat===2)state.locals.delete(slot+1);continue;}
-  if(n==="iinc"){const slot=Number(x.local);if(!Number.isInteger(slot)||slot<0){fail("invalid-iinc-local");break;}const cur=localValue(slot,x.pc,1);if(cur.kind==="merged-value")state.locals.set(slot,origin("unknown-value",{slot,pc:x.pc,category:1,reason:"loop-carried-iinc-merged-input"}));else state.locals.set(slot,origin("calculated-value",{pc:x.pc,operator:"iinc",operands:[cur,origin("constant",{constantKind:"integer",constantValue:Number(x.increment),descriptor:"I",category:1})],descriptor:"I",category:1}));continue;}
+  if(n==="iinc"){const slot=Number(x.local);if(!Number.isInteger(slot)||slot<0){fail("invalid-iinc-local");break;}const cur=localValue(slot,x.pc,1);if(["merged-value","calculated-value","unknown-value"].includes(cur.kind))state.locals.set(slot,origin("unknown-value",{slot,pc:x.pc,category:1,reason:"loop-carried-iinc-merged-input"}));else state.locals.set(slot,origin("calculated-value",{pc:x.pc,operator:"iinc",operands:[cur,origin("constant",{constantKind:"integer",constantValue:Number(x.increment),descriptor:"I",category:1})],descriptor:"I",category:1}));continue;}
   if(n==="nop"||n==="goto"||n==="goto_w")continue;
   if(n==="pop"){const v=pop(null,x.pc);if(v.category!==1)fail("invalid-pop-category");continue;}
   if(n==="pop2"){const a=pop(null,x.pc);if(a.category===1){const b=pop(null,x.pc);if(b.category!==1)fail("invalid-pop2-category");}else if(a.category!==2)fail("unknown-pop2-category");continue;}
@@ -137,19 +137,20 @@ function simulateBlock(instructions,block,startState,method,instructionBudget,br
    if(!t){fail("invalid-field-descriptor");break;}
    push(origin("field-read",{pc:x.pc,opcode:n,owner:clean(norm(mm.owner),180),name:clean(mm.name,100),descriptor:clean(desc,180),fieldStatic:n==="getstatic",receiver:recv,category:t.category}));continue;
   }
-  if(n==="putfield"||n==="putstatic"){pop(n==="putfield"?1:null,x.pc);pop(n==="putfield"?null:1,x.pc);continue;}
+  if(n==="putfield"){pop(null,x.pc);pop(1,x.pc);continue;}
+  if(n==="putstatic"){pop(null,x.pc);continue;}
   if(INVOKE.has(n)){
    const mm=x.member||{},desc=n==="invokedynamic"?x.dynamic&&x.dynamic.descriptor:mm.descriptor,p=parseMethod(desc);
    if(!p){fail("invalid-invocation-descriptor");break;}
-   for(let i=p.args.length-1;i>=0;i--)pop(p.args[i].category,x.pc);
+   const args=[];for(let i=p.args.length-1;i>=0;i--)args.unshift(pop(p.args[i].category,x.pc));
    let receiver=null;if(n!=="invokestatic"&&n!=="invokedynamic")receiver=pop(1,x.pc);
    const owner=mm.owner?norm(mm.owner):"<dynamic>",name=mm.name||x.dynamic&&x.dynamic.name||"invokedynamic";
    if(!safe(name)||(owner!=="<dynamic>"&&!safe(owner))){fail("unsafe-or-invalid-method-reference");break;}
-   if(p.result.kind!=="void")push(origin("method-result",{pc:x.pc,methodOwner:clean(owner,180),methodName:clean(name,100),methodDescriptor:clean(desc,180),receiver,descriptor:p.result.descriptor,category:p.result.category}));
+   if(p.result.kind!=="void")push(origin("method-result",{pc:x.pc,methodOwner:clean(owner,180),methodName:clean(name,100),methodDescriptor:clean(desc,180),receiver,arguments:args,descriptor:p.result.descriptor,category:p.result.category}));
    continue;
   }
-  if(BINARY.has(n)){const cat=n[0]==="l"||n[0]==="d"?2:1,a=pop(cat,x.pc),b=pop(cat,x.pc),desc=cat===2?(n[0]==="l"?"J":"D"):(n[0]==="f"?"F":"I");push(origin("calculated-value",{pc:x.pc,operator:n,operands:[b,a],descriptor:desc,category:cat}));continue;}
-  if(UNARY.has(n)){const cat=n[0]==="l"||n[0]==="d"?2:1,a=pop(null,x.pc),dest={i2l:"J",i2f:"F",i2d:"D",l2i:"I",l2f:"F",l2d:"D",f2i:"I",f2l:"J",f2d:"D",d2i:"I",d2l:"J",d2f:"F",i2b:"I",i2c:"I",i2s:"I"}[n]||(n[0]==="l"?"J":n[0]==="d"?"D":n[0]==="f"?"F":"I");push(origin("calculated-value",{pc:x.pc,operator:n,operands:[a],descriptor:dest,category:dest==="J"||dest==="D"?2:1}));continue;}
+  if(BINARY.has(n)){const shift=/^(?:ishl|ishr|iushr|lshl|lshr|lushr)$/.test(n),cat=n[0]==="l"||n[0]==="d"?2:1,right=pop(shift?1:cat,x.pc),left=pop(cat,x.pc),desc=cat===2?(n[0]==="l"?"J":"D"):(n[0]==="f"?"F":"I");push(origin("calculated-value",{pc:x.pc,operator:n,operands:[left,right],descriptor:desc,category:cat}));continue;}
+  if(UNARY.has(n)){const cat=n[0]==="l"||n[0]==="d"?2:1,a=pop(cat,x.pc),dest={i2l:"J",i2f:"F",i2d:"D",l2i:"I",l2f:"F",l2d:"D",f2i:"I",f2l:"J",f2d:"D",d2i:"I",d2l:"J",d2f:"F",i2b:"I",i2c:"I",i2s:"I"}[n]||(n[0]==="l"?"J":n[0]==="d"?"D":n[0]==="f"?"F":"I");push(origin("calculated-value",{pc:x.pc,operator:n,operands:[a],descriptor:dest,category:dest==="J"||dest==="D"?2:1}));continue;}
   if(COMPARES.has(n)){const cat=n[0]==="l"||n[0]==="d"?2:1,a=pop(cat,x.pc),b=pop(cat,x.pc);push(origin("comparison-result",{pc:x.pc,operator:n,operands:[b,a],descriptor:"I",category:1}));continue;}
   if(n==="new"){push(origin("new-object",{pc:x.pc,descriptor:clean(x.className||"",180)||null,category:1}));continue;}
   if(n==="newarray"||n==="anewarray"){const a=pop(1,x.pc);push(origin("new-array",{pc:x.pc,arrayType:n==="newarray"?"primitive":"reference",length:a,category:1}));continue;}
@@ -162,7 +163,7 @@ function simulateBlock(instructions,block,startState,method,instructionBudget,br
   if(n==="monitorenter"||n==="monitorexit"||n==="athrow"){pop(1,x.pc);continue;}
   if(CONDITIONAL.test(n)||n==="tableswitch"||n==="lookupswitch"){
    let count=1,kind="single-value-test";if(/^if_icmp/.test(n)){count=2;kind="integer-pair";}else if(/^if_acmp/.test(n)){count=2;kind="reference-pair";}else if(n==="ifnull"||n==="ifnonnull")kind="null-test";else if(n==="tableswitch"||n==="lookupswitch")kind="switch-key";
-   const operands=[];for(let i=0;i<count;i++)operands.unshift(pop(null,x.pc));
+   const operands=[];for(let i=0;i<count;i++)operands.unshift(pop(1,x.pc));
    branchTargets.push({pc:x.pc,opcode:n,branchKind:kind,operandOrigins:operands.map(v=>compact(v,0)),unknownOperandCount:operands.filter(v=>/^(?:unknown-value|unknown-stack-entry)$/.test(v.kind)).length});
    break;
   }
@@ -171,7 +172,7 @@ function simulateBlock(instructions,block,startState,method,instructionBudget,br
   fail("unsupported-opcode:"+n);break;
  }
  if(reason)return {state:{stack:[],locals:new Map(),valid:false,reason},instructionCount:count,reason};
- return {state,instructionCount,reason:null};
+ return {state,instructionCount:count,reason:null};
 }
 function unknownExceptionState(){return {stack:[origin("unknown-exception",{category:1,reason:"exception-handler-entry"})],locals:new Map(),valid:true,reason:null};}
 function analyze(input,options){
