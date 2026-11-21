@@ -185,7 +185,22 @@
    (Number(machineProcessAnalysis.totals&&machineProcessAnalysis.totals.fieldsObserved)||0):0;
   if(machineProcessPending>0)warnings.push(machineProcessPending+" recipe, processing-state, duration, fuel, energy, condition or byproduct candidates remain unmapped; machine processing must be implemented and tested.");
   if(machineProcessReportMissing)warnings.push("Machine process analysis is missing; recipe serializers and production state have not been reviewed.");
-  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing||minecraftInternalApiPending>0||minecraftInternalApiReportMissing||blockStatePending>0||blockStateReportMissing||itemInventoryPending>0||itemInventoryReportMissing||blockEntityMachineStatePending>0||blockEntityMachineStateReportMissing||machinePowerSystemsPending>0||machinePowerSystemsReportMissing||transportNetworksPending>0||transportNetworksReportMissing||machineProcessPending>0||machineProcessReportMissing;
+  const machineGuiInteraction=input.machineGuiInteraction||{};
+  const machineGuiResourceFileCount=Number(input.machineGuiResourceFileCount)||0;
+  const machineGuiReportMissing=(hasJavaClasses||machineGuiResourceFileCount>0)&&machineGuiInteraction.schema!=="jar2zeus.machine-gui-interaction.v1";
+  const machineGuiPending=machineGuiInteraction.schema==="jar2zeus.machine-gui-interaction.v1"?
+   (Number(machineGuiInteraction.totals&&machineGuiInteraction.totals.guiClasses)||0)+
+   (Number(machineGuiInteraction.totals&&machineGuiInteraction.totals.screenMenuLinks)||0)+
+   (Number(machineGuiInteraction.totals&&machineGuiInteraction.totals.operationsObserved)||0)+
+   (Number(machineGuiInteraction.totals&&machineGuiInteraction.totals.fieldsObserved)||0)+
+   (Number(machineGuiInteraction.totals&&machineGuiInteraction.totals.guiSyncOperationsObserved)||0)+
+   (Number(machineGuiInteraction.totals&&machineGuiInteraction.totals.packetReferenceSites)||0)+
+   (Number(machineGuiInteraction.totals&&machineGuiInteraction.totals.guiResourceFilesSeen)||0)+
+   (Number(machineGuiInteraction.totals&&machineGuiInteraction.totals.guiJsonReadErrors)||0)+
+   (Number(machineGuiInteraction.totals&&machineGuiInteraction.totals.guiJsonInvalid)||0):0;
+  if(machineGuiPending>0)warnings.push(machineGuiPending+" machine GUI, menu, widget, slot, interaction, asset or synchronization candidates remain unmapped; the Zeus UI and server-authoritative actions require implementation and testing.");
+  if(machineGuiReportMissing)warnings.push("Machine GUI analysis is missing; screens, menus, widgets and server synchronization have not been reviewed.");
+  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing||minecraftInternalApiPending>0||minecraftInternalApiReportMissing||blockStatePending>0||blockStateReportMissing||itemInventoryPending>0||itemInventoryReportMissing||blockEntityMachineStatePending>0||blockEntityMachineStateReportMissing||machinePowerSystemsPending>0||machinePowerSystemsReportMissing||transportNetworksPending>0||transportNetworksReportMissing||machineProcessPending>0||machineProcessReportMissing||machineGuiPending>0||machineGuiReportMissing;
   const skippedResources=(Array.isArray(recipeReport.skipped)?recipeReport.skipped.length:0)+
    (Array.isArray(recipeReport.excluded)?recipeReport.excluded.length:0)+
    (Array.isArray(definitionReport.skipped)?definitionReport.skipped.length:0)+
