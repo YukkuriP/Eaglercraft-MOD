@@ -4,7 +4,7 @@
 (function(root){
 "use strict";
 const BLOCKED=/(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i;
-const MAX_CLASSES=1000,MAX_FIELDS=3000,MAX_METHODS=12000,MAX_TOTAL_INSTRUCTIONS=300000,MAX_METHOD_INSTRUCTIONS=6000,MAX_WRITERS=6000,MAX_CALLS=10000,MAX_DETAILS=3000,MAX_READS_PER_WRITER=60,MAX_WRITES_PER_WRITER=40,MAX_CALLS_PER_WRITER=50;
+const MAX_CLASSES=1000,MAX_FIELDS=3000,MAX_METHODS=3000,MAX_TOTAL_INSTRUCTIONS=120000,MAX_METHOD_INSTRUCTIONS=6000,MAX_WRITERS=1000,MAX_CALLS=6000,MAX_DETAILS=1500,MAX_READS_PER_WRITER=20,MAX_WRITES_PER_WRITER=20,MAX_CALLS_PER_WRITER=20;
 const PERSIST=/^(?:save|load|read|write|serialize|deserialize|encode|decode|saveAdditional|loadAdditional|saveNBTData|loadNBTData|writeToNBT|readFromNBT)$/i;
 const SYNC=/^(?:sync|onDataPacket|getUpdateTag|handleUpdateTag|getUpdatePacket|sendBlockUpdated|setChanged|markDirty|notifyUpdate|sendUpdates|broadcastChanges)$/i;
 const TICK=/^(?:tick|serverTick|clientTick|tickServer|tickClient|onTick|updateTick|onLoad|neighborChanged)$/i;
@@ -188,7 +188,7 @@ function analyze(input,options){
    sourceClass:f.sourceClass,fieldName:f.fieldName,fieldDescriptor:f.fieldDescriptor,
    metric:f.metric,providerKey:f.providerKey,evidenceSource:f.evidenceSource,
    writerMethodCount:uniqueWriters.length,writeInstructionCount:uniqueWriters.reduce((n,w)=>n+w.fieldWrites.filter(x=>x.fieldName===f.fieldName&&x.fieldOwner===f.sourceClass).length,0),
-   writerRoles:roles,writerMethods:uniqueWriters.slice(0,24).map(w=>({methodName:w.methodName,methodDescriptor:w.methodDescriptor,role:w.role,structuralVerificationValid:w.structuralVerificationValid,callerCount:w.internalCallerCount,calleeCount:w.internalCalleeCount})),
+   writerRoles:roles,writerMethods:uniqueWriters.slice(0,12).map(w=>({methodName:w.methodName,methodDescriptor:w.methodDescriptor,role:w.role,structuralVerificationValid:w.structuralVerificationValid,callerCount:w.internalCallerCount,calleeCount:w.internalCalleeCount})),
    updatePathStatus:uniqueWriters.length?"static-write-sites-found":"no-exact-write-site-found"
   });
  }
