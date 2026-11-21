@@ -166,6 +166,8 @@ The plan is exported as `machine-state-write-trace-plan.json` and `diagnostics/m
 - `<mod-id>-zeus-mod.zip`: ZeusへインポートするMOD本体。`metadata.json` と `main.lua` がZIP直下にあります。
 - `diagnostics/report.json`: JAR・変換・パッケージ全体の診断。
 - `diagnostics/machine-state-source-analysis-plan.json`: 機械のフィールド候補と、JVMのgetter候補を結び付けた静的解析結果。
+- `diagnostics/machine-state-getter-semantics-plan.json`: getter本体の計算・分岐・呼び出し・状態変更を静的分類した診断。
+- `diagnostics/machine-state-write-trace-plan.json`: 機械フィールドのPUTFIELD/PUTSTATIC書き込み箇所と、ローカル呼び出し関係の静的追跡。
 - `diagnostics/archive-preflight-report.json`: 展開前のZIP/JAR検査結果。
 - `diagnostics/bytecode-analysis.json`: JVM命令・制御フロー・呼び出し関係の集計。
 - `diagnostics/reimplementation-report.json`: Javaメソッドごとの変換状況。
