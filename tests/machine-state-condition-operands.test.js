@@ -63,3 +63,21 @@ test("does not analyze blocked machine class names",()=>{
  assert.equal(report.totals.writerMethodsMissing,0);
  assert.equal(report.methods.length,0);
 });
+
+test("traces long comparison operands through LCMP without evaluating their values",()=>{
+ const input=fixture({instructions:[ins("lload_1",0),ins("lconst_0",1),ins("lcmp",2),ins("ifge",3,{target:10})],branchPc:3,branchOpcode:"ifge",blockEnd:6,descriptor:"(J)V"});
+ const report=analyzer.analyze(input),operand=report.methods[0].branches[0].branch.operandOrigins[0];
+ assert.equal(report.methods[0].branches[0].status,"resolved");
+ assert.equal(operand.kind,"comparison-result");
+ assert.equal(operand.operator,"lcmp");
+ assert.equal(operand.operands[0].kind,"method-parameter");
+ assert.equal(operand.operands[0].descriptor,"J");
+ assert.equal(operand.operands[1].constantKind,"long");
+});
+test("labels numeric conversion result types in nested comparison origins",()=>{
+ const input=fixture({instructions:[ins("iload_1",0),ins("i2l",1),ins("lconst_0",2),ins("lcmp",3),ins("ifge",4,{target:10})],branchPc:4,branchOpcode:"ifge",blockEnd:7,descriptor:"(I)V"});
+ const report=analyzer.analyze(input),operand=report.methods[0].branches[0].branch.operandOrigins[0].operands[0];
+ assert.equal(operand.kind,"calculated-value");
+ assert.equal(operand.operator,"i2l");
+ assert.equal(operand.descriptor,"J");
+});
