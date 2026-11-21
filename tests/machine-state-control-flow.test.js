@@ -62,6 +62,27 @@ test("does not claim control dependence for straight-line code",()=>{
  const report=analyzer.analyze(input);
  assert.equal(report.writers[0].writes[0].status,"no-control-dependence-found-in-cfg");
 });
+test("recognizes switch successors as separate control-flow outcomes",()=>{
+ const input=controlled();
+ const code=input.classes[0].classInfo.methods[0].code;
+ code.instructions[1]=ins("tableswitch",1,{targets:[7],defaultOffset:3});
+ code.verification.controlFlow.basicBlocks[0].lastOpcode="tableswitch";
+ code.verification.controlFlow.edges[0].kind="switch-default";
+ code.verification.controlFlow.edges[1].kind="switch-case";
+ const report=analyzer.analyze(input);
+ assert.equal(report.writers[0].writes[0].status,"cfg-control-dependence-candidate");
+ assert.equal(report.writers[0].writes[0].controlDependenceCandidates[0].branchOpcode,"tableswitch");
+});
+test("marks writes in unreachable blocks without inventing a controller",()=>{
+ const input=controlled();
+ const code=input.classes[0].classInfo.methods[0].code;
+ input.updateConditions.writers[0].writes[0].pc=12;
+ code.instructions.push(ins("putfield",12,{member:field}));
+ code.verification.controlFlow.basicBlocks.push({id:4,start:12,end:15,lastOpcode:"putfield"});
+ const report=analyzer.analyze(input);
+ assert.equal(report.writers[0].writes[0].status,"write-block-unreachable");
+ assert.equal(report.totals.unreachableWriteBlocks,1);
+});
 test("rejects an invalid verifier result instead of using its CFG",()=>{
  const input=controlled();
  input.classes[0].classInfo.methods[0].code.verification.valid=false;
