@@ -68,7 +68,7 @@ if(short==="Block"){
 const map={defaultBlockState:"block_default_state",getStateDefinition:"block_state_definition",registerDefaultState:"block_default_state_registration",getDescriptionId:"block_description_id",getDrops:"block_drops_query"};
 return map[name]||null;
 }
-if(short==="Properties"&&owner.endsWith("/BlockBehaviour$Properties")){
+if(short==="BlockBehaviour$Properties"&&owner.endsWith("/BlockBehaviour$Properties")){
 const map={of:"block_properties_factory",strength:"block_strength_property",sound:"block_sound_property",lightLevel:"block_light_property",noOcclusion:"block_no_occlusion_property",noCollission:"block_no_collision_property",requiresCorrectToolForDrops:"block_tool_requirement",randomTicks:"block_random_tick_property",friction:"block_friction_property",speedFactor:"block_speed_property",jumpFactor:"block_jump_property"};
 return map[name]||null;
 }
