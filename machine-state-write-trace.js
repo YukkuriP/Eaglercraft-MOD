@@ -38,11 +38,13 @@ function evidenceRole(methodName,calls,accessFlags){
  const hasPersistCall=callNames.some(v=>/(?:serialize|deserialize|save|load|putInt|putLong|getInt|getLong|putBoolean|getBoolean|putString|getString|CompoundTag|NBT)/i.test(v));
  const hasSyncCall=callNames.some(v=>SYNC.test(v)||/(?:sendBlockUpdated|blockEntityData|setChanged|markDirty|broadcastChanges)/i.test(v));
  if(n==="<init>"||n==="<clinit>")return {role:"initialization",basis:"constructor-name",confidence:"method-name-only"};
- if(PERSIST.test(n)||hasPersistCall)return {role:"persistence",basis:PERSIST.test(n)?"method-name-pattern":"persistence-like-call-name",confidence:"candidate-only"};
- if(SYNC.test(n)||hasSyncCall)return {role:"synchronization",basis:SYNC.test(n)?"method-name-pattern":"synchronization-like-call-name",confidence:"candidate-only"};
+ if(PERSIST.test(n))return {role:"persistence",basis:"method-name-pattern",confidence:"candidate-only"};
+ if(SYNC.test(n))return {role:"synchronization",basis:"method-name-pattern",confidence:"candidate-only"};
  if(TICK.test(n))return {role:"tick-or-lifecycle",basis:"method-name-pattern",confidence:"candidate-only"};
  if(PROCESS.test(n))return {role:"processing",basis:"method-name-pattern",confidence:"candidate-only"};
  if(/^set[A-Z_]/.test(n)||/^set_/.test(n)||/^update[A-Z_]/.test(n))return {role:"setter-or-update",basis:"method-name-pattern",confidence:"candidate-only"};
+ if(hasPersistCall)return {role:"persistence",basis:"persistence-like-call-name",confidence:"candidate-only"};
+ if(hasSyncCall)return {role:"synchronization",basis:"synchronization-like-call-name",confidence:"candidate-only"};
  if(flags({accessFlags})&0x0100)return {role:"native-or-external",basis:"native-access-flag",confidence:"manual-review"};
  return {role:"other-writer",basis:"field-write-opcode",confidence:"structural-bytecode-evidence"};
 }
