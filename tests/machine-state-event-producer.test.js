@@ -90,6 +90,7 @@ test("reports that event submission does not prove receiver delivery or sender i
   assert.match(result.lua, /receiver availability is not confirmed/);
   assert.ok(result.report.limitations.some(text => text.includes("does not confirm that the provider received")));
   assert.ok(result.report.limitations.some(text => text.includes("do not authenticate the sender")));
+  assert.ok(result.report.limitations.some(text => text.includes("broadcast to every listening MOD")));
   assert.equal(result.report.valuesConnected, false);
 });
 
