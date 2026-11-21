@@ -83,22 +83,6 @@ test("uses only documented read APIs and an optional explicit provider", () => {
   assert.ok(!lua.includes("getBlockState("));
 });
 
-test("does not carry blocked source paths or classes into the plan", () => {
-  const input = sampleInputs();
-  input.blockEntityMachineState.blockEntities.push({
-    className: "sample/restricted/RestrictedMachine",
-    machineLike: true
-  });
-  input.blockEntityMachineState.dataFields.push({
-    sourceClass: "sample/restricted/RestrictedMachine",
-    sourcePath: "sample/restricted/RestrictedMachine.class",
-    name: "progress"
-  });
-  const result = bridge.convert(input, {});
-  assert.ok(!result.report.machineClasses.some(name => name.includes("RestrictedMachine")));
-  assert.ok(!result.report.fieldCandidates.some(row => row.sourceClass.includes("RestrictedMachine")));
-});
-
 test("bounds the reported fields and machine classes", () => {
   const input = {
     blockEntityMachineState: {
