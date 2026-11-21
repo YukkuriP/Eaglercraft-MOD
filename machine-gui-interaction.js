@@ -153,8 +153,8 @@ function analyze(input,options){
  options=options&&typeof options==="object"?options:{};
  const limit=limitOf(options.detailLimit),classes=Array.isArray(input.classes)?input.classes:[],resources=Array.isArray(input.resources)?input.resources:[];
  const report={schema:"jar2zeus.machine-gui-interaction.v1",status:"no-machine-gui-evidence",supportStatus:"static-analysis-and-migration-plan-only",detailLimit:limit,
- totals:{classesSeen:classes.length,classesAnalyzed:0,restrictedClassesSkipped:0,guiClasses:0,screenClasses:0,menuClasses:0,widgetClasses:0,slotClasses:0,machineRelatedGuiClasses:0,screenMenuLinks:0,slotRegistrationsObserved:0,dataSlotRegistrationsObserved:0,widgetRegistrationsObserved:0,buttonInteractionCandidates:0,keyboardInteractionCandidates:0,slotInteractionCandidates:0,guiSyncOperationsObserved:0,packetReferenceSites:0,guiStateFieldsObserved:0,guiResourceFilesSeen:resources.length,guiTextures:0,guiDefinitionJsonFiles:0,guiJsonReadErrors:0,guiJsonInvalid:0,languageResourceFiles:0,guiJsonWidgetsObserved:0,operationsObserved:0,operationsReported:0,fieldsObserved:0,fieldsReported:0,classesReported:0,resourcesReported:0,detailsTruncated:false},
- screens:[],menus:[],widgets:[],slots:[],screenMenuLinks:[],operations:[],fields:[],syncSites:[],resources:[],guiDefinitions:[],migrationTasks:[],
+ totals:{classesSeen:classes.length,classesAnalyzed:0,restrictedClassesSkipped:0,guiClasses:0,screenClasses:0,menuClasses:0,widgetClasses:0,slotClasses:0,guiOtherClasses:0,machineRelatedGuiClasses:0,screenMenuLinks:0,slotRegistrationsObserved:0,dataSlotRegistrationsObserved:0,widgetRegistrationsObserved:0,buttonInteractionCandidates:0,keyboardInteractionCandidates:0,slotInteractionCandidates:0,guiSyncOperationsObserved:0,packetReferenceSites:0,guiStateFieldsObserved:0,guiResourceFilesSeen:resources.length,guiTextures:0,guiDefinitionJsonFiles:0,guiJsonReadErrors:0,guiJsonInvalid:0,guiJsonStructuresTruncated:0,languageResourceFiles:0,guiJsonWidgetsObserved:0,operationsObserved:0,operationsReported:0,fieldsObserved:0,fieldsReported:0,classesReported:0,resourcesReported:0,detailsTruncated:false},
+ screens:[],menus:[],widgets:[],slots:[],guiOtherClasses:[],screenMenuLinks:[],operations:[],fields:[],syncSites:[],resources:[],guiDefinitions:[],migrationTasks:[],
  limitations:[
  "Screen and menu classes are identified from parsed class hierarchy, descriptors, fields and invocation references; no Java code or UI is executed.",
  "A screen, menu, slot or widget match is a static candidate and does not establish a usable Zeus screen or equivalent widget.",
@@ -164,7 +164,7 @@ function analyze(input,options){
  "GUI textures and JSON-like UI resources are inventoried by path and bounded structural inspection; proprietary binary layout formats are not decoded.",
  "No machine GUI is considered ported until screen layout, inputs, validation, persistence, server synchronization and close/reopen behavior are implemented and tested."
  ]};
- const classIndex=new Map(),evidence=new Map(),screens=[],menus=[],widgets=[],slots=[],operations=[],fields=[],syncSites=[],links=[];
+ const classIndex=new Map(),evidence=new Map(),screens=[],menus=[],widgets=[],slots=[],guiOther=[],operations=[],fields=[],syncSites=[],links=[];
  let operationsSeen=0,fieldsSeen=0;
  function push(arr,row){addBounded(arr,row,limit);}
  for(const entry of classes){
@@ -200,7 +200,13 @@ function analyze(input,options){
   const slotClass=slotByRef||(!screenClass&&!menuClass&&SLOT_NAME_RE.test(name)&&(methodSlot||fieldsList.some(f=>/slot/i.test(String(f&&f.name||"")))));
   const widgetClass=widgetByRef||(!screenClass&&!menuClass&&!slotClass&&WIDGET_NAME_RE.test(name)&&(methodNames.some(n=>CLICK_METHOD_RE.test(n))||fieldsList.some(f=>/(?:x|y|width|height|visible|active|message|label|value)/i.test(String(f&&f.name||"")))));
   const screenMenuReferences=Array.from(refs).filter(r=>isMenuOwner(r)||/Menu$|ScreenHandler$|Container$/i.test(short(r)));
-  const uiMethods=methodNames.filter(n=>SCREEN_METHODS[n]||MENU_METHODS[n]||SLOT_METHODS[n]||WIDGET_METHODS[n]||SYNC_METHODS[n]||CLICK_METHOD_RE.test(n)||KEY_METHOD_RE.test(n));
+  const uiMethods=methodNames.filter(n=>
+   (screenClass&&(SCREEN_METHODS[n]||CLICK_METHOD_RE.test(n)||KEY_METHOD_RE.test(n)))||
+   (menuClass&&(MENU_METHODS[n]||SYNC_METHODS[n]||CLICK_METHOD_RE.test(n)))||
+   (widgetClass&&(WIDGET_METHODS[n]||CLICK_METHOD_RE.test(n)))||
+   (slotClass&&SLOT_METHODS[n])||
+   (screenMenuReferences.length>0&&(MENU_METHODS[n]||SYNC_METHODS[n]||CLICK_METHOD_RE.test(n)))
+  );
   const uiFields=fieldsList.filter(f=>GUI_FIELD_RE.test(String(f&&f.name||"")));
   const guiLike=screenClass||menuClass||slotClass||widgetClass||uiMethods.length>0||screenMenuReferences.length>0;
   const infoOut={name,path,info,refs,parents:parentRefs,methods,fieldsList,owners,screenClass,menuClass,slotClass,widgetClass,guiLike,screenMenuReferences,uiMethods,uiFields};
@@ -243,12 +249,13 @@ function analyze(input,options){
   const seen=new Set(),queue=ev.parents.slice();
   while(queue.length){const p=queue.shift();if(seen.has(p))continue;seen.add(p);chain.push(p);const pe=evidence.get(p);if(pe)queue.push(...pe.parents);}
   const row={sourcePath:ev.path,className:name,superName:ev.info.superName||null,interfaces:(ev.info.interfaces||[]).map(norm),inheritanceChain:chain,screen:ev.screenClass,menu:ev.menuClass,widget:ev.widgetClass,slot:ev.slotClass,machineRelated:isMachine,menuReferences:ev.screenMenuReferences,uiMethodCandidates:ev.uiMethods.slice(0,100),guiStateFieldNames:ev.uiFields.map(f=>String(f&&f.name||"")).slice(0,100),adapterStatus:"unmapped"};
-  push(ev.screenClass?screens:ev.menuClass?menus:ev.widgetClass?widgets:slots,row);
+  push(ev.screenClass?screens:ev.menuClass?menus:ev.widgetClass?widgets:ev.slotClass?slots:guiOther,row);
   report.totals.guiClasses++;
   if(ev.screenClass)report.totals.screenClasses++;
   if(ev.menuClass)report.totals.menuClasses++;
   if(ev.widgetClass)report.totals.widgetClasses++;
   if(ev.slotClass)report.totals.slotClasses++;
+  if(!ev.screenClass&&!ev.menuClass&&!ev.widgetClass&&!ev.slotClass)report.totals.guiOtherClasses++;
   if(isMachine)report.totals.machineRelatedGuiClasses++;
   if(ev.screenClass&&ev.screenMenuReferences.length){
    for(const target of ev.screenMenuReferences){
@@ -274,10 +281,8 @@ function analyze(input,options){
    else if(KEY_METHOD_RE.test(methodName)&&ev.screenClass)ownOperation={kind:"interaction",candidate:"gui_keyboard_callback"};
    if(ownOperation){
     push(operations,{sourcePath:ev.path,sourceClass:name,sourceMethod:methodName,sourceDescriptor:methodDescriptor,owner:name,name:methodName,descriptor:methodDescriptor,pc:null,category:ownOperation.kind,operationCandidate:ownOperation.candidate,evidence:"GUI/menu/slot/widget class method declaration",portStatus:"unmapped"});operationsSeen++;
-    if(ownOperation.category==="interaction"||ownOperation.kind==="interaction"){
-     if(KEY_METHOD_RE.test(methodName))report.totals.keyboardInteractionCandidates++;
-     else report.totals.buttonInteractionCandidates++;
-    }
+    if(KEY_METHOD_RE.test(methodName))report.totals.keyboardInteractionCandidates++;
+    else if(CLICK_METHOD_RE.test(methodName))report.totals.buttonInteractionCandidates++;
     if(ownOperation.kind==="menu"&&ownOperation.candidate==="menu_slot_register")report.totals.slotRegistrationsObserved++;
     if(ownOperation.kind==="menu"&&ownOperation.candidate==="menu_data_slot_register")report.totals.dataSlotRegistrationsObserved++;
     if(ownOperation.kind==="slot")report.totals.slotInteractionCandidates++;
@@ -290,9 +295,8 @@ function analyze(input,options){
     const mapped=operation(owner,member,name);
     if(!mapped)continue;
     push(operations,{sourcePath:ev.path,sourceClass:name,sourceMethod:methodName||null,sourceDescriptor:methodDescriptor||null,owner,name:member,descriptor:inv.descriptor||null,pc:Number.isInteger(inv.pc)?inv.pc:null,category:mapped.kind,operationCandidate:mapped.candidate,evidence:"Parsed bytecode invocation owner/name/descriptor",portStatus:"unmapped"});operationsSeen++;
-    if(mapped.kind==="interaction"){
-     if(KEY_METHOD_RE.test(member))report.totals.keyboardInteractionCandidates++;else report.totals.buttonInteractionCandidates++;
-    }
+    if(KEY_METHOD_RE.test(member))report.totals.keyboardInteractionCandidates++;
+    else if(CLICK_METHOD_RE.test(member)||mapped.kind==="widget"&&/(?:press|click|value_change)/i.test(mapped.candidate))report.totals.buttonInteractionCandidates++;
     if(mapped.kind==="slot"||mapped.candidate==="menu_slot_click")report.totals.slotInteractionCandidates++;
     if(mapped.candidate==="menu_slot_register")report.totals.slotRegistrationsObserved++;
     if(mapped.candidate==="menu_data_slot_register")report.totals.dataSlotRegistrationsObserved++;
@@ -345,11 +349,17 @@ function analyze(input,options){
      widgetKinds[kind]=(widgetKinds[kind]||0)+1;
      report.totals.guiJsonWidgetsObserved++;
     }
+    if(/^(?:type|widget_type)$/i.test(key)&&typeof value[key]==="string"&&/(?:button|toggle|slider|text.?field|text.?area|list|image|canvas|label|progress|gauge|slot|tab)/i.test(value[key])){
+     const kind=String(value[key]).toLowerCase().replace(/[^a-z0-9_-]/g,"");
+     widgetKinds[kind]=(widgetKinds[kind]||0)+1;
+     report.totals.guiJsonWidgetsObserved++;
+    }
     if(important.test(key)&&paths.length<200)paths.push(next);
     walk(value[key],next,depth+1);
    }
   }
   walk(data,"",0);
+  if(truncated)report.totals.guiJsonStructuresTruncated++;
   push(report.guiDefinitions,{sourcePath:path,status:truncated?"bounded-structure-inspected":"structure-inspected",widgetKinds,fieldPaths:paths,nodes:Math.min(nodes,4000),truncated});
  }
  for(const resource of resources){
@@ -361,13 +371,13 @@ function analyze(input,options){
   else if(kind==="gui-definition-json")inspectGuiJson(resource);
   else if(kind==="language-labels")report.totals.languageResourceFiles++;
  }
- report.screens=screens;report.menus=menus;report.widgets=widgets;report.slots=slots;
+ report.screens=screens;report.menus=menus;report.widgets=widgets;report.slots=slots;report.guiOtherClasses=guiOther;
  report.screenMenuLinks=links;report.operations=operations;report.fields=fields;report.syncSites=syncSites;
- report.totals.classesReported=screens.length+menus.length+widgets.length+slots.length;
+ report.totals.classesReported=screens.length+menus.length+widgets.length+slots.length+guiOther.length;
  report.totals.operationsObserved=operationsSeen;report.totals.operationsReported=operations.length;
  report.totals.fieldsObserved=fieldsSeen;report.totals.fieldsReported=fields.length;
  report.totals.detailsTruncated=operationsSeen>operations.length||fieldsSeen>fields.length||
-  report.totals.guiClasses>report.totals.classesReported||report.totals.screenMenuLinks>links.length||
+  report.totals.guiClasses>report.totals.classesReported||report.totals.screenMenuLinks>links.length||report.totals.guiJsonStructuresTruncated>0||
   report.totals.guiResourceFilesSeen>report.totals.resourcesReported||
   report.totals.guiDefinitionJsonFiles>report.guiDefinitions.length;
  if(report.totals.guiClasses||report.totals.guiResourceFilesSeen||report.totals.guiJsonReadErrors||report.totals.guiJsonInvalid)report.status="manual-machine-gui-port-required";
