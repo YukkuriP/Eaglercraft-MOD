@@ -119,6 +119,14 @@ Official API references: [Share code with other mods](https://dev.eaglercraft.co
 
 Official API references: [API reference](https://dev.eaglercraft.com/docs/modding/api), [Screens and menus](https://dev.eaglercraft.com/docs/modding/screens), [Share code with other mods](https://dev.eaglercraft.com/docs/modding/packaging).
 
+## Machine-state source getter evidence map (Phase 25)
+
+`machine-state-source-analysis.js` links the Phase 20–24 telemetry field hints to statically visible Java getter candidates. It examines only methods in machine-related classes and accepts no-argument primitive or `java.lang.String` return signatures. It records method visibility, instance/static status, exact return type, decoded `GETFIELD` references and the bytecode verifier's structural result. A candidate is marked higher confidence only when its signature and field evidence agree; private, static, synthetic or unverified methods remain manual-review candidates.
+
+The result is exported as `machine-state-source-analysis-plan.json` and `diagnostics/machine-state-source-analysis-plan.json`. For each telemetry metric it lists matching fields and getter candidates, including methods for which no getter evidence was found.
+
+**Important boundary:** this is a source-review worksheet, not an execution bridge. A getter name or `GETFIELD` instruction does not prove that the method returns the raw value; it may scale units, clamp values, calculate a derived result or have side effects. Java methods are not callable from Zeus Lua, so the analyzer generates no reader callbacks, tick hooks or event publications. A developer working in the source MOD must review the actual method logic and connect a genuine source-owned value to the Phase 24 publisher. No live machine values are claimed to have been recovered.
+
 ## JVMバイトコード構造検証
 
 `bytecode-verifier.js` はデコード済みメソッドについて、命令バイト範囲の連続性、命令オフセットの重複・順序、分岐先とswitch分岐先の命令境界、例外テーブルの範囲、ローカル変数スロット、引数のlong/double 2スロットを含む `max_locals` 収容、戻り命令とメソッド戻り値descriptorの整合性を検査します。基本ブロック、通常分岐・switch分岐・例外辺、ループ候補、到達不能ブロックも構築します。
@@ -141,6 +149,7 @@ Official API references: [API reference](https://dev.eaglercraft.com/docs/moddin
 
 - `<mod-id>-zeus-mod.zip`: ZeusへインポートするMOD本体。`metadata.json` と `main.lua` がZIP直下にあります。
 - `diagnostics/report.json`: JAR・変換・パッケージ全体の診断。
+- `diagnostics/machine-state-source-analysis-plan.json`: 機械のフィールド候補と、JVMのgetter候補を結び付けた静的解析結果。
 - `diagnostics/archive-preflight-report.json`: 展開前のZIP/JAR検査結果。
 - `diagnostics/bytecode-analysis.json`: JVM命令・制御フロー・呼び出し関係の集計。
 - `diagnostics/reimplementation-report.json`: Javaメソッドごとの変換状況。
