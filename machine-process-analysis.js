@@ -83,11 +83,12 @@ function classRecipeEvidence(name,info){
  const processFields=(info.fields||[]).filter(f=>PROCESS_FIELD_RE.test(String(f&&f.name||"")));
  const nameHint=MACHINE_NAME_RE.test(name);
  const recipeName=/(?:recipe|serializer|recipetype|ingredient)/i.test(name);
- const recipeClass=owners.length>0||recipeName||recipeMethodCount>=2;
- const machineClass=(nameHint&&(processMethodCount>0||processFields.length>0||recipeClass))||
-   processFields.some(f=>/(?:progress|process|cook|burn|fuel|energyusage|byproduct)/i.test(String(f.name||"")))&&processMethodCount>0;
  const serializerClass=/(?:serializer|codec)/i.test(name)||owners.some(o=>/RecipeSerializer/.test(o));
  const recipeTypeClass=/(?:RecipeType|recipe_type)/i.test(name)||owners.some(o=>/RecipeType$/.test(o));
+ const recipeImplementationOwner=owners.some(o=>o==="net/minecraft/world/item/crafting/Recipe"||o==="net/minecraft/world/item/crafting/RecipeInput"||o==="net/minecraft/world/item/crafting/SingleRecipeInput"||o==="net/minecraft/world/item/crafting/CraftingInput");
+ const recipeClass=recipeImplementationOwner||(!serializerClass&&!recipeTypeClass&&recipeName)||recipeMethodCount>=2;
+ const machineClass=!recipeClass&&!serializerClass&&!recipeTypeClass&&((nameHint&&(processMethodCount>0||processFields.length>0))||
+   processFields.some(f=>/(?:progress|process|cook|burn|fuel|energyusage|byproduct)/i.test(String(f.name||"")))&&processMethodCount>0);
  const lookupClass=owners.some(o=>/RecipeManager$/.test(o))||methodNames.some(n=>["getRecipeFor","getRecipes","getAllRecipes"].includes(n));
  return {refs,owners,recipeMethodCount,processMethodCount,processFields,recipeClass,machineClass,serializerClass,recipeTypeClass,lookupClass};
 }
@@ -217,7 +218,7 @@ function analyze(input,options){
   function walk(value,keyPath,depth){
    nodes++;if(nodes>4000||depth>12||fieldsFound.length>=200)return;
    if(value==null)return;
-   const leafRaw=keyPath.split(".").pop().replace(/\[\d+\]$/,"");
+   const leafRaw=keyPath.split(".").pop();
    const leaf=leafRaw.replace(/([a-z0-9])([A-Z])/g,"$1_$2").toLowerCase();
    if(INPUT_KEY_RE.test(leaf)||/(?:^|\.)(?:ingredient|ingredients|input|inputs)(?:\.|$)/i.test(keyPath)){
     counts.inputs++;
@@ -241,13 +242,13 @@ function analyze(input,options){
    for(const k of Object.keys(value).slice(0,300))walk(value[k],keyPath?keyPath+"."+k:k,depth+1);
   }
   for(const k of Object.keys(data).slice(0,300))walk(data[k],k,0);
-  const pathHint=MACHINE_NAME_RE.test(path);
-  const typeHint=!!type&&MACHINE_NAME_RE.test(type);
-  const processFields=fieldsFound.length>0;
+  const vanillaType=VANILLA_RECIPE_TYPE_RE.test(type||"");
+  const pathHint=!vanillaType&&MACHINE_NAME_RE.test(path);
+  const typeHint=!vanillaType&&!!type&&MACHINE_NAME_RE.test(type);
   const multiResource=counts.fluidInputs>0||counts.fluidOutputs>0||counts.chemicalOrGasInputs>0;
   const processFieldCandidate=fieldsFound.some(f=>PROCESS_RECIPE_HINT_RE.test(f));
-  const machineCandidate=(customType&&(pathHint||typeHint||processFieldCandidate||multiResource||counts.energy>0||counts.fuel>0||counts.byproducts>0))||
-    pathHint||typeHint||multiResource||counts.energy>0||counts.fuel>0||counts.byproducts>0||processFieldCandidate;
+  const machineSpecificEvidence=multiResource||counts.energy>0||counts.fuel>0||counts.byproducts>0||processFieldCandidate;
+  const machineCandidate=vanillaType?machineSpecificEvidence:(pathHint||typeHint||machineSpecificEvidence);
   if(VANILLA_RECIPE_TYPE_RE.test(type||""))report.totals.vanillaRecipeDefinitions++;else if(customType)report.totals.customRecipeDefinitions++;
   if(machineCandidate)report.totals.machineRecipeCandidates++;
   report.totals.recipeDefinitionsObserved++;
