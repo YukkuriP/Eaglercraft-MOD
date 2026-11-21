@@ -113,8 +113,8 @@ function kindsFor(owner){
  if(f==="item")return ["item"];
  if(f==="fluid")return ["fluid"];
  if(f==="energy")return ["energy"];
- if(f==="resource")return ["item","fluid","energy"];
- if(f==="generic-storage")return ["item","fluid"];
+ if(f==="resource")return ["resource"];
+ if(f==="generic-storage")return ["resource"];
  return [];
 }
 function operation(owner,name,descriptor,context){
@@ -179,6 +179,7 @@ function analyze(input,options){
    if(ITEM_CONTEXT_RE.test(context))kindSet.add("item");
    if(FLUID_CONTEXT_RE.test(context))kindSet.add("fluid");
    if(ENERGY_CONTEXT_RE.test(context))kindSet.add("energy");
+   if(kindSet.size===0)kindSet.add("resource");
   }
   const transportHint=TRANSPORT_CLASS_RE.test(context);
   const strongTransport=apiOwners.length>0||kindSet.size>0&&fieldEvidence.length>0||network&&methodEvidence.length>0;
@@ -216,8 +217,16 @@ function analyze(input,options){
   const {info,path}=rec,ev=evidenceFor(name,info,path);
   if(!seedKinds.has(name))continue;
   const parentChain=inheritance(info),inheritedKinds=new Set();
-  for(const p of parentChain){for(const k of seedKinds.get(p)||kindsFor(p))inheritedKinds.add(k);}
-  const kinds=new Set([...(seedKinds.get(name)||[]),...inheritedKinds]);
+  const ownKinds=new Set(seedKinds.get(name)||[]);
+  for(const p of parentChain){
+   const parentKinds=seedKinds.get(p)||new Set(kindsFor(p));
+   for(const k of parentKinds){
+    if(k==="resource"&&Array.from(ownKinds).some(x=>x!=="resource"))continue;
+    inheritedKinds.add(k);
+   }
+  }
+  const kinds=new Set([...ownKinds,...inheritedKinds]);
+  if(kinds.has("resource")&&Array.from(kinds).some(x=>x!=="resource"))kinds.delete("resource");
   if(kinds.size===0&&ev.network)kinds.add("network");
   const hints=[name,path,...Array.from(ev.refs)].join(" ");
   const isNetwork=ev.network||NETWORK_CONTEXT_RE.test(hints);
