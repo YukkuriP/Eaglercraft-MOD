@@ -6,7 +6,7 @@ const vm = require("node:vm");
 
 test("browser entry point parses and loads the current migration modules", () => {
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
-  const scripts = Array.from(html.matchAll(/<script\\b[^>]*>([\\s\\S]*?)<\\/script>/gi))
+  const scripts = Array.from(html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi))
     .map(match => match[1])
     .filter(source => source.trim().length > 0);
 
