@@ -119,6 +119,8 @@ function operation(owner,name,sourceName){
  if(MENU_METHODS[name]&&(kinds.includes("menu")||MENU_NAME_RE.test(sourceName||"")))return {kind:"menu",candidate:MENU_METHODS[name]};
  if(SLOT_METHODS[name]&&(kinds.includes("slot")||SLOT_NAME_RE.test(sourceName||"")))return {kind:"slot",candidate:SLOT_METHODS[name]};
  if(WIDGET_METHODS[name]&&(kinds.includes("widget")||WIDGET_NAME_RE.test(sourceName||"")))return {kind:"widget",candidate:WIDGET_METHODS[name]};
+ if(/(?:DataSlot|ContainerData|IntReferenceHolder|TrackedData)/i.test(short(owner))&&name==="get")return {kind:"synchronization",candidate:"gui_synced_value_read"};
+ if(/(?:DataSlot|ContainerData|IntReferenceHolder|TrackedData)/i.test(short(owner))&&name==="set")return {kind:"synchronization",candidate:"gui_synced_value_write"};
  if(SYNC_METHODS[name]&&(kinds.includes("sync")||kinds.some(k=>k==="menu"||k==="screen")))return {kind:"synchronization",candidate:SYNC_METHODS[name]};
  if(CLICK_METHOD_RE.test(name)&&kinds.some(k=>k==="screen"||k==="menu"||k==="widget"))return {kind:"interaction",candidate:"gui_interaction_callback"};
  if(KEY_METHOD_RE.test(name)&&kinds.includes("screen"))return {kind:"interaction",candidate:"gui_keyboard_callback"};
@@ -151,7 +153,7 @@ function analyze(input,options){
  options=options&&typeof options==="object"?options:{};
  const limit=limitOf(options.detailLimit),classes=Array.isArray(input.classes)?input.classes:[],resources=Array.isArray(input.resources)?input.resources:[];
  const report={schema:"jar2zeus.machine-gui-interaction.v1",status:"no-machine-gui-evidence",supportStatus:"static-analysis-and-migration-plan-only",detailLimit:limit,
- totals:{classesSeen:classes.length,classesAnalyzed:0,restrictedClassesSkipped:0,guiClasses:0,screenClasses:0,menuClasses:0,widgetClasses:0,slotClasses:0,machineRelatedGuiClasses:0,screenMenuLinks:0,slotRegistrationsObserved:0,dataSlotRegistrationsObserved:0,widgetRegistrationsObserved:0,buttonInteractionCandidates:0,keyboardInteractionCandidates:0,slotInteractionCandidates:0,guiSyncOperationsObserved:0,packetReferenceSites:0,guiStateFieldsObserved:0,guiResourceFilesSeen:resources.length,guiTextures:0,guiDefinitionJsonFiles:0,languageResourceFiles:0,guiJsonWidgetsObserved:0,operationsObserved:0,operationsReported:0,fieldsObserved:0,fieldsReported:0,classesReported:0,resourcesReported:0,detailsTruncated:false},
+ totals:{classesSeen:classes.length,classesAnalyzed:0,restrictedClassesSkipped:0,guiClasses:0,screenClasses:0,menuClasses:0,widgetClasses:0,slotClasses:0,machineRelatedGuiClasses:0,screenMenuLinks:0,slotRegistrationsObserved:0,dataSlotRegistrationsObserved:0,widgetRegistrationsObserved:0,buttonInteractionCandidates:0,keyboardInteractionCandidates:0,slotInteractionCandidates:0,guiSyncOperationsObserved:0,packetReferenceSites:0,guiStateFieldsObserved:0,guiResourceFilesSeen:resources.length,guiTextures:0,guiDefinitionJsonFiles:0,guiJsonReadErrors:0,guiJsonInvalid:0,languageResourceFiles:0,guiJsonWidgetsObserved:0,operationsObserved:0,operationsReported:0,fieldsObserved:0,fieldsReported:0,classesReported:0,resourcesReported:0,detailsTruncated:false},
  screens:[],menus:[],widgets:[],slots:[],screenMenuLinks:[],operations:[],fields:[],syncSites:[],resources:[],guiDefinitions:[],migrationTasks:[],
  limitations:[
  "Screen and menu classes are identified from parsed class hierarchy, descriptors, fields and invocation references; no Java code or UI is executed.",
@@ -279,7 +281,7 @@ function analyze(input,options){
     if(ownOperation.kind==="menu"&&ownOperation.candidate==="menu_slot_register")report.totals.slotRegistrationsObserved++;
     if(ownOperation.kind==="menu"&&ownOperation.candidate==="menu_data_slot_register")report.totals.dataSlotRegistrationsObserved++;
     if(ownOperation.kind==="widget"&&ownOperation.candidate==="gui_widget_register")report.totals.widgetRegistrationsObserved++;
-    if(ownOperation.kind==="synchronization")report.totals.guiSyncOperationsObserved++;
+    if(ownOperation.kind==="synchronization"||SYNC_METHODS[methodName])report.totals.guiSyncOperationsObserved++;
    }
    for(const inv of invocations){
     const owner=norm(inv&&inv.owner),member=String(inv&&inv.name||"");
@@ -306,10 +308,23 @@ function analyze(input,options){
   const path=String(entry&&entry.path||"");if(blocked(path))return;
   if(!GUI_JSON_RE.test(path))return;
   let data;
-  try{data=typeof entry.content==="string"?JSON.parse(entry.content):entry.json&&typeof entry.json==="object"?entry.json:null;}
-  catch(e){push(report.guiDefinitions,{sourcePath:path,status:"invalid-json",widgetKinds:{},fieldPaths:[],nodes:0,truncated:false});report.totals.guiDefinitionJsonFiles++;return;}
-  if(!data||typeof data!=="object"||Array.isArray(data))return;
   report.totals.guiDefinitionJsonFiles++;
+  if(entry&&entry.readError){
+   report.totals.guiJsonReadErrors++;
+   push(report.guiDefinitions,{sourcePath:path,status:"read-error",reason:entry.readErrorReason||"GUI JSON could not be read",widgetKinds:{},fieldPaths:[],nodes:0,truncated:false});
+   return;
+  }
+  try{data=typeof entry.content==="string"?JSON.parse(entry.content):entry.json&&typeof entry.json==="object"?entry.json:null;}
+  catch(e){
+   report.totals.guiJsonInvalid++;
+   push(report.guiDefinitions,{sourcePath:path,status:"invalid-json",reason:"GUI JSON is invalid",widgetKinds:{},fieldPaths:[],nodes:0,truncated:false});
+   return;
+  }
+  if(!data||typeof data!=="object"||Array.isArray(data)){
+   report.totals.guiJsonInvalid++;
+   push(report.guiDefinitions,{sourcePath:path,status:"invalid-json",reason:"GUI JSON is not an object",widgetKinds:{},fieldPaths:[],nodes:0,truncated:false});
+   return;
+  }
   const widgetKinds={},paths=[];let nodes=0,truncated=false;
   const widgetKeys=/^(?:button|buttons|toggle|toggles|slider|sliders|textfield|text_field|textarea|text_area|list|lists|image|images|canvas|label|labels|widget|widgets|slot|slots|progress|progressbar|gauge|tab|tabs)$/i;
   const important=/^(?:x|y|width|height|id|type|text|label|title|tooltip|texture|value|min|max|step|visible|active|enabled|slot|progress|energy|power|temperature|pressure|fluid|fuel)$/i;
@@ -354,11 +369,12 @@ function analyze(input,options){
   report.totals.guiClasses>report.totals.classesReported||report.totals.screenMenuLinks>links.length||
   report.totals.guiResourceFilesSeen>report.totals.resourcesReported||
   report.totals.guiDefinitionJsonFiles>report.guiDefinitions.length;
- if(report.totals.guiClasses||report.totals.guiResourceFilesSeen)report.status="manual-machine-gui-port-required";
+ if(report.totals.guiClasses||report.totals.guiResourceFilesSeen||report.totals.guiJsonReadErrors||report.totals.guiJsonInvalid)report.status="manual-machine-gui-port-required";
  if(report.totals.screenClasses||report.totals.menuClasses)report.migrationTasks.push({area:"screen-and-menu-layout",status:"unmapped",requiredWork:"Rebuild each machine screen/menu layout in Zeus UI; map sizing, anchors, textures, labels, localization, tabs and responsive behavior."});
  if(report.totals.slotClasses||report.totals.slotRegistrationsObserved||report.totals.dataSlotRegistrationsObserved)report.migrationTasks.push({area:"inventory-slots-and-data",status:"unmapped",requiredWork:"Implement slot indexing, insertion/extraction permissions, quick-move rules, machine/player inventory boundaries and synchronized machine values."});
  if(report.totals.buttonInteractionCandidates||report.totals.keyboardInteractionCandidates||report.totals.widgetClasses)report.migrationTasks.push({area:"widget-input-and-actions",status:"unmapped",requiredWork:"Map button/toggle/slider/text/list callbacks, key and mouse input, focus, validation, close behavior and accessible labels."});
  if(report.totals.guiSyncOperationsObserved||report.totals.packetReferenceSites)report.migrationTasks.push({area:"client-server-gui-synchronization",status:"unmapped",requiredWork:"Rebuild server-authoritative actions, packet payloads, validation, state synchronization, refresh order and stale/invalid interaction handling."});
+ if(report.totals.guiJsonReadErrors||report.totals.guiJsonInvalid)report.migrationTasks.push({area:"gui-definition-review",status:"blocked",requiredWork:"Review every unreadable or invalid GUI JSON definition before treating the source UI inventory as complete."});
  if(report.totals.guiTextures||report.totals.guiDefinitionJsonFiles||report.totals.languageResourceFiles)report.migrationTasks.push({area:"gui-assets-and-localization",status:"unmapped",requiredWork:"Map source GUI textures, layout definitions, icons and translated labels to Zeus-supported textures and drawing/layout APIs."});
  if(!report.migrationTasks.length)report.migrationTasks.push({area:"machine-gui-discovery",status:"not-observed",requiredWork:"No screen/menu evidence was identified; inspect custom renderers, generated widgets and loader-specific UI registration before concluding that no GUI exists."});
  return report;
