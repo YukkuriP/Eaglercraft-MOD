@@ -225,7 +225,7 @@ Zeus側は `main.lua` をMOD読み込み時に一度だけ先頭から実行し�
 
 ## 機械加工・生産工程の解析
 
-`machine-process-analysis.js` は、JAR内の機械系Javaクラスと `data/<namespace>/recipe(s)/<path>.json` のレシピ定義を組み合わせて解析します。レシピ実装・RecipeType・RecipeSerializer・RecipeManager・Ingredient・RecipeInputの参照、`matches`／`assemble`／レシピ検索等の操作候補、機械側の進捗・加工時間・燃料・電力・入力・出力・稼働条件・Tick処理を静的に抽出します。JSON側では型、入力候補、液体／化学物質候補、完成品、副産物、加工時間、エネルギー／燃料条件、温度・圧力等の条件を候補として記録します。各詳細配列は最大5,000件で、元クラス・メソッド・descriptor・バイトコード位置または元JSONパスを保持します。レシピJSONの解析入力は1ファイル2 MiB・合計64 MiBを上限とし、上限超過または読込失敗は `recipeJsonReadErrors` に記録して完全移植判定を止めます。
+`machine-process-analysis.js` は、JAR内の機械系Javaクラスと `data/<namespace>/recipe(s)/<path>.json` のレシピ定義を組み合わせて解析します。レシピ実装・RecipeType・RecipeSerializer・RecipeManager・Ingredient・RecipeInputの参照、`matches`／`assemble`／レシピ検索等の操作候補、機械側の進捗・加工時間・燃料・電力・入力・出力・稼働条件・Tick処理を静的に抽出します。JSON側では型、入力候補、液体／化学物質候補、完成品、副産物、加工時間、エネルギー／燃料条件、温度・圧力等の条件を候補として記録します。各詳細配列は最大5,000件で、元クラス・メソッド・descriptor・バイトコード位置または元JSONパスを保持します。レシピJSONの解析入力は1ファイル2 MiB・合計64 MiBを上限とし、上限超過または読込失敗は `recipeJsonReadErrors`、不正JSONは `recipeJsonInvalid` と `recipeParseIssues` に記録して完全移植判定を止めます。
 
 MinecraftのバージョンやローダーでレシピのJSON形式とJava APIは異なります。たとえば、近年のNeoForge資料ではデータレシピを `data/<namespace>/recipe/` に置き、独自レシピは `Recipe`・`RecipeType`・`RecipeSerializer` を組み合わせる構成として説明しています。Fabric資料もレシピJSONとデータ生成を扱い、旧バージョンの資料では `recipes` という複数形ディレクトリが使われています。そのため本解析器は両方のフォルダ名を認識し、ローダー間の独自フィールドを一つの固定スキーマとして決めつけません。
 
