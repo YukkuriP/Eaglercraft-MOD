@@ -226,6 +226,23 @@ function packageInput() {
   };
 }
 
+test("metric mapping counts remain accurate when getter details are truncated", () => {
+  const data = input();
+  const info = data.classes[0].classInfo;
+  info.methods = [
+    method("getProgress", "()I", 1, [{ pc: 0, name: "aload_0" }, fieldRead("progress", "I"), { pc: 4, name: "ireturn" }]),
+    method("getProgressValue", "()I", 1, [{ pc: 0, name: "aload_0" }, fieldRead("progress", "I"), { pc: 4, name: "ireturn" }]),
+    method("getProgressAmount", "()I", 1, [{ pc: 0, name: "aload_0" }, fieldRead("progress", "I"), { pc: 4, name: "ireturn" }])
+  ];
+  const report = analyzer.analyze(data, { detailLimit: 1 });
+  const progress = report.metricSummary.find(row => row.metric === "processing.progress");
+  assert.equal(report.getterCandidates.length, 1);
+  assert.equal(report.totals.getterCandidatesObserved, 3);
+  assert.equal(progress.getterCandidates, 3);
+  assert.equal(progress.mappedToGetter, true);
+  assert.equal(report.metricsWithoutGetterEvidence.includes("processing.progress"), false);
+});
+
 test("validator accepts the static getter map but keeps live conversion incomplete", () => {
   const result = validator.validate(packageInput());
   assert.equal(result.valid, true);
