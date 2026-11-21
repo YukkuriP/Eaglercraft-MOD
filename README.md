@@ -81,6 +81,14 @@ For optional telemetry, the probe can query a separate running Zeus MOD through 
 
 Reports are `machine-gui-state-bridge-plan.json` and `diagnostics/machine-gui-state-bridge-plan.json`; the read-only probe is `diagnostics/machine-gui-state-bridge.lua`. A companion-provider starter is exported separately as `diagnostics/machine-state-provider-template.lua`. It intentionally returns an empty `values` table until its author connects a genuine, supported data source; it is a development template, not a ready-made machine reader.
 
+## Live machine GUI telemetry binding (Phase 22)
+
+`machine-gui-live-binding.js` creates a read-only utility screen that consumes the Phase 21 provider contract. It adds a button to container screens, accepts exact block coordinates and a provider MOD ID, reads the block ID with the documented world API, and requests a matching state envelope from the explicit provider export. While the utility screen is open, `timer.every(0.5, ...)` refreshes the values; the timer is cancelled through the screen's `onClose` callback and the `screen_close` / `world_leave` events. A manual refresh button remains available if the timer API is missing.
+
+The display is restricted to the fixed telemetry key/type allow-list and rechecks the provider schema/version, provider ID, coordinates, block ID, primitive types and numeric bounds on every update. It does not modify blocks, inventories or machine state. Its labels are a separate telemetry view; they do not recreate the original Java GUI, its button callbacks, slots or server-authoritative actions.
+
+The consumer cannot create a real data source. A separate Zeus provider must explicitly register genuine readers for block IDs it can legitimately inspect. Static Java field names remain hints and are never treated as runtime values. Reports are `machine-gui-live-binding-plan.json` and `diagnostics/machine-gui-live-binding-plan.json`; the generated Lua consumer is `diagnostics/machine-gui-live-binding.lua`. No in-game runtime test is implied by static checks.
+
 Official API references: [API reference](https://dev.eaglercraft.com/docs/modding/api), [Screens and menus](https://dev.eaglercraft.com/docs/modding/screens), [Share code with other mods](https://dev.eaglercraft.com/docs/modding/packaging).
 
 ## JVMバイトコード構造検証
