@@ -111,7 +111,7 @@ function buildLua(options){
   "    block_id = blockId,",
   "    values = values",
   "  }",
-  "  local ok = pcall(events.emit, eventName, payload)",
+  "  local ok = pcall(function() events.emit(eventName, payload) end)",
   "  if not ok then return false, \"event emission failed\" end",
   "  return true, \"event submitted; receiver availability is not confirmed\"",
   "end",
