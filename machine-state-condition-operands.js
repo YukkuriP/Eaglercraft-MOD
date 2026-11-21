@@ -62,7 +62,7 @@ function publicOrigin(v,depth){
  if(Array.isArray(v.arguments))out.arguments=v.arguments.slice(0,MAX_ORIGIN_ITEMS).map(x=>publicOrigin(x,depth+1));
  return out;
 }
-function simulate(instructions,block,targetPc,method){
+function simulate(instructions,block,targetPc,method,instructionBudget){
  const ins=arr(instructions).filter(x=>x&&Number.isInteger(x.pc)&&x.pc>=block.start&&x.pc<block.end).sort((a,b)=>a.pc-b.pc);
  const stack=[],locals=new Map(),params=slotInfo(method.descriptor,!!(Number(method.accessFlags)&8));
  let unsupported=null,unknownStackEntries=0,instructionCount=0,branch=null;
@@ -112,6 +112,7 @@ function simulate(instructions,block,targetPc,method){
  for(const x of ins){
   if(x.pc>targetPc)break;
   instructionCount++;
+  if(instructionCount>instructionBudget)return {status:"unsupported",reason:"instruction-budget-exceeded",instructionCount,unknownStackEntries,branch:null};
   const n=String(x.name||"");
   const cv=constantValue(x);if(cv){cv.category=cv.descriptor==="J"||cv.descriptor==="D"?2:1;push(cv);continue;}
   if(LOAD.test(n)){
@@ -209,7 +210,7 @@ function analyze(input,options){
    const key=String(candidate.branchBlockId)+":"+String(candidate.branchPc);
    if(!branchMap.has(key))branchMap.set(key,{blockId:candidate.branchBlockId,pc:candidate.branchPc,opcode:candidate.branchOpcode,relatedWrites:[]});
    const row=branchMap.get(key);
-   if(!row.relatedWrites.some(x=>x.pc===wr.pc&&x.fieldName===wr.fieldName))row.relatedWrites.push({pc:wr.pc,fieldName:wr.fieldName,edgeKind:candidate.successorEdgeKind,successorBlockId:candidate.successorBlockId});
+   if(row.relatedWrites.length<32&&!row.relatedWrites.some(x=>x.pc===wr.pc&&x.fieldName===wr.fieldName))row.relatedWrites.push({pc:wr.pc,fieldName:wr.fieldName,edgeKind:candidate.successorEdgeKind,successorBlockId:candidate.successorBlockId});
   }
   const branchRows=[];
   for(const candidate of branchMap.values()){
@@ -220,7 +221,8 @@ function analyze(input,options){
    if(!block||!Number.isInteger(candidate.pc)){totals.branchesMissing++;branchRows.push({branchBlockId:candidate.blockId,pc:candidate.pc,status:"branch-location-missing",relatedWrites:candidate.relatedWrites,operandOrigins:[]});continue;}
    const targetIns=instructions.find(x=>x&&x.pc===candidate.pc);
    if(!targetIns||targetIns.name!==candidate.opcode){totals.branchesMissing++;branchRows.push({branchBlockId:candidate.blockId,pc:candidate.pc,opcode:candidate.opcode,status:"branch-instruction-mismatch",relatedWrites:candidate.relatedWrites,operandOrigins:[]});continue;}
-   const result=simulate(instructions,block,candidate.pc,m);
+   const remainingInstructionBudget=Math.max(0,MAX_INSTRUCTIONS-totals.instructionsProcessed);
+   const result=simulate(instructions,block,candidate.pc,m,remainingInstructionBudget);
    totals.instructionsProcessed+=result.instructionCount||0;
    if(result.status==="resolved")totals.branchesResolved++;
    else if(result.status==="partial")totals.branchesPartial++;
