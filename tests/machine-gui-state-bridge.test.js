@@ -190,6 +190,27 @@ test("validator accepts explicit read-only and unconnected state bridge status",
   assert.equal(result.conversionComplete, true);
 });
 
+test("validator rejects a missing or falsely trusted provider contract", () => {
+  const input = validatorInput();
+  input.machineGuiStateBridgeFileCount = 1;
+  input.machineGuiStateBridge = {
+    schema: "jar2zeus.machine-gui-state-bridge.v1",
+    machineValuesConnected: false,
+    runtimeValuesRecovered: false,
+    worldWritesPerformed: false,
+    providerValuesIndependentlyVerified: true,
+    optionalProvider: {
+      schema: "unknown-provider-schema",
+      apiVersion: 1,
+      providerValuesIndependentlyVerified: true
+    },
+    totals: { machineClasses: 0, fieldsObserved: 0, operationCandidates: 0 }
+  };
+  const result = validator.validate(input);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some(e => e.includes("Machine-state provider contract is missing")));
+});
+
 test("validator keeps observed machine telemetry candidates incomplete", () => {
   const input = validatorInput();
   input.machineGuiStateBridgeFileCount = 1;
