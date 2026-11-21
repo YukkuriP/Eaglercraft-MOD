@@ -218,7 +218,7 @@ function buildLua(options){
   "-- The source MOD must emit EVENT_NAME with EVENT_SCHEMA, api_version = 1,",
   "-- source_id = mod.id, x/y/z, block_id and a values table.",
   "Publisher-side example (run only in the MOD that owns the real data):",
-  "-- local provider = mods.get(\"provider_template\")",
+  "  -- local provider = mods.get(" + luaString(providerId) + ")",
   "-- if provider then events.emit(provider.event_name, { schema = provider.event_schema, api_version = 1,",
   "--   source_id = mod.id, x = x, y = y, z = z, block_id = blockId,",
   "--   values = { progress = realProgress } }) end",
