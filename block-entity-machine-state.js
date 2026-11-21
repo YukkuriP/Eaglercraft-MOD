@@ -79,6 +79,39 @@ blockEntities:[],operations:[],lifecycleMethods:[],dataFields:[],migrationTasks:
 "No BlockEntity or machine is claimed to run in Zeus until its target API adapter is implemented and tested."
 ]};
 const entityMap=new Map(),operations=[],lifecycle=[],dataFields=[];
+const classIndex=new Map(),entityClassNames=new Set();
+for(const entry of classes){
+ const info=entry&&entry.classInfo?entry.classInfo:entry;
+ if(!info||info.valid!==true||typeof info.className!=="string")continue;
+ const cn=norm(info.className),path=entry&&typeof entry.path==="string"?entry.path:cn+".class";
+ if(isBlocked(path)||isBlocked(cn))continue;
+ classIndex.set(cn,info);
+ const refs=[].concat(info.references||[],info.superName||[],info.interfaces||[]).filter(Boolean).map(norm);
+ if(refs.some(isBERef))entityClassNames.add(cn);
+}
+// Follow in-JAR superclass/interface chains so subclasses of a custom
+// intermediate BlockEntity base are not silently missed.
+let grew=true;
+while(grew){
+ grew=false;
+ for(const [cn,info] of classIndex){
+  if(entityClassNames.has(cn))continue;
+  const parents=[info.superName].concat(info.interfaces||[]).filter(Boolean).map(norm);
+  if(parents.some(parent=>isBERef(parent)||entityClassNames.has(parent))){
+   entityClassNames.add(cn);grew=true;
+  }
+ }
+}
+function inheritanceChain(info){
+ const chain=[],seen=new Set();let parent=norm(info&&info.superName||"");
+ while(parent&&!seen.has(parent)){
+  seen.add(parent);chain.push(parent);
+  if(isBERef(parent))break;
+  const next=classIndex.get(parent);if(!next)break;
+  parent=norm(next.superName||"");
+ }
+ return chain;
+}
 let operationsObserved=0,methodSitesObserved=0,dataFieldsObserved=0;
 function pushOperation(row){operationsObserved++;if(operations.length<limit)operations.push(row);}
 function pushMethod(row){methodSitesObserved++;if(lifecycle.length<limit)lifecycle.push(row);}
@@ -93,10 +126,10 @@ for(const entry of classes){
  for(const f of info.fields||[])for(const m of String(f&&f.descriptor||"").matchAll(/L([^;]+);/g))refs.add(norm(m[1]));
  for(const m of info.methods||[])for(const x of String(m&&m.descriptor||"").matchAll(/L([^;]+);/g))refs.add(norm(x[1]));
  const beRefs=Array.from(refs).filter(isBERef),nbtRefs=Array.from(refs).filter(r=>NBT_TYPES.has(r)||r.startsWith("net/minecraft/nbt/"));
- const isBlockEntity=beRefs.length>0||isBERef(norm(info.superName||""));
+ const isBlockEntity=entityClassNames.has(className)||beRefs.length>0||isBERef(norm(info.superName||""));
  if(!isBlockEntity)continue;
  const machine=machineHint(className)||machineHint(path);
- const record={sourcePath:path,className,superName:info.superName||null,blockEntityApiReferences:beRefs,nbtApiReferences:nbtRefs,machineLike:machine,kind:machine?"machine-like-block-entity":"block-entity",persistenceStatus:"unresolved",tickStatus:"unresolved",syncStatus:"unresolved"};
+ const record={sourcePath:path,className,superName:info.superName||null,blockEntityApiReferences:beRefs,blockEntityInheritanceChain:inheritanceChain(info),nbtApiReferences:nbtRefs,machineLike:machine,kind:machine?"machine-like-block-entity":"block-entity",persistenceStatus:"unresolved",tickStatus:"unresolved",syncStatus:"unresolved"};
  entityMap.set(className,record);
  report.totals.blockEntityClasses++;
  if(machine)report.totals.machineLikeBlockEntities++;
