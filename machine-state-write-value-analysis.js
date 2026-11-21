@@ -178,7 +178,7 @@ function traceToWrite(writer,method,target,options){
  if(all.length>MAX_METHOD_INSTRUCTIONS||index>=MAX_METHOD_INSTRUCTIONS)return finish("truncated","write-site-beyond-instruction-limit",{instructionCount:all.length});
  const initial=initialLocals(method);
  if(!initial)return finish("unresolved","invalid-method-descriptor");
- const locals=initial.locals,stack=[],priorWrites=[],readFields=[],branches=[],steps=[];
+ const locals=initial.locals,stack=[],priorWrites=[],readFields=[],branches=[],steps=[],fieldState=new Map(),staticFieldState=new Map();
  const pop=()=>stack.length?stack.pop():null;
  const push=v=>{if(!v)return false;stack.push(v);return stack.length<=256;};
  const fail=(reason,pcValue)=>finish("unresolved",reason,{stoppedAtPc:Number.isInteger(pcValue)?pcValue:null,priorWriteSites:priorWrites.slice(0,20),fieldReads:unique(readFields,x=>x.owner+"#"+x.name+":"+x.descriptor),branchSites:branches.slice(0,20),symbolicSteps:steps.slice(-30)});
@@ -230,9 +230,13 @@ function traceToWrite(writer,method,target,options){
     const receiver=pop();
     if(!receiver||receiver.kind!=="this")return fail("getfield-receiver-not-proven-to-be-this",ins.pc);
     readFields.push({owner:norm(m.owner),name:m.name,descriptor:m.descriptor||null,pc:ins.pc});
-    if(!push(expr("field",{owner:norm(m.owner),name:m.name,descriptor:m.descriptor||null},m.descriptor==="J"||m.descriptor==="D"?2:1)))return fail("operand-stack-limit-exceeded",ins.pc);
+    const fieldKey=norm(m.owner)+"#"+m.name+":"+(m.descriptor||""),stored=fieldState.get(fieldKey);
+    const value=stored||expr("field",{owner:norm(m.owner),name:m.name,descriptor:m.descriptor||null},m.descriptor==="J"||m.descriptor==="D"?2:1);
+    if(!push(value))return fail("operand-stack-limit-exceeded",ins.pc);
    }else{
-    if(!push(expr("static-field",{owner:norm(m.owner),name:m.name,descriptor:m.descriptor||null},m.descriptor==="J"||m.descriptor==="D"?2:1)))return fail("operand-stack-limit-exceeded",ins.pc);
+    const fieldKey=norm(m.owner)+"#"+m.name+":"+(m.descriptor||""),stored=staticFieldState.get(fieldKey);
+    const value=stored||expr("static-field",{owner:norm(m.owner),name:m.name,descriptor:m.descriptor||null},m.descriptor==="J"||m.descriptor==="D"?2:1);
+    if(!push(value))return fail("operand-stack-limit-exceeded",ins.pc);
    }
    steps.push({pc:ins.pc,operation:n});continue;
   }
@@ -284,7 +288,12 @@ function traceToWrite(writer,method,target,options){
      expressionSourceKinds:Array.from(new Set([value.kind].concat(summary.fieldDependencies.length?["field-dependency"]:[],summary.argumentDependencies.length?["argument-dependency"]:[])))
     });
    }
-   priorWrites.push({pc:ins.pc,opcode:n,owner:norm(m.owner),name:m.name,descriptor:m.descriptor||null});
+   const expectedPreviousSlots=(m.descriptor==="J"||m.descriptor==="D")?2:1;
+   if(value.slots!==expectedPreviousSlots)return fail("prior-write-expression-stack-width-does-not-match-field-descriptor",ins.pc);
+   const prior={pc:ins.pc,opcode:n,owner:norm(m.owner),name:m.name,descriptor:m.descriptor||null};
+   if(n==="putfield"&&receiver&&receiver.kind==="this")fieldState.set(norm(m.owner)+"#"+m.name+":"+(m.descriptor||""),value);
+   if(n==="putstatic")staticFieldState.set(norm(m.owner)+"#"+m.name+":"+(m.descriptor||""),value);
+   priorWrites.push(prior);
    steps.push({pc:ins.pc,operation:"prior-field-write"});continue;
   }
   return fail("unsupported-opcode-"+clean(n,50),ins.pc);
