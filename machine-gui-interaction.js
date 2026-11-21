@@ -85,7 +85,7 @@ onSlotChanged:"gui_slot_changed",slotChanged:"gui_slot_changed"
 };
 const CLICK_METHOD_RE=/(?:onPress|onClick|clicked|mouseClicked|actionPerformed|buttonClicked|clickMenuButton|pressButton|onWidgetActivation|onValueChanged|valueChanged|onSubmit|keyPressed)/i;
 const KEY_METHOD_RE=/(?:keyPressed|keyReleased|charTyped|keyTyped|handleKey|onKey)/i;
-const SYNC_OWNER_RE=/(?:network|packet|payload|channel|clientbound|serverbound|friendlybytebuf|custompayload|networkevent|dataslot|containerdata|screenhandler|abstractcontainermenu)/i;
+const SYNC_OWNER_RE=/(?:network|packet|payload|channel|clientbound|serverbound|friendlybytebuf|custompayload|networkevent|connection|dataslot|containerdata|intreferenceholder|trackeddata)/i;
 const SCREEN_NAME_RE=/(?:screen|guiscreen|containerscreen|handledscreen|machine.*gui|gui.*machine|machine.*screen|screen.*machine)/i;
 const MENU_NAME_RE=/(?:menu|container|screenhandler|guihandler|machine.*handler|handler.*machine)/i;
 const SLOT_NAME_RE=/(?:slot|slotitemhandler)/i;
@@ -188,10 +188,10 @@ function analyze(input,options){
   }
   const owners=Array.from(refs),parentRefs=[norm(info.superName||""),...(info.interfaces||[]).map(norm)].filter(Boolean);
   const methodNames=methods.map(m=>String(m&&m.name||""));
-  const screenByRef=parentRefs.some(r=>isScreenOwner(r))||owners.some(r=>isScreenOwner(r));
-  const menuByRef=parentRefs.some(r=>isMenuOwner(r))||owners.some(r=>isMenuOwner(r));
-  const slotByRef=parentRefs.some(r=>isSlotOwner(r))||owners.some(r=>isSlotOwner(r));
-  const widgetByRef=parentRefs.some(r=>isWidgetOwner(r))||owners.some(r=>isWidgetOwner(r));
+  const screenByRef=parentRefs.some(r=>isScreenOwner(r));
+  const menuByRef=parentRefs.some(r=>isMenuOwner(r));
+  const slotByRef=parentRefs.some(r=>isSlotOwner(r));
+  const widgetByRef=parentRefs.some(r=>isWidgetOwner(r));
   const methodScreen=methodNames.some(n=>["init","initGui","render","drawScreen","renderBg","mouseClicked","keyPressed","containerTick"].includes(n));
   const methodMenu=methodNames.some(n=>["addSlot","addDataSlot","quickMoveStack","stillValid","broadcastChanges","clickMenuButton","moveItemStackTo"].includes(n));
   const methodSlot=methodNames.some(n=>["mayPlace","mayPickup","getItem","set","remove","onTake"].includes(n));
@@ -280,6 +280,7 @@ function analyze(input,options){
     }
     if(ownOperation.kind==="menu"&&ownOperation.candidate==="menu_slot_register")report.totals.slotRegistrationsObserved++;
     if(ownOperation.kind==="menu"&&ownOperation.candidate==="menu_data_slot_register")report.totals.dataSlotRegistrationsObserved++;
+    if(ownOperation.kind==="slot")report.totals.slotInteractionCandidates++;
     if(ownOperation.kind==="widget"&&ownOperation.candidate==="gui_widget_register")report.totals.widgetRegistrationsObserved++;
     if(ownOperation.kind==="synchronization"||SYNC_METHODS[methodName])report.totals.guiSyncOperationsObserved++;
    }
