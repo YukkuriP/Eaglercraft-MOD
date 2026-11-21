@@ -99,8 +99,8 @@ function simulate(instructions,block,targetPc,method,instructionBudget){
  }
  function stackManip(n,pc){
   const take=()=>stack.length?stack.pop():origin("unknown-stack-entry",{pc,detail:"stack-manipulation-underflow"});
-  if(n==="pop"){const a=take();if(a.category===2)unsupported="invalid-pop-category";return;}
-  if(n==="pop2"){const a=take();if(a.category!==2){const b=take();if(b.category===2)unsupported="invalid-pop2-category";}return;}
+  if(n==="pop"){const a=take();if(a.category===2)unsupported="invalid-pop-category";else if(a.category==null)unsupported="unknown-pop-entry-category";return;}
+  if(n==="pop2"){const a=take();if(a.category==null){unsupported="unknown-pop2-entry-category";return;}if(a.category!==2){const b=take();if(b.category==null)unsupported="unknown-pop2-second-entry-category";else if(b.category===2)unsupported="invalid-pop2-category";}return;}
   if(n==="dup"){const a=take();if(a.category!==1){unsupported="unsupported-dup-category";return;}stack.push(a,a);return;}
   if(n==="swap"){const a=take(),b=take();if(a.category!==1||b.category!==1){unsupported="unsupported-swap-category";return;}stack.push(a,b);return;}
   if(n==="dup2"){
@@ -162,7 +162,7 @@ function simulate(instructions,block,targetPc,method,instructionBudget){
    push(origin("calculated-value",{pc:x.pc,operator:n,operands:operands.map(v=>publicOrigin(v,0)),descriptor:desc,category:prefix==="l"||prefix==="d"?2:1}));continue;
   }
   if(UNARY.has(n)){
-   const operand=pop(1,x.pc),dest=/^i2/.test(n)?"I":/^l2/.test(n)?"J":/^f2/.test(n)?"F":/^d2/.test(n)?"D":n.startsWith("i")?"I":n[0].toUpperCase();
+   const operand=pop(1,x.pc),conversion={i2l:"J",i2f:"F",i2d:"D",l2i:"I",l2f:"F",l2d:"D",f2i:"I",f2l:"J",f2d:"D",d2i:"I",d2l:"J",d2f:"F",i2b:"I",i2c:"I",i2s:"I"},dest=conversion[n]||(n[0]==="l"?"J":n[0]==="f"?"F":n[0]==="d"?"D":"I");
    push(origin("calculated-value",{pc:x.pc,operator:n,operands:operand.map(v=>publicOrigin(v,0)),descriptor:dest,category:dest==="J"||dest==="D"?2:1}));continue;
   }
   if(COMPARES.has(n)){
