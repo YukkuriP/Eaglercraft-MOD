@@ -149,7 +149,7 @@ function simulateBlock(instructions,block,startState,method,instructionBudget,br
    continue;
   }
   if(BINARY.has(n)){const shift=/^(?:ishl|ishr|iushr|lshl|lshr|lushr)$/.test(n),cat=n[0]==="l"||n[0]==="d"?2:1,right=pop(shift?1:cat,x.pc),left=pop(cat,x.pc),desc=cat===2?(n[0]==="l"?"J":"D"):(n[0]==="f"?"F":"I");push(origin("calculated-value",{pc:x.pc,operator:n,operands:[left,right],descriptor:desc,category:cat}));continue;}
-  if(UNARY.has(n)){const cat=n[0]==="l"||n[0]==="d"?2:1,a=pop(null,x.pc),dest={i2l:"J",i2f:"F",i2d:"D",l2i:"I",l2f:"F",l2d:"D",f2i:"I",f2l:"J",f2d:"D",d2i:"I",d2l:"J",d2f:"F",i2b:"I",i2c:"I",i2s:"I"}[n]||(n[0]==="l"?"J":n[0]==="d"?"D":n[0]==="f"?"F":"I");push(origin("calculated-value",{pc:x.pc,operator:n,operands:[a],descriptor:dest,category:dest==="J"||dest==="D"?2:1}));continue;}
+  if(UNARY.has(n)){const cat=n[0]==="l"||n[0]==="d"?2:1,a=pop(cat,x.pc),dest={i2l:"J",i2f:"F",i2d:"D",l2i:"I",l2f:"F",l2d:"D",f2i:"I",f2l:"J",f2d:"D",d2i:"I",d2l:"J",d2f:"F",i2b:"I",i2c:"I",i2s:"I"}[n]||(n[0]==="l"?"J":n[0]==="d"?"D":n[0]==="f"?"F":"I");push(origin("calculated-value",{pc:x.pc,operator:n,operands:[a],descriptor:dest,category:dest==="J"||dest==="D"?2:1}));continue;}
   if(COMPARES.has(n)){const cat=n[0]==="l"||n[0]==="d"?2:1,a=pop(cat,x.pc),b=pop(cat,x.pc);push(origin("comparison-result",{pc:x.pc,operator:n,operands:[b,a],descriptor:"I",category:1}));continue;}
   if(n==="new"){push(origin("new-object",{pc:x.pc,descriptor:clean(x.className||"",180)||null,category:1}));continue;}
   if(n==="newarray"||n==="anewarray"){const a=pop(1,x.pc);push(origin("new-array",{pc:x.pc,arrayType:n==="newarray"?"primitive":"reference",length:a,category:1}));continue;}
