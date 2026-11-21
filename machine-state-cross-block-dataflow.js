@@ -137,11 +137,12 @@ function simulateBlock(instructions,block,startState,method,instructionBudget,br
    if(!t){fail("invalid-field-descriptor");break;}
    push(origin("field-read",{pc:x.pc,opcode:n,owner:clean(norm(mm.owner),180),name:clean(mm.name,100),descriptor:clean(desc,180),fieldStatic:n==="getstatic",receiver:recv,category:t.category}));continue;
   }
-  if(n==="putfield"){pop(null,x.pc);pop(1,x.pc);continue;}\n  if(n==="putstatic"){pop(null,x.pc);continue;}
+  if(n==="putfield"){pop(null,x.pc);pop(1,x.pc);continue;}
+  if(n==="putstatic"){pop(null,x.pc);continue;}
   if(INVOKE.has(n)){
    const mm=x.member||{},desc=n==="invokedynamic"?x.dynamic&&x.dynamic.descriptor:mm.descriptor,p=parseMethod(desc);
    if(!p){fail("invalid-invocation-descriptor");break;}
-   for(let i=p.args.length-1;i>=0;i--)pop(p.args[i].category,x.pc);
+   const args=[];for(let i=p.args.length-1;i>=0;i--)args.unshift(pop(p.args[i].category,x.pc));
    let receiver=null;if(n!=="invokestatic"&&n!=="invokedynamic")receiver=pop(1,x.pc);
    const owner=mm.owner?norm(mm.owner):"<dynamic>",name=mm.name||x.dynamic&&x.dynamic.name||"invokedynamic";
    if(!safe(name)||(owner!=="<dynamic>"&&!safe(owner))){fail("unsafe-or-invalid-method-reference");break;}
