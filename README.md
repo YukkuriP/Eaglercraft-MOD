@@ -29,6 +29,9 @@
    - `machine-gui-interaction.js`
    - `machine-gui-converter.js`
    - `machine-gui-state-bridge.js`
+   - `machine-gui-live-binding.js`
+   - `machine-state-provider-sdk.js`
+   - `machine-state-event-producer.js`
    - `java-event-lifecycle.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
