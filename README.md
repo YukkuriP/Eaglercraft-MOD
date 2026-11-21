@@ -26,6 +26,7 @@
    - `machine-power-systems.js`
    - `transport-networks.js`
    - `machine-process-analysis.js`
+   - `machine-gui-interaction.js`
    - `java-event-lifecycle.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
@@ -234,3 +235,17 @@ MinecraftのバージョンやローダーでレシピのJSON形式とJava API�
 出力は `machine-process-analysis.json` と `diagnostics/machine-process-analysis.json` です。合成データでの分類テストはZeus 26.2／26.3上で実際に機械が稼働することを証明しません。材料消費、加工時間、エネルギー／燃料、完成品・副産物、保存・再読込、サーバー同期の実ゲーム検証は別途必要です。
 
 参考資料：<https://docs.neoforged.net/docs/1.21.1/resources/server/recipes/>、<https://docs.neoforged.net/docs/1.21.10/resources/server/recipes/custom/>、<https://docs.fabricmc.net/develop/data-generation/recipes>、<https://wiki.fabricmc.net/tutorial:recipes>。
+
+## 機械GUI・操作・同期の解析
+
+`machine-gui-interaction.js` は、Javaクラスの親クラス・インターフェース・descriptor・フィールド・バイトコード呼び出しから、Screen／ContainerScreen、AbstractContainerMenu／ScreenHandler、Widget、Slotの候補を別々に抽出します。画面の初期化・描画・リサイズ・閉じる処理、マウス／キー入力、ボタンや値変更コールバック、Slot登録・DataSlot登録、クイック移動、入力／取り出し可否、状態broadcast、パケット送受信候補を記録します。機械加工解析で見つかったクラスとの参照関係も照合し、機械GUIとの関連候補を示します。
+
+GUI資産は `assets/<namespace>/textures/gui/`、GUI／Screen／Menu／ContainerのJSON定義、言語ファイルのパスを確認します。GUI JSONは1ファイル512 KiB・合計16 MiBまで構造を調べ、Widget種別や座標・ラベル・テクスチャ候補のフィールドパスを抽出します。上限超過・読み込み失敗・不正JSONは診断に残します。詳細配列はそれぞれ最大5,000件です。
+
+Zeus側には `screen_init` と独自UI画面、ボタン・ラベル・トグル・スライダー・テキスト欄・リスト・Canvas等の仕組みがあります。しかし元MODのJava GUIを見つけただけでZeusの画面に置き換わるわけではありません。Minecraft側ではScreenとMenuは役割が分かれ、Slot／DataSlotによる表示値・インベントリの同期、クリック処理、サーバー側の検証が関係します。そのため解析結果は変換済みではなく未解決候補として扱い、完全移植判定に残します。
+
+現段階は**静的解析と移植タスク生成まで**です。画面レイアウト・座標スケーリング、独自描画、テクスチャUV、翻訳、Slotの並びと検証、Shiftクリック等の移動規則、ボタン操作の意味、値変更の検証、サーバー権限、パケットpayload、同期タイミング、画面の開閉・再構築は再実装していません。未解決の画面・メニュー・Widget・Slot・操作・同期・GUI資産があるパッケージは `conversionComplete=false` となります。
+
+出力は `machine-gui-interaction.json` と `diagnostics/machine-gui-interaction.json` です。合成データでの分類テストはZeus 26.2／26.3上で機械GUIが実際に開き、入力・変更・同期できることを証明しません。実ゲームでのクリック、Shiftクリック、数値変更、画面再構築、切断・再接続、サーバー同期の検証は別途必要です。
+
+参考資料：<https://dev.eaglercraft.com/docs/modding/screens>、<https://dev.eaglercraft.com/docs/modding/events-and-timers>、<https://docs.minecraftforge.net/en/1.20.x/gui/menus/>、<https://docs.minecraftforge.net/en/1.20.x/gui/screens/>。
