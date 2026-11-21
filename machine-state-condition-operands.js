@@ -16,8 +16,8 @@ const COMPARES=new Set(["lcmp","fcmpl","fcmpg","dcmpl","dcmpg"]);
 const INVOKE=new Set(["invokevirtual","invokespecial","invokestatic","invokeinterface","invokedynamic"]);
 function arr(v){return Array.isArray(v)?v:[];}
 function safe(v){return typeof v==="string"&&!BLOCKED.test(v);}
-function norm(v){return String(v||"").replace(/\\./g,"/").replace(/^L|;$/g,"");}
-function clean(v,n){return String(v==null?"":v).replace(/[\\u0000-\\u001f\\u007f]/g," ").replace(/\\s+/g," ").trim().slice(0,n||140);}
+function norm(v){return String(v||"").replace(/\./g,"/").replace(/^L|;$/g,"");}
+function clean(v,n){return String(v==null?"":v).replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,n||140);}
 function parseType(desc,pos,allowVoid){
  let p=pos,dims=0;while(desc[p]==="["){dims++;p++;if(dims>255)return null;}
  const ch=desc[p++];
@@ -49,10 +49,7 @@ function slotInfo(desc,isStatic){
  for(const t of parsed.args){map.set(slot,{kind:"method-parameter",slot,parameterIndex:param,descriptor:t.descriptor,category:t.category});slot+=t.category;param++;}
  return map;
 }
-function origin(kind,data){
- const o=Object.assign({kind},data||{});
- return o;
-}
+function origin(kind,data){return Object.assign({kind},data||{});}
 function publicOrigin(v,depth){
  if(!v||depth>MAX_DEPTH)return {kind:"truncated-origin"};
  const out={kind:v.kind||"unknown"};
