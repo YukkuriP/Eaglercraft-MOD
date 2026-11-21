@@ -54,15 +54,15 @@ function buildLua(controls,assetPaths,summary){
   const c=controls[i],id="gui_preview_"+(i+1),kind=c.zeusWidget;
   const note="Source evidence: "+text(c.sourceLabel||c.sourceKind,70)+" (callback not migrated)";
   if(kind==="button"||kind==="tab"){
-   lines.push("    s:button({ id = "+luaString(id)+", text = "+luaString(c.label||"Unwired button")+", onClick = function() ui.notify("+"\"Not connected\", "+luaString(note)+") end })");
+   lines.push("    s:button({ id = "+luaString(id)+", text = "+luaString(c.label||c.sourceLabel||"Unwired button")+", onClick = function() ui.notify("+"\"Not connected\", "+luaString(note)+") end })");
   }else if(kind==="toggle"){
-   lines.push("    s:toggle({ id = "+luaString(id)+", label = "+luaString(c.label||"Unwired toggle")+", value = false, onChange = function(value) ui.notify(\"Not connected\", "+luaString(note)+") end })");
+   lines.push("    s:toggle({ id = "+luaString(id)+", label = "+luaString(c.label||c.sourceLabel||"Unwired toggle")+", value = false, onChange = function(value) ui.notify(\"Not connected\", "+luaString(note)+") end })");
   }else if(kind==="slider"){
-   lines.push("    s:slider({ id = "+luaString(id)+", label = "+luaString(c.label||"Unwired value")+", min = 0, max = 100, step = 1, value = 0, onChange = function(value) ui.notify(\"Not connected\", "+luaString(note)+") end })");
+   lines.push("    s:slider({ id = "+luaString(id)+", label = "+luaString(c.label||c.sourceLabel||"Unwired value")+", min = 0, max = 100, step = 1, value = 0, onChange = function(value) ui.notify(\"Not connected\", "+luaString(note)+") end })");
   }else if(kind==="textField"){
-   lines.push("    s:textField({ id = "+luaString(id)+", hint = "+luaString(c.label||"Input placeholder")+", maxLength = 128, onSubmit = function(value) ui.notify(\"Not connected\", "+luaString(note)+") end })");
+   lines.push("    s:textField({ id = "+luaString(id)+", hint = "+luaString(c.label||c.sourceLabel||"Input placeholder")+", maxLength = 128, onSubmit = function(value) ui.notify(\"Not connected\", "+luaString(note)+") end })");
   }else if(kind==="textArea"){
-   lines.push("    s:textArea({ id = "+luaString(id)+", hint = "+luaString(c.label||"Text placeholder")+", maxLength = 512 })");
+   lines.push("    s:textArea({ id = "+luaString(id)+", hint = "+luaString(c.label||c.sourceLabel||"Text placeholder")+", maxLength = 512 })");
   }else if(kind==="list"){
    lines.push("    s:list({ id = "+luaString(id)+", items = { \"Preview item 1\", \"Preview item 2\" }, height = 64, onSelect = function(index, data) ui.notify(\"Not connected\", "+luaString(note)+") end })");
   }else if(kind==="progress"||kind==="slot-grid"||kind==="canvas"){
@@ -84,7 +84,7 @@ function buildLua(controls,assetPaths,summary){
   }else if(kind==="image"){
    lines.push("    s:label({ id = "+luaString(id)+", text = \"Image asset found - UV/layout mapping needs review\", wrap = true })");
   }else{
-   lines.push("    s:label({ id = "+luaString(id)+", text = "+luaString(c.label||"Unmapped GUI element")+", wrap = true })");
+   lines.push("    s:label({ id = "+luaString(id)+", text = "+luaString(c.label||c.sourceLabel||"Unmapped GUI element")+", wrap = true })");
   }
  }
  lines.push('    s:button({ id = "close_preview", text = "Close", onClick = function() s:close() end })');
@@ -112,12 +112,12 @@ function convert(input,options){
  const definitions=arr(input.guiDefinitions).filter(r=>r&&safe(r.sourcePath));
  const resources=arr(input.resources).filter(r=>r&&safe(r.sourcePath));
  const controls=[],controlKeys=new Set(),manualTasks=[];
- let truncated=false;
+ let truncated=false,omittedControls=0;
  function addControl(sourceKind,kind,sourceLabel,sourcePath,extra){
-  if(controls.length>=MAX_CONTROLS){truncated=true;return;}
-  const mapped=mapWidget(kind);
   const key=[sourceKind,kind,sourceLabel,sourcePath].join("|");
   if(controlKeys.has(key))return;
+  if(controls.length>=MAX_CONTROLS){truncated=true;omittedControls++;return;}
+  const mapped=mapWidget(kind);
   controlKeys.add(key);
   controls.push(Object.assign({id:"gui-control-"+(controls.length+1),sourceKind:sourceKind,sourceLabel:text(sourceLabel,100),sourcePath:sourcePath||null,zeusWidget:mapped.api,renderMode:mapped.mode,mappingStatus:mapped.status,layout:{position:"automatic-flow-or-fixed-canvas",sourceCoordinatesKnown:false},callbackStatus:"not-connected"},extra||{}));
  }
@@ -184,7 +184,7 @@ function convert(input,options){
    menuClassesReported:menus.length,
    screenMenuLinks:links.length,
    controlsPlanned:selectedControls.length,
-   controlsOmitted:Math.max(0,controls.length-selectedControls.length),
+   controlsOmitted:omittedControls+Math.max(0,controls.length-selectedControls.length),
    widgetsByZeusType:mappingCounts,
    slotClassesReported:slots.length,
    guiTexturesObserved:num(input.totals&&input.totals.guiTextures),
