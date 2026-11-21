@@ -13,10 +13,10 @@ function fixture({blocks,edges,instructions,valid=true}){
 }
 const controlled=()=>fixture({
  blocks:[
-  {id:0,start:0,end:3,instructionCount:2,firstOpcode:"iload_1",lastOpcode:"if_icmpge"},
-  {id:1,start:3,end:5,instructionCount:1,firstOpcode:"goto",lastOpcode:"goto"},
-  {id:2,start:5,end:7,instructionCount:2,firstOpcode:"aload_0",lastOpcode:"putfield"},
-  {id:3,start:7,end:8,instructionCount:1,firstOpcode:"return",lastOpcode:"return"}
+  {id:0,start:0,end:4,instructionCount:2,firstOpcode:"iload_1",lastOpcode:"if_icmpge"},
+  {id:1,start:4,end:7,instructionCount:1,firstOpcode:"goto",lastOpcode:"goto"},
+  {id:2,start:7,end:11,instructionCount:2,firstOpcode:"aload_0",lastOpcode:"putfield"},
+  {id:3,start:11,end:12,instructionCount:1,firstOpcode:"return",lastOpcode:"return"}
  ],
  edges:[
   {from:0,to:1,kind:"conditional-false"},
@@ -24,7 +24,7 @@ const controlled=()=>fixture({
   {from:1,to:3,kind:"branch"},
   {from:2,to:3,kind:"fallthrough"}
  ],
- instructions:[ins("iload_1",0),ins("if_icmpge",1,{target:5}),ins("goto",3,{target:7}),ins("aload_0",5),ins("putfield",6,{member:field}),ins("return",7)]
+ instructions:[ins("iload_1",0),ins("if_icmpge",1,{target:7}),ins("goto",4,{target:11}),ins("aload_0",7),ins("putfield",8,{member:field}),ins("return",11)]
 });
 test("finds a static control-dependence candidate from dominator/postdominator relations",()=>{
  const report=analyzer.analyze(controlled());
@@ -38,13 +38,13 @@ test("finds a static control-dependence candidate from dominator/postdominator r
 });
 test("does not report a write after the two paths have joined",()=>{
  const input=controlled();
- input.updateConditions.writers[0].writes[0].pc=7;
- input.classes[0].classInfo.methods[0].code.instructions=[ins("iload_1",0),ins("if_icmpge",1,{target:5}),ins("goto",3,{target:7}),ins("nop",5),ins("putfield",7,{member:field}),ins("return",8)];
+ input.updateConditions.writers[0].writes[0].pc=11;
+ input.classes[0].classInfo.methods[0].code.instructions=[ins("iload_1",0),ins("if_icmpge",1,{target:7}),ins("goto",4,{target:11}),ins("nop",7),ins("putfield",11,{member:field}),ins("return",14)];
  input.classes[0].classInfo.methods[0].code.verification.controlFlow.basicBlocks=[
-  {id:0,start:0,end:3,lastOpcode:"if_icmpge"},
-  {id:1,start:3,end:5,lastOpcode:"goto"},
-  {id:2,start:5,end:7,lastOpcode:"nop"},
-  {id:3,start:7,end:9,lastOpcode:"return"}
+  {id:0,start:0,end:4,lastOpcode:"if_icmpge"},
+  {id:1,start:4,end:7,lastOpcode:"goto"},
+  {id:2,start:7,end:11,lastOpcode:"nop"},
+  {id:3,start:11,end:15,lastOpcode:"return"}
  ];
  input.classes[0].classInfo.methods[0].code.verification.controlFlow.edges=[
   {from:0,to:1,kind:"conditional-false"},{from:0,to:2,kind:"conditional-true"},
@@ -71,7 +71,9 @@ test("rejects an invalid verifier result instead of using its CFG",()=>{
 });
 test("does not claim a control path when the CFG has no reachable exit",()=>{
  const input=controlled();
- input.classes[0].classInfo.methods[0].code.verification.controlFlow.edges.push({from:3,to:0,kind:"branch"});
+ const cfg=input.classes[0].classInfo.methods[0].code.verification.controlFlow;
+ cfg.basicBlocks=[{id:0,start:0,end:4,lastOpcode:"if_icmpge"},{id:1,start:4,end:7,lastOpcode:"goto"},{id:2,start:7,end:11,lastOpcode:"goto"},{id:3,start:11,end:14,lastOpcode:"goto"}];
+ cfg.edges=[{from:0,to:1,kind:"conditional-false"},{from:0,to:2,kind:"conditional-true"},{from:1,to:2,kind:"branch"},{from:2,to:3,kind:"branch"},{from:3,to:0,kind:"branch"}];
  const report=analyzer.analyze(input);
  assert.equal(report.totals.writerMethodsWithoutValidCfg,1);
  assert.equal(report.writers.length,0);
