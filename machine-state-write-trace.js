@@ -93,6 +93,8 @@ function analyze(input,options){
  options=options&&typeof options==="object"?options:{};
  const source=input.sourceAnalysis||{};
  const fields=arr(source.fieldCandidates);
+ const sourceFieldCandidatesSeen=Math.max(fields.length,Number(source.totals&&source.totals.fieldCandidatesSeen)||0);
+ const sourceFieldCandidatesOmitted=Math.max(0,sourceFieldCandidatesSeen-fields.length);
  const classes=arr(input.classes);
  const detailLimit=Number.isInteger(options.detailLimit)&&options.detailLimit>0?Math.min(options.detailLimit,MAX_WRITERS):MAX_WRITERS;
  const classNames=new Set(arr(source.machineClasses).filter(x=>x&&safe(x)).map(norm));
@@ -215,14 +217,14 @@ function analyze(input,options){
   ],
   totals:{
    machineClasses:limitedNames.length,parsedMachineClasses:classMap.size,
-   fieldCandidatesSeen:fieldsSeen,fieldCandidatesReported:fieldSummaries.length,
+   fieldCandidatesSeen:sourceFieldCandidatesSeen,fieldCandidatesReported:fieldSummaries.length,sourceFieldCandidatesOmitted:sourceFieldCandidatesOmitted,
    methodCandidatesSeen:methodCandidatesSeen,methodsWithCodeMissing:methodsWithoutCode,
    methodsWithDecodeErrors:methodsDecodeErrors,methodsWithCalls:methodsWithCalls,
    methodsWithBranches:methodsWithBranches,writerMethodsObserved:allWrites.length,
    writerMethodsReported:Math.min(allWrites.length,detailLimit),writeInstructionsObserved:writesObserved,
    structurallyVerifiedWriterMethods:verifiedWriterMethods,decodedWriterMethods:decodedWriterMethods,
    methodsTruncated:methodsTruncated,classesOmitted:Math.max(0,classNames.size-limitedNames.length),
-   detailsTruncated:methodsTruncated>0||allWrites.length>detailLimit||fieldsSeen>MAX_FIELDS||classNames.size>limitedNames.length
+   detailsTruncated:methodsTruncated>0||allWrites.length>detailLimit||fieldsSeen>MAX_FIELDS||sourceFieldCandidatesOmitted>0||classNames.size>limitedNames.length
   },
   javaMethodsExecuted:false,assignmentValuesRecovered:false,updateTimingRecovered:false,
   sourceRuntimeValuesRecovered:false,sourceReaderCallbacksGenerated:0,eventPublicationsWired:0,
