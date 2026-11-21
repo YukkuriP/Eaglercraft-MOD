@@ -244,7 +244,8 @@ function analyze(input,options){
    const keys=Object.keys(value);if(keys.length>300)walkTruncated=true;
    for(const k of keys.slice(0,300))walk(value[k],keyPath?keyPath+"."+k:k,depth+1);
   }
-  for(const k of Object.keys(data).slice(0,300))walk(data[k],k,0);
+  const rootKeys=Object.keys(data);if(rootKeys.length>300)walkTruncated=true;
+  for(const k of rootKeys.slice(0,300))walk(data[k],k,0);
   const vanillaType=VANILLA_RECIPE_TYPE_RE.test(type||"");
   const pathHint=!vanillaType&&MACHINE_NAME_RE.test(path);
   const typeHint=!vanillaType&&!!type&&MACHINE_NAME_RE.test(type);
