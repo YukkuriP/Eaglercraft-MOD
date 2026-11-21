@@ -283,3 +283,22 @@ test("enforces per-method and aggregate instruction bounds", () => {
   assert.equal(result.writeAnalyses[0].status, "truncated");
   assert.equal(result.writeAnalyses[0].reason, "write-site-beyond-instruction-limit");
 });
+
+test("propagates an earlier same-object field write into a later field read", () => {
+  const body = [
+    ins("aload_0", { pc: 0 }), ins("bipush", { pc: 1, operand: 7 }),
+    ins("putfield", { pc: 3, member: field("progress") }),
+    ins("aload_0", { pc: 6 }), ins("dup", { pc: 7 }),
+    ins("getfield", { pc: 8, member: field("progress") }),
+    ins("iconst_1", { pc: 11 }), ins("iadd", { pc: 12 }),
+    ins("putfield", { pc: 13, member: field("progress") })
+  ];
+  const row = analyzer.analyze(data(
+    [method("resetThenAdvance", "()V", body)],
+    [writer("resetThenAdvance", "()V", "progress", "I", 13)]
+  )).writeAnalyses[0];
+  assert.equal(row.status, "resolved");
+  assert.equal(row.valueExpression.text, "(7 + 1)");
+  assert.equal(row.priorWriteSites.length, 1);
+  assert.equal(row.priorWriteSites[0].pc, 3);
+});
