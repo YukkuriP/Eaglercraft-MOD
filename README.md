@@ -104,6 +104,14 @@ Both paths enforce declared telemetry keys and primitive types. Coordinates, blo
 
 The generated companion ZIP is a development starter, not a finished machine-state integration. Register an actual source and test it in the exact Zeus 26.2/26.3 client before expecting live values. The synthetic tests do not replace an in-game test.
 
+## Explicit machine-state event publisher (Phase 24)
+
+`machine-state-event-producer.js` generates a sender helper for the exact provider ID and `jar2zeus.machine-state-event.v1` channel created in Phase 23. The helper is appended to the generated source MOD `main.lua` and exported as `mod.export.publish_machine_state(x, y, z, blockId, values)`. It obtains the companion provider through `mods.get(providerId)`, checks the provider schema/version/event name, validates integer coordinates, a namespaced block ID, and the fixed scalar telemetry key/type allow-list, then submits the event through `events.emit`.
+
+The sender is callable but deliberately inert until source logic calls it. It does not create a source-state reader, inspect Java BlockEntity/NBT data, register a tick callback, schedule a timer, scan the world, or publish on its own. A developer must connect a real state source already owned by the converted MOD and call the helper from a supported source-owned callback. The companion provider must also be installed and configured to accept the matching block ID and keys.
+
+A successful `events.emit` call means only that submission did not throw; it does not confirm provider receipt or display. The `source_id` is self-reported through `mod.id`, not authenticated. The diagnostics are `machine-state-event-producer-plan.json` and `diagnostics/machine-state-event-producer.lua`. No in-game event-delivery test is implied by static validation.
+
 Official API references: [Share code with other mods](https://dev.eaglercraft.com/docs/modding/packaging), [Events and timers](https://dev.eaglercraft.com/docs/modding/events-and-timers), [API reference](https://dev.eaglercraft.com/docs/modding/api).
 
 Official API references: [API reference](https://dev.eaglercraft.com/docs/modding/api), [Screens and menus](https://dev.eaglercraft.com/docs/modding/screens), [Share code with other mods](https://dev.eaglercraft.com/docs/modding/packaging).
@@ -300,3 +308,5 @@ Zeus側には `screen_init` と独自UI画面、ボタン・ラベル・トグ�
 出力は `machine-gui-interaction.json` と `diagnostics/machine-gui-interaction.json` です。合成データでの分類テストはZeus 26.2／26.3上で機械GUIが実際に開き、入力・変更・同期できることを証明しません。実ゲームでのクリック、Shiftクリック、数値変更、画面再構築、切断・再接続、サーバー同期の検証は別途必要です。
 
 参考資料：<https://dev.eaglercraft.com/docs/modding/screens>、<https://dev.eaglercraft.com/docs/modding/events-and-timers>、<https://docs.minecraftforge.net/en/1.20.x/gui/menus/>、<https://docs.minecraftforge.net/en/1.20.x/gui/screens/>。
+
+- `diagnostics/machine-state-event-producer-plan.json` and `diagnostics/machine-state-event-producer.lua`: explicit source-side event publisher helper and manual wiring plan.
