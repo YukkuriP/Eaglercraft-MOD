@@ -10,7 +10,7 @@ test("browser application inline JavaScript parses",()=>{
  for(const match of scripts){if(match[1].trim())assert.doesNotThrow(()=>new vm.Script(match[1]));}
 });
 test("browser application loads every migration engine module",()=>{
- for(const file of ["converter.js","resource-converter.js","definition-converter.js","generic-mod-analyzer.js","migration-pipeline.js","package-validator.js","machine-gui-state-bridge.js","machine-gui-live-binding.js","machine-state-provider-sdk.js","machine-state-event-producer.js","machine-state-source-analysis.js","machine-state-getter-semantics.js","machine-state-write-trace.js"])
+ for(const file of ["converter.js","resource-converter.js","definition-converter.js","generic-mod-analyzer.js","migration-pipeline.js","package-validator.js","machine-gui-state-bridge.js","machine-gui-live-binding.js","machine-state-provider-sdk.js","machine-state-event-producer.js","machine-state-source-analysis.js","machine-state-getter-semantics.js","machine-state-write-trace.js","machine-state-write-value-analysis.js"])
   assert.ok(html.includes('<script src="'+file+'"></script>'),"missing "+file);
 });
 
@@ -87,5 +87,15 @@ test("Phase 27 traces machine field write sites and exports the update-path plan
  assert.ok(html.includes('addPackageFile("machine-state-write-trace-plan.json"'));
  assert.ok(html.includes('out.file("diagnostics/machine-state-write-trace-plan.json"'));
  assert.ok(html.includes("assignmentValuesRecovered:false"));
+ assert.ok(html.includes("updateTimingRecovered:false"));
+});
+
+test("Phase 28 traces symbolic assignment expressions and exports provenance diagnostics",()=>{
+ assert.ok(html.includes("machine-state-write-value-analysis.js"));
+ assert.ok(html.includes("Jar2ZeusMachineStateWriteValueAnalysis.analyze"));
+ assert.ok(html.includes("machineStateWriteValueAnalysisFileCount:1"));
+ assert.ok(html.includes('addPackageFile("machine-state-write-value-analysis-plan.json"'));
+ assert.ok(html.includes('out.file("diagnostics/machine-state-write-value-analysis-plan.json"'));
+ assert.ok(html.includes("assignedRuntimeValuesRecovered:false"));
  assert.ok(html.includes("updateTimingRecovered:false"));
 });
