@@ -119,7 +119,7 @@ $("analyze").onclick=async function(){
   var classes=names.filter(function(n){return n.endsWith(".class")}).length;
   var assets=names.filter(function(n){return n.startsWith("assets/")}).length;
   var data=names.filter(function(n){return n.startsWith("data/")}).length;
-  var genericEntries=[];javaClassRecords=[];
+  var genericEntries=[];javaClassRecords=[];var recipeJsonBytesRead=0;
   for(var gi=0;gi<names.length;gi++){
    var gn=names[gi],go=jarZip.files[gn];if(go.dir)continue;
    var ge={path:gn,size:go._data&&go._data.uncompressedSize||0};
@@ -127,7 +127,12 @@ $("analyze").onclick=async function(){
     ge.classInfo=window.Jar2ZeusBytecode.parse(await go.async("uint8array"));
     if(ge.classInfo.valid)javaClassRecords.push(ge.classInfo);
    }else if(/^data\/[a-z0-9_.-]+\/(?:recipe|recipes)\/.+\.json$/i.test(gn)&&!/(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i.test(gn)){
-    try{ge.content=await go.async("string");ge.recipeJson=true}catch(err){ge.recipeReadError=true}
+    ge.recipeJson=true;
+    if(ge.size>2*1024*1024||recipeJsonBytesRead+ge.size>64*1024*1024){
+     ge.recipeReadError=true;ge.recipeReadErrorReason=ge.size>2*1024*1024?"single recipe JSON exceeds 2 MiB analysis cap":"aggregate recipe JSON exceeds 64 MiB analysis cap";
+    }else{
+     try{ge.content=await go.async("string");recipeJsonBytesRead+=ge.size}catch(err){ge.recipeReadError=true;ge.recipeReadErrorReason="recipe JSON could not be read";}
+    }
    }else if(gn==="fabric.mod.json"||gn==="quilt.mod.json"||/^META-INF\/(mods\.toml|neoforge\.mods\.toml|MANIFEST\.MF|jarjar\/metadata\.json)$/i.test(gn)||/mixin.*\.json$/i.test(gn)||/^META-INF\/services\//i.test(gn)){
     try{ge.content=await go.async("string")}catch(err){}
    }
@@ -147,7 +152,7 @@ $("analyze").onclick=async function(){
   var blockEntityMachineState=window.Jar2ZeusBlockEntityMachineState.analyze({classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};})});
   var machinePowerSystems=window.Jar2ZeusMachinePowerSystems.analyze({classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};})});
   var transportNetworks=window.Jar2ZeusTransportNetworks.analyze({classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};})});
-  var machineProcessAnalysis=window.Jar2ZeusMachineProcessAnalysis.analyze({classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};}),recipes:genericEntries.filter(function(entry){return entry.recipeJson===true;}).map(function(entry){return {path:entry.path,content:entry.content};})});
+  var machineProcessAnalysis=window.Jar2ZeusMachineProcessAnalysis.analyze({classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};}),recipes:genericEntries.filter(function(entry){return entry.recipeJson===true;}).map(function(entry){return {path:entry.path,content:entry.content,readError:entry.recipeReadError===true,readErrorReason:entry.recipeReadErrorReason||null};})});
   genericAnalysis.migrationAssessment.machineProcessAnalysis={status:machineProcessAnalysis.status,recipeRelatedClasses:machineProcessAnalysis.totals.recipeRelatedClasses,machineProcessorClasses:machineProcessAnalysis.totals.machineProcessorClasses,recipeSerializerClasses:machineProcessAnalysis.totals.recipeSerializerClasses,recipeTypeClasses:machineProcessAnalysis.totals.recipeTypeClasses,recipeJsonFilesSeen:machineProcessAnalysis.totals.recipeJsonFilesSeen,recipeJsonParsed:machineProcessAnalysis.totals.recipeJsonParsed,machineRecipeCandidates:machineProcessAnalysis.totals.machineRecipeCandidates,fluidInputCandidates:machineProcessAnalysis.totals.fluidInputCandidates,chemicalOrGasInputCandidates:machineProcessAnalysis.totals.chemicalOrGasInputCandidates,byproductCandidates:machineProcessAnalysis.totals.byproductCandidates,processingDurationCandidates:machineProcessAnalysis.totals.processingDurationCandidates,energyRequirementCandidates:machineProcessAnalysis.totals.energyRequirementCandidates,fuelRequirementCandidates:machineProcessAnalysis.totals.fuelRequirementCandidates,operationsObserved:machineProcessAnalysis.totals.operationsObserved,fieldsObserved:machineProcessAnalysis.totals.fieldsObserved,detailsTruncated:machineProcessAnalysis.totals.detailsTruncated};
   genericAnalysis.migrationAssessment.transportNetworks={status:transportNetworks.status,transportClasses:transportNetworks.totals.transportClasses,itemTransportClasses:transportNetworks.totals.itemTransportClasses,fluidTransportClasses:transportNetworks.totals.fluidTransportClasses,energyTransportClasses:transportNetworks.totals.energyTransportClasses,multiResourceClasses:transportNetworks.totals.multiResourceClasses,networkClasses:transportNetworks.totals.networkClasses,operationsObserved:transportNetworks.totals.operationsObserved,operationsReported:transportNetworks.totals.operationsReported,apiReferences:transportNetworks.totals.apiReferences,fieldsObserved:transportNetworks.totals.fieldsObserved,methodsObserved:transportNetworks.totals.methodsObserved,detailsTruncated:transportNetworks.totals.detailsTruncated};
   genericAnalysis.migrationAssessment.machinePowerSystems={status:machinePowerSystems.status,powerRelatedClasses:machinePowerSystems.totals.powerRelatedClasses,energyClasses:machinePowerSystems.totals.energyClasses,kineticClasses:machinePowerSystems.totals.kineticClasses,generatorOrStorageClasses:machinePowerSystems.totals.generatorOrStorageClasses,energyOperationsObserved:machinePowerSystems.totals.energyOperationsObserved,kineticOperationsObserved:machinePowerSystems.totals.kineticOperationsObserved,genericPowerOperationsObserved:machinePowerSystems.totals.genericPowerOperationsObserved,unmappedPowerOperations:machinePowerSystems.totals.unmappedPowerOperations,fieldsObserved:machinePowerSystems.totals.fieldsObserved,methodsObserved:machinePowerSystems.totals.methodsObserved,detailsTruncated:machinePowerSystems.totals.detailsTruncated};
