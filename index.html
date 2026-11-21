@@ -68,7 +68,7 @@ function $(id){return document.getElementById(id)}
 function slug(s){return (s||"imported_mod").toLowerCase().replace(/[^a-z0-9_.-]/g,"_").replace(/^\.+/,"").slice(0,55).replace(/_+$/,"")||"imported_mod"}
 function unique(a){return Array.from(new Set(a))}
 function invalidateAnalysis(){
- jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;
+ jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;machineStateEventProducer=null;
  $("build").disabled=true;
  $("out").textContent="ファイルまたは対象バージョンが変更されました。もう一度解析してください。";
  $("warning").textContent="再解析が必要です。";
@@ -77,7 +77,7 @@ $("jar").onchange=invalidateAnalysis;
 $("targetVersion").onchange=invalidateAnalysis;
 $("analyze").onclick=async function(){
  try{
-  jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;$("build").disabled=true;
+  jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;machineStateEventProducer=null;$("build").disabled=true;
   if(!window.JSZip)throw Error("JSZipを読み込めません。インターネット接続を確認してください。");
   if(!window.Jar2ZeusArchive)throw Error("ZIP事前検査モジュールを読み込めません。");
   jarFile=$("jar").files[0];
@@ -392,7 +392,7 @@ $("build").onclick=async function(){
   metadata:meta,mainLua:generatedMain,analysis:jarReport.generic_analysis,adapterReport:pipelineResult.report,
   textureMappings:successfulMappings,availableTextures:availableTextures,packageFiles:packageFiles,
   packageLimits:{files:packageFiles.length,bytes:packageBytes,maxFiles:4096,maxBytes:64*1024*1024},
-  packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,eventLifecycle:jarReport.java_event_lifecycle,forgeApiCompatibility:jarReport.forge_api_compatibility,fabricApiCompatibility:jarReport.fabric_api_compatibility,minecraftInternalApiCompatibility:jarReport.minecraft_internal_api_compatibility,blockStateConversion:jarReport.block_state_conversion,itemInventoryConversion:jarReport.item_inventory_conversion,blockEntityMachineState:jarReport.block_entity_machine_state,machinePowerSystems:jarReport.machine_power_systems,transportNetworks:jarReport.transport_networks,machineProcessAnalysis:jarReport.machine_process_analysis,machineProcessFileCount:jarReport.machine_process_analysis.totals.recipeJsonFilesSeen,machineGuiInteraction:jarReport.machine_gui_interaction,machineGuiResourceFileCount:jarReport.machine_gui_interaction.totals.guiResourceFilesSeen,machineGuiConversion:jarReport.machine_gui_conversion,machineGuiConversionFileCount:1,machineGuiStateBridge:jarReport.machine_gui_state_bridge,machineGuiStateBridgeFileCount:1,machineGuiLiveBinding:jarReport.machine_gui_live_binding,machineGuiLiveBindingFileCount:1,machineStateProviderSdk:jarReport.machine_state_provider_sdk,machineStateProviderSdkFileCount:1,
+  packageSkipped:packageSkipped,runtimeTested:false,gameplayVerified:false,eventLifecycle:jarReport.java_event_lifecycle,forgeApiCompatibility:jarReport.forge_api_compatibility,fabricApiCompatibility:jarReport.fabric_api_compatibility,minecraftInternalApiCompatibility:jarReport.minecraft_internal_api_compatibility,blockStateConversion:jarReport.block_state_conversion,itemInventoryConversion:jarReport.item_inventory_conversion,blockEntityMachineState:jarReport.block_entity_machine_state,machinePowerSystems:jarReport.machine_power_systems,transportNetworks:jarReport.transport_networks,machineProcessAnalysis:jarReport.machine_process_analysis,machineProcessFileCount:jarReport.machine_process_analysis.totals.recipeJsonFilesSeen,machineGuiInteraction:jarReport.machine_gui_interaction,machineGuiResourceFileCount:jarReport.machine_gui_interaction.totals.guiResourceFilesSeen,machineGuiConversion:jarReport.machine_gui_conversion,machineGuiConversionFileCount:1,machineGuiStateBridge:jarReport.machine_gui_state_bridge,machineGuiStateBridgeFileCount:1,machineGuiLiveBinding:jarReport.machine_gui_live_binding,machineGuiLiveBindingFileCount:1,machineStateProviderSdk:jarReport.machine_state_provider_sdk,machineStateProviderSdkFileCount:1,machineStateEventProducer:jarReport.machine_state_event_producer,machineStateEventProducerFileCount:1,
   reimplementation:javaReimplementation.report,javaTypeCompatibility:javaTypeCompatibility.report,recipeReport:converted.report,definitionReport:definitions.report,entityReport:entityModels.report,configReport:configSettings.report,
   apiValidation:apiValidation,targetRuntimeEvidence:{apiPresenceVerified:false,versionVerified:false}
  });
