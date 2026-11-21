@@ -6,10 +6,11 @@ const analyzer=globalThis.Jar2ZeusMachineStateInterproceduralSummaries;
 const owner="sample/machine/CrusherBlockEntity";
 function ins(name,pc,extra={}){return Object.assign({name:name,pc:pc},extra);}
 function helper(name,descriptor,accessFlags,instructions,blocks){
- return {name:name,descriptor:descriptor,accessFlags:accessFlags,code:{instructions:instructions,verification:{valid:true,structuralOnly:true,controlFlow:{basicBlocks:blocks||[{id:0,start:0,end:instructions.length}],edges:[]}}}};
+ const end=instructions.reduce((max,x)=>Math.max(max,Number(x.pc)||0),-1)+1;
+ return {name:name,descriptor:descriptor,accessFlags:accessFlags,code:{instructions:instructions,verification:{valid:true,structuralOnly:true,controlFlow:{basicBlocks:blocks||[{id:0,start:0,end:end}],edges:[]}}}};
 }
-function fixture({callOpcode="invokestatic",helperMethod,callName=helperMethod.name,callDescriptor=helperMethod.descriptor,operand,argumentOrigins=[],receiver=null,className=owner,extraMethods=[]}){
- const member={kind:"method",owner:className,name:callName,descriptor:callDescriptor};
+function fixture({callOpcode="invokestatic",helperMethod,callName=helperMethod.name,callDescriptor=helperMethod.descriptor,memberDescriptor=callDescriptor,operand,argumentOrigins=[],receiver=null,className=owner,extraMethods=[]}){
+ const member={kind:"method",owner:className,name:callName,descriptor:memberDescriptor};
  const caller={name:"serverTick",descriptor:"()V",accessFlags:0,code:{instructions:[ins(callOpcode,3,{member:member})]}};
  const methodResult=operand||{kind:"method-result",pc:3,methodOwner:className,methodName:callName,methodDescriptor:callDescriptor,descriptor:callDescriptor.slice(callDescriptor.indexOf(")")+1),category:1,receiver:receiver,arguments:argumentOrigins};
  return {crossBlockDataflow:{schema:"jar2zeus.machine-state-cross-block-dataflow.v1",methods:[{sourceClass:className,methodName:"serverTick",methodDescriptor:"()V",branches:[{pc:20,opcode:"ifeq",status:"resolved",operandOrigins:[methodResult]}]}]},classes:[{classInfo:{valid:true,className:className,methods:[caller,helperMethod,...extraMethods]}}]};
@@ -79,7 +80,7 @@ test("refuses virtual dispatch because the concrete callee is not proven",()=>{
 });
 test("rejects call-site owner or descriptor mismatches",()=>{
  const h=helper("identity","(I)I",0x0008,[ins("iload_0",0),ins("ireturn",1)]);
- const input=fixture({helperMethod:h,callDescriptor:"(J)I",argumentOrigins:[{kind:"constant",constantValue:1,category:1}]});
+ const input=fixture({helperMethod:h,callDescriptor:"(I)I",memberDescriptor:"(J)I",argumentOrigins:[{kind:"constant",constantValue:1,category:1}]});
  const value=resolved(analyzer.analyze(input));
  assert.equal(value.kind,"method-result");
  assert.equal(value.resolutionReason,"callsite-reference-mismatch");
