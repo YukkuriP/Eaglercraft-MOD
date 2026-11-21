@@ -156,3 +156,14 @@ test("reports exception-table control flow without symbolically executing the me
   assert.equal(row.exceptionHandlerCount, 1);
   assert.equal(row.expression, null);
 });
+
+test("omits excluded dynamic call identifiers from diagnostic details", () => {
+  const body = [
+    { name: "aload_0", pc: 0 },
+    { name: "invokedynamic", pc: 1, dynamic: { name: "weaponCallback", descriptor: "()I" } },
+    { name: "ireturn", pc: 4 }
+  ];
+  const row = analyzer.analyze(data([method("getProgress", "()I", body)])).getterAnalyses[0];
+  assert.equal(row.classification, "helper-call-dependent");
+  assert.equal(row.methodCalls.length, 0);
+});
