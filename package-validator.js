@@ -159,7 +159,17 @@
    (Number(machinePowerSystems.totals&&machinePowerSystems.totals.methodsObserved)||0):0;
   if(machinePowerSystemsPending>0)warnings.push(machinePowerSystemsPending+" power/energy/kinetic classes, methods or fields remain unmapped; a version-specific adapter and network/transfer/tick validation are required.");
   if(machinePowerSystemsReportMissing)warnings.push("Machine power analysis is missing; energy and kinetic API usage has not been reviewed.");
-  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing||minecraftInternalApiPending>0||minecraftInternalApiReportMissing||blockStatePending>0||blockStateReportMissing||itemInventoryPending>0||itemInventoryReportMissing||blockEntityMachineStatePending>0||blockEntityMachineStateReportMissing||machinePowerSystemsPending>0||machinePowerSystemsReportMissing;
+  const transportNetworks=input.transportNetworks||{};
+  const transportNetworksReportMissing=hasJavaClasses&&transportNetworks.schema!=="jar2zeus.transport-networks.v1";
+  const transportNetworksPending=transportNetworks.schema==="jar2zeus.transport-networks.v1"?
+   (Number(transportNetworks.totals&&transportNetworks.totals.transportClasses)||0)+
+   (Number(transportNetworks.totals&&transportNetworks.totals.operationsObserved)||0)+
+   (Number(transportNetworks.totals&&transportNetworks.totals.fieldsObserved)||0)+
+   (Number(transportNetworks.totals&&transportNetworks.totals.methodsObserved)||0)+
+   (Number(transportNetworks.totals&&transportNetworks.totals.apiReferences)||0):0;
+  if(transportNetworksPending>0)warnings.push(transportNetworksPending+" item/fluid/energy transport, routing or network details remain unmapped; version-specific adapters and topology/transfer tests are required.");
+  if(transportNetworksReportMissing)warnings.push("Transport network analysis is missing; item/fluid/energy transfer behavior has not been reviewed.");
+  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing||minecraftInternalApiPending>0||minecraftInternalApiReportMissing||blockStatePending>0||blockStateReportMissing||itemInventoryPending>0||itemInventoryReportMissing||blockEntityMachineStatePending>0||blockEntityMachineStateReportMissing||machinePowerSystemsPending>0||machinePowerSystemsReportMissing||transportNetworksPending>0||transportNetworksReportMissing;
   const skippedResources=(Array.isArray(recipeReport.skipped)?recipeReport.skipped.length:0)+
    (Array.isArray(recipeReport.excluded)?recipeReport.excluded.length:0)+
    (Array.isArray(definitionReport.skipped)?definitionReport.skipped.length:0)+
