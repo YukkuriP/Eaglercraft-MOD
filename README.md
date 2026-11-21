@@ -27,6 +27,7 @@
    - `transport-networks.js`
    - `machine-process-analysis.js`
    - `machine-gui-interaction.js`
+   - `machine-gui-converter.js`
    - `java-event-lifecycle.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
@@ -58,6 +59,14 @@ JSZipをCDNから読み込むため初回利用時にインターネット接続
 - **モーション:** Zeus公式仕様にある `head` / `leg` / `arm` / `spin` / `bob` / `wing` のパーツモーションへ、ボーン名とアニメーション名から安全に対応付けられる範囲を変換します。独自キーフレームの時刻・補間・任意ボーン曲線は同じ意味で再現できないため、アニメーション診断に未移植として記録します。
 - **Java処理の再実装:** 安全な限定範囲のJavaメソッドをLuaへ変換します。残りは機能別の再実装タスクとして整理し、未対応理由と参照したJava APIをレポートします。
 - **検証と梱包:** 生成LuaのZeus API呼び出しを静的検査し、`metadata.json` と `main.lua` を含むMOD ZIPを生成します。
+
+## Machine GUI conversion scaffold (Phase 19)
+
+`machine-gui-converter.js` converts the static GUI inventory into a Zeus UI preview plan for Eaglercraft 26.2 / 26.3. It maps recognizable controls to the documented `ui.screen` widget family (button, toggle, slider, text field, text area, list and label), and creates visual-only Canvas placeholders for progress/gauge and inventory-slot layouts. PNG GUI textures are preserved under `assets/gui/` when they fit the package limits.
+
+The generated `diagnostics/machine-gui-scaffold.lua` is a separately reviewable preview scaffold. It adds a button to the title screen that opens a sample preview. It does **not** replace the generated `main.lua` and does not connect Java callbacks, machine values, inventory operations, packets, server authority, source coordinates, localization keys or texture-atlas UVs. All preview actions are deliberately disconnected and show a notice. The report is `machine-gui-conversion-plan.json` and `diagnostics/machine-gui-conversion-plan.json`.
+
+The scaffold uses the documented Zeus screen/widget API and drawing Canvas API. This is a conversion foundation only: the original machine GUI is not considered ported until its layout, data sources, permissions, callbacks, inventory behavior and synchronization are separately implemented and tested in the target game.
 
 ## JVMバイトコード構造検証
 
