@@ -176,6 +176,7 @@ function buildLua(){
   "  init = function(s)",
   "    stopPolling()",
   "    activeScreen = s",
+  "    valueLabels = {}",
   "    statusLabel = s:label({ text = \"Enter block coordinates and provider MOD ID.\", wrap = true })",
   "    s:textField({ value = selected.x ~= nil and tostring(selected.x) or \"\", hint = \"Block X\", maxLength = 16, onSubmit = function(value)",
   "      local number = parseCoordinate(value)",
