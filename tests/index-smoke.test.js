@@ -4,9 +4,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-test("browser entry point has syntactically valid inline scripts and loads the inspector", () => {
+test("browser entry point parses and loads the current migration modules", () => {
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
-  const scripts = Array.from(html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi))
+  const scripts = Array.from(html.matchAll(/<script\\b[^>]*>([\\s\\S]*?)<\\/script>/gi))
     .map(match => match[1])
     .filter(source => source.trim().length > 0);
 
@@ -14,12 +14,30 @@ test("browser entry point has syntactically valid inline scripts and loads the i
   scripts.forEach((source, index) => {
     assert.doesNotThrow(() => new vm.Script(source, { filename: "index.html:inline-" + index }));
   });
-  assert.match(html, /target-client-inspector\.js/);
-  assert.match(html, /resource-compatibility\.js/);
-  assert.match(html, /machine-gui-converter/);
-  assert.match(html, /machine-gui-state-bridge/);
-  assert.match(html, /machine-state-provider-sdk/);
-  assert.match(html, /id="referenceHtml"/);
-  assert.match(html, /pako@2\.1\.0/);
-  assert.match(html, /xzwasm@0\.1\.2/);
+
+  for (const file of [
+    "archive-inspector.js",
+    "converter.js",
+    "resource-converter.js",
+    "definition-converter.js",
+    "machine-gui-converter.js",
+    "machine-gui-state-bridge.js",
+    "machine-gui-live-binding.js",
+    "machine-state-provider-sdk.js",
+    "zeus-api-contract.js",
+    "package-validator.js"
+  ]) {
+    assert.ok(html.includes('<script src="' + file + '"></script>'), "missing " + file);
+  }
+});
+
+test("browser entry point exposes the current JAR and Zeus version inputs", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+  assert.match(html, /id="jar" type="file" accept="\.jar,\.zip"/);
+  assert.match(html, /id="targetVersion"/);
+  assert.match(html, /value="26\.2"/);
+  assert.match(html, /value="26\.3"/);
+  assert.match(html, /id="analyze"/);
+  assert.match(html, /id="build"/);
+  assert.match(html, /jszip@3\.10\.1/);
 });
