@@ -24,6 +24,7 @@ test("browser entry point parses and loads the current migration modules", () =>
     "machine-gui-state-bridge.js",
     "machine-gui-live-binding.js",
     "machine-state-provider-sdk.js",
+    "machine-state-event-producer.js",
     "zeus-api-contract.js",
     "package-validator.js"
   ]) {
