@@ -22,7 +22,7 @@ function clean(v,max){
  return String(v==null?"":v).replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,max||180);
 }
 function luaString(v){
- return '"'+String(v==null?"":v).replace(/\\/g,"\\\").replace(/"/g,'\\"').replace(/\r/g,"\\r").replace(/\n/g,"\\n").replace(/\t/g,"\\t").replace(/[\u0000-\u001f\u007f]/g," ")+'"';
+ return '"'+String(v==null?"":v).replace(/\\/g,"\\\\").replace(/"/g,'\\'+'"').replace(/\r/g,"\\r").replace(/\n/g,"\\n").replace(/\t/g,"\\t").replace(/[\u0000-\u001f\u007f]/g," ")+'"';
 }
 function inferMetric(name,category){
  const n=String(name||"").toLowerCase().replace(/[^a-z0-9]+/g,"_");
