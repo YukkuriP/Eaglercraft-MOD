@@ -10,7 +10,7 @@ test("browser application inline JavaScript parses",()=>{
  for(const match of scripts){if(match[1].trim())assert.doesNotThrow(()=>new vm.Script(match[1]));}
 });
 test("browser application loads every migration engine module",()=>{
- for(const file of ["converter.js","resource-converter.js","definition-converter.js","generic-mod-analyzer.js","migration-pipeline.js","package-validator.js"])
+ for(const file of ["converter.js","resource-converter.js","definition-converter.js","generic-mod-analyzer.js","migration-pipeline.js","package-validator.js","machine-gui-state-bridge.js"])
   assert.ok(html.includes('<script src="'+file+'"></script>'),"missing "+file);
 });
 
@@ -21,4 +21,9 @@ test("export creates a standalone Zeus package with root metadata and clear impo
  assert.match(html,/out\.file\(id\+"-zeus-mod\.zip",modBlob\)/);
  assert.match(html,/metadata\.json and main\.lua are at the ZIP root/);
  assert.equal(html.includes('migration-package/"+path'),false);
+});
+
+test("outer diagnostics export includes the provider starter template",()=>{
+ assert.match(html,/diagnostics\/machine-state-provider-template\.lua/);
+ assert.match(html,/machineGuiStateBridge\.providerTemplateLua/);
 });
