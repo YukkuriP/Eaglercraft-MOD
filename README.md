@@ -28,6 +28,7 @@
    - `machine-process-analysis.js`
    - `machine-gui-interaction.js`
    - `machine-gui-converter.js`
+   - `machine-gui-state-bridge.js`
    - `java-event-lifecycle.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
@@ -67,6 +68,20 @@ JSZipをCDNから読み込むため初回利用時にインターネット接続
 The generated `diagnostics/machine-gui-scaffold.lua` is a separately reviewable preview scaffold. It adds a button to the title screen that opens a sample preview. It does **not** replace the generated `main.lua` and does not connect Java callbacks, machine values, inventory operations, packets, server authority, source coordinates, localization keys or texture-atlas UVs. All preview actions are deliberately disconnected and show a notice. The report is `machine-gui-conversion-plan.json` and `diagnostics/machine-gui-conversion-plan.json`.
 
 The scaffold uses the documented Zeus screen/widget API and drawing Canvas API. This is a conversion foundation only: the original machine GUI is not considered ported until its layout, data sources, permissions, callbacks, inventory behavior and synchronization are separately implemented and tested in the target game.
+
+## Machine GUI state bridge (Phase 20)
+
+`machine-gui-state-bridge.js` combines the Phase 14 BlockEntity field inventory, Phase 15 power-field inventory, Phase 17 processing fields and Phase 19 GUI candidates into a semantic binding plan. It labels likely candidates such as progress, energy, temperature, fluid, fuel and operating state. These remain static name/category hints; it does not recover runtime values from Java bytecode.
+
+The generated `diagnostics/machine-gui-state-bridge.lua` is a read-only probe. From a container screen it opens a small utility screen where the user enters exact block coordinates. It reads the block ID through the documented `world.exists()` and `world.block(x, y, z)` APIs. It does not write to the world or modify inventories.
+
+For optional telemetry, the probe can query a separate running Zeus MOD through `mods.get(providerId)`. That companion MOD must explicitly export `mod.export.read_machine_state(x, y, z, blockId)` and return a table of scalar values. The probe displays only a fixed allow-list of values. This is an integration contract, not an automatic bridge into an unrelated Java MOD; a companion provider still needs a legitimate source for its values.
+
+**Important API boundary:** the reviewed public Zeus API reference documents block-ID reads and general world context, but does not document a general reader for arbitrary Java BlockEntity objects or their NBT contents. The tool therefore marks energy, progress, temperature, fluid, fuel and similar telemetry as provider-required instead of pretending those values were extracted. The state-bridge report keeps `machineValuesConnected=false`, `runtimeValuesRecovered=false` and `worldWritesPerformed=false`.
+
+Reports are `machine-gui-state-bridge-plan.json` and `diagnostics/machine-gui-state-bridge-plan.json`; the read-only probe is `diagnostics/machine-gui-state-bridge.lua`.
+
+Official API references: [API reference](https://dev.eaglercraft.com/docs/modding/api), [Screens and menus](https://dev.eaglercraft.com/docs/modding/screens), [Share code with other mods](https://dev.eaglercraft.com/docs/modding/packaging).
 
 ## JVMバイトコード構造検証
 
