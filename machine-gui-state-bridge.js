@@ -47,7 +47,7 @@ function buildLua(providerKeys){
  const keys=providerKeys.map(luaString).join(", ");
  const numericKeys=["progress","progress_max","duration","energy","energy_max","energy_usage","temperature","pressure","fluid_amount","fluid_capacity","fuel_remaining","fuel_capacity","kinetic_speed","kinetic_stress"];
  const booleanKeys=["active","working"];
- const stringKeys=["status"];
+ const stringKeys=["fluid","fuel","status"];
  const nums=numericKeys.map(luaString).join(", ");
  const bools=booleanKeys.map(luaString).join(", ");
  const strings=stringKeys.map(luaString).join(", ");
@@ -107,7 +107,7 @@ function buildLua(providerKeys){
  "    if value ~= nil then table.insert(lines, key .. \": \" .. value) end",
  "  end",
  "  if #lines == 0 then return \"Provider contract verified; no recognized values were supplied.\" end",
- "  return table.concat(lines, \"\\\\n\")",
+ "  return table.concat(lines, string.char(10))",
  "end",
  "",
  "local machineStateScreen = ui.screen({",
@@ -132,6 +132,7 @@ function buildLua(providerKeys){
  "    end })",
  "    s:textField({ hint = \"Optional provider MOD ID\", maxLength = 96, onSubmit = function(value)",
  "      machineStateProbe.providerId = util.trim(value or \"\")",
+ "      if machineStateProbe.providerId ~= \"\" and not string.match(machineStateProbe.providerId, \"^[a-z0-9_.-]+$\") then machineStateProbe.providerId = \"\"; status.text = \"Provider ID has invalid characters.\"; return end",
  "      status.text = machineStateProbe.providerId == \"\" and \"No external provider selected.\" or \"Provider ID set; it will only be read on the next inspection.\"",
  "    end })",
  "    s:button({ text = \"Read block and optional telemetry\", onClick = function()",
