@@ -79,3 +79,13 @@ test("Phase 26 analyzes getter bodies and exports the static semantics plan",()=
  assert.ok(html.includes("javaMethodsExecuted:false"));
  assert.ok(html.includes("sourceRuntimeValuesRecovered:false"));
 });
+
+test("Phase 27 traces machine field write sites and exports the update-path plan",()=>{
+ assert.ok(html.includes("machine-state-write-trace.js"));
+ assert.ok(html.includes("Jar2ZeusMachineStateWriteTrace.analyze"));
+ assert.ok(html.includes("machineStateWriteTraceFileCount:1"));
+ assert.ok(html.includes('addPackageFile("machine-state-write-trace-plan.json"'));
+ assert.ok(html.includes('out.file("diagnostics/machine-state-write-trace-plan.json"'));
+ assert.ok(html.includes("assignmentValuesRecovered:false"));
+ assert.ok(html.includes("updateTimingRecovered:false"));
+});
