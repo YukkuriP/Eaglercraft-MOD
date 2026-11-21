@@ -20,6 +20,7 @@
    - `generic-mod-analyzer.js`
    - `fabric-api-compat.js`
    - `minecraft-internal-api-compat.js`
+   - `block-state-conversion.js`
    - `java-event-lifecycle.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
