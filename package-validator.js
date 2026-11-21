@@ -242,7 +242,7 @@
   if(machineStateProviderSdkRequired&&!providerIdsMatch)errors.push("The generated provider ID does not match the live GUI consumer default provider ID.");
   const machineStateEventProducer=input.machineStateEventProducer||{};
   const machineStateEventProducerFileCount=Number(input.machineStateEventProducerFileCount)||0;
-  const machineStateEventProducerRequired=machineStateProviderSdk.schema==="jar2zeus.machine-state-provider-sdk.v1";
+  const machineStateEventProducerRequired=machineStateProviderSdk.schema==="jar2zeus.machine-state-provider-sdk.v1"&&(machineStateEventProducerFileCount>0||machineStateEventProducerFilePresent||(typeof input.mainLua==="string"&&input.mainLua.includes("exports.publish_machine_state = publishMachineState")));
   const machineStateEventProducerFilePresent=packageFiles.some(file=>file&&file.path==="machine-state-event-producer-plan.json");
   const machineStateEventProducerHelperMissing=typeof input.mainLua!=="string"||!input.mainLua.includes("exports.publish_machine_state = publishMachineState");
   const machineStateEventProducerApiMissing=!api||!Array.isArray(api.requiredApis)||!api.requiredApis.includes("mods.get")||!api.requiredApis.includes("events.emit");
