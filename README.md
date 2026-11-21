@@ -135,6 +135,14 @@ The analyzer distinguishes direct field returns, calculated field returns, const
 
 The plan is exported as `machine-state-getter-semantics-plan.json` and `diagnostics/machine-state-getter-semantics-plan.json`. It is static evidence only: expressions do not establish units, rounding, overflow, clamping, update timing or server authority. No Java method is executed, no runtime value is recovered, and no source callback, Lua bridge or event publication is generated. A source-MOD developer must verify the original logic and implement the actual data reader independently.
 
+## Machine-state field write trace (Phase 27)
+
+`machine-state-write-trace.js` maps the Phase 20–25 machine telemetry field candidates to decoded JVM `PUTFIELD` / `PUTSTATIC` sites. Each writer candidate records the target owner/name/descriptor, bytecode offset, method visibility/static status, verifier result, field reads in the same method, local method calls, branch sites, and a small role label.
+
+The role labels distinguish constructor initialization, setter/update methods, processing-like methods, tick/lifecycle-like methods, persistence-like methods and synchronization-like methods. They are deliberately heuristic: a method name or call name does not prove the actual event timing or server/client authority. Exact local call edges are recorded only when owner, method name and descriptor match a method in the analyzed machine classes. Reflection, dynamic dispatch, runtime call order and external helpers remain unresolved.
+
+The plan is exported as `machine-state-write-trace-plan.json` and `diagnostics/machine-state-write-trace-plan.json`. A `PUTFIELD` instruction proves a static write site only; the analyzer does not reconstruct the value on the operand stack, calculate the assignment expression, execute methods, or recover update timing. No tick hooks, callbacks, Java bridge, event publication or live machine values are generated. A source-MOD developer must verify the real update path and connect a supported source-owned value to the explicit Phase 24 publisher.
+
 ## JVMバイトコード構造検証
 
 `bytecode-verifier.js` はデコード済みメソッドについて、命令バイト範囲の連続性、命令オフセットの重複・順序、分岐先とswitch分岐先の命令境界、例外テーブルの範囲、ローカル変数スロット、引数のlong/double 2スロットを含む `max_locals` 収容、戻り命令とメソッド戻り値descriptorの整合性を検査します。基本ブロック、通常分岐・switch分岐・例外辺、ループ候補、到達不能ブロックも構築します。
