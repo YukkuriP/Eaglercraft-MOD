@@ -111,8 +111,8 @@ function simulate(instructions,block,targetPc,method,instructionBudget){
  }
  for(const x of ins){
   if(x.pc>targetPc)break;
+  if(instructionCount>=instructionBudget)return {status:"unsupported",reason:"instruction-budget-exceeded",instructionCount,unknownStackEntries,branch:null};
   instructionCount++;
-  if(instructionCount>instructionBudget)return {status:"unsupported",reason:"instruction-budget-exceeded",instructionCount,unknownStackEntries,branch:null};
   const n=String(x.name||"");
   const cv=constantValue(x);if(cv){cv.category=cv.descriptor==="J"||cv.descriptor==="D"?2:1;push(cv);continue;}
   if(LOAD.test(n)){
