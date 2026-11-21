@@ -210,6 +210,7 @@ function traceToWrite(writer,method,target,options){
   if(["astore_0","astore_1","astore_2","astore_3","astore","istore_0","istore_1","istore_2","istore_3","istore","lstore_0","lstore_1","lstore_2","lstore_3","lstore","fstore_0","fstore_1","fstore_2","fstore_3","fstore","dstore_0","dstore_1","dstore_2","dstore_3","dstore"].includes(n)){
    const kind=localKind(n),indexValue=localIndex(ins,kind),value=pop();
    if(!Number.isInteger(indexValue)||!value)return fail("invalid-local-store",ins.pc);
+   const previous=locals.get(indexValue);if(previous&&previous.slots===2)locals.delete(indexValue+1);
    if(kind==="a"&&value.kind!=="this"&&value.kind!=="argument")return fail("unsupported-reference-local-store",ins.pc);
    locals.set(indexValue,value);
    if(value.slots===2)locals.set(indexValue+1,expr("category2-tail",{},0));
@@ -218,7 +219,7 @@ function traceToWrite(writer,method,target,options){
   if(n==="iinc"){
    const indexValue=Number.isInteger(ins.local)?ins.local:ins.operand;
    const old=locals.get(indexValue);
-   if(!old||!Number.isFinite(ins.increment))return fail("iinc-local-not-initialized",ins.pc);
+   if(!old||old.slots!==1||!Number.isFinite(ins.increment))return fail("iinc-local-not-initialized-or-not-category1",ins.pc);
    locals.set(indexValue,expr("binary",{op:"+",left:old,right:expr("constant",{value:ins.increment,kind:"number",slots:1},1),opcode:"iinc"},1));
    steps.push({pc:ins.pc,operation:"iinc",local:indexValue});continue;
   }
@@ -262,7 +263,7 @@ function traceToWrite(writer,method,target,options){
   }
   if(n==="putfield"||n==="putstatic"){
    const m=ins.member;
-   if(!m||m.kind!=="field")return fail("invalid-field-write-reference",ins.pc);
+   if(!m||m.kind!=="field"||!safe(m.owner)||!safe(m.name)||!safe(m.descriptor||""))return fail("invalid-or-excluded-field-write-reference",ins.pc);
    const value=pop();
    if(!value)return fail("operand-stack-underflow-at-field-write",ins.pc);
    let receiver=null;
@@ -271,6 +272,8 @@ function traceToWrite(writer,method,target,options){
    if(exact){
     if(n==="putfield"&&receiver.kind!=="this")return fail("target-field-receiver-not-proven-to-be-this",ins.pc);
     if(n==="putstatic"&&receiver!==null)return fail("unexpected-static-field-receiver",ins.pc);
+    const expectedSlots=(target.fieldDescriptor==="J"||target.fieldDescriptor==="D")?2:1;
+    if(value.slots!==expectedSlots)return fail("assigned-expression-stack-width-does-not-match-field-descriptor",ins.pc);
     const summary=summarizeExpression(value);
     if(summary.expressionTruncated)return fail("symbolic-expression-node-limit-exceeded",ins.pc);
     return finish("resolved","bounded-straight-line-symbolic-stack-trace",{
