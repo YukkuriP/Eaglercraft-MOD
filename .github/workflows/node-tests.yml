@@ -2,7 +2,7 @@ name: Node test suite
 
 on:
   push:
-    branches: [main, phase-31-cross-block-dataflow]
+    branches: [main, phase-31-cross-block-dataflow, phase-32-interprocedural-helper-summaries]
   pull_request:
     branches: [main]
 
@@ -24,3 +24,4 @@ jobs:
           tests/machine-state-control-flow.test.js
           tests/machine-state-condition-operands.test.js
           tests/machine-state-cross-block-dataflow.test.js
+          tests/machine-state-interprocedural-summaries.test.js

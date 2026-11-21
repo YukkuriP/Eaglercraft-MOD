@@ -18,6 +18,7 @@
    - `class-object-analyzer.js`
    - `java-type-compat.js`
    - `generic-mod-analyzer.js`
+   - `forge-api-compat.js`
    - `fabric-api-compat.js`
    - `minecraft-internal-api-compat.js`
    - `block-state-conversion.js`
@@ -32,6 +33,14 @@
    - `machine-gui-live-binding.js`
    - `machine-state-provider-sdk.js`
    - `machine-state-event-producer.js`
+   - `machine-state-source-analysis.js`
+   - `machine-state-getter-semantics.js`
+   - `machine-state-write-trace.js`
+   - `machine-state-update-conditions.js`
+   - `machine-state-control-flow.js`
+   - `machine-state-condition-operands.js`
+   - `machine-state-cross-block-dataflow.js`
+   - `machine-state-interprocedural-summaries.js`
    - `java-event-lifecycle.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
@@ -180,6 +189,16 @@ Normal control-flow edges carry abstract locals and stack values. Exception edge
 **Important boundary:** this recovers only bounded *static origin evidence across CFG blocks*. A merged origin is a set of possible bytecode sources, not proof of a runtime path. The analyzer does not recover runtime values, evaluate expressions, determine branch outcomes, recover final field assignments, prove update timing, invoke Java, generate callbacks, or connect live telemetry. Exception-path state is intentionally conservative.
 
 The plan is exported as `machine-state-cross-block-dataflow-plan.json` and `diagnostics/machine-state-cross-block-dataflow-plan.json`.
+
+## Interprocedural machine-state helper summaries (Phase 32)
+
+`machine-state-interprocedural-summaries.js` examines `method-result` origins reported by Phase 31. It resolves only an exact call-site reference to a helper method in the same class and uploaded JAR: `invokestatic`, or a same-class private instance method called with `invokespecial`. The method descriptor, argument count/categories, access flags and invocation instruction are checked before a summary is used.
+
+The callee must have valid structural bytecode verification, exactly one basic block, no exception handlers, and a supported straight-line instruction sequence. The bounded subset can trace local parameters, `this`, constants, primitive arithmetic/conversions, comparisons and safe field reads. Method-parameter and receiver placeholders in the helper's symbolic return expression are substituted with the caller's already-known operand origins. No expression is numerically evaluated.
+
+Helpers containing branches, loops, multiple blocks, exception handlers, nested calls, state writes, object construction, array operations or unsupported instructions are left unresolved. Virtual/interface/dynamic dispatch, inherited helpers and calls whose implementation cannot be proven exact are also left unresolved. Method/call/summary/instruction/stack/origin limits cap the analysis.
+
+**Important boundary:** this is an interprocedural *static-origin summary*, not Java execution. A resolved expression does not provide a machine's live value, prove a runtime call path, predict a branch, recover final assignments or update timing, create source readers/callbacks, wire events, or connect GUI telemetry. The report is `machine-state-interprocedural-summaries-plan.json`; unresolved helper cases remain manual tasks.
 
 ## JVMバイトコード構造検証
 
