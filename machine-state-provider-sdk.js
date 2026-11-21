@@ -182,7 +182,7 @@ function buildLua(options){
   "local function validSourceId(value)",
   "  return type(value) == \"string\" and #value > 0 and #value <= 64 and string.match(value, \"^[a-z0-9_-][a-z0-9_.-]*[a-z0-9.-]$\") ~= nil",
   "end",
-  ""
+  "",
   "local eventHandle = on(EVENT_NAME, function(payload)",
   "  if type(payload) ~= \"table\" or payload.schema ~= EVENT_SCHEMA or payload.api_version ~= 1 then return end",
   "  if not validCoordinate(payload.x) or not validCoordinate(payload.y) or not validCoordinate(payload.z) then return end",
@@ -217,7 +217,7 @@ function buildLua(options){
   "-- registerEventReader(\"your_namespace:your_machine\", {\"progress\", \"energy\", \"active\"})",
   "-- The source MOD must emit EVENT_NAME with EVENT_SCHEMA, api_version = 1,",
   "-- source_id = mod.id, x/y/z, block_id and a values table.",
-  "Publisher-side example (run only in the MOD that owns the real data):",
+  "-- Publisher-side example (run only in the MOD that owns the real data):",
   "  -- local provider = mods.get(" + luaString(providerId) + ")",
   "-- if provider then events.emit(provider.event_name, { schema = provider.event_schema, api_version = 1,",
   "--   source_id = mod.id, x = x, y = y, z = z, block_id = blockId,",
