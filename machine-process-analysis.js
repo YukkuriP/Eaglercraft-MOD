@@ -216,9 +216,9 @@ function analyze(input,options){
   const customType=!!type&&!VANILLA_RECIPE_TYPE_RE.test(type);
   const counts={inputs:0,itemInputs:0,fluidInputs:0,chemicalOrGasInputs:0,outputs:0,itemOutputs:0,fluidOutputs:0,byproducts:0,durations:0,energy:0,fuel:0,conditions:0};
   const fieldsFound=[],numericValues=[],resourceIds=[];
-  let nodes=0;
+  let nodes=0,walkTruncated=false,fieldPathsTruncated=false;
   function walk(value,keyPath,depth){
-   nodes++;if(nodes>4000||depth>12||fieldsFound.length>=200)return;
+   nodes++;if(nodes>4000||depth>12){walkTruncated=true;return;}
    if(value==null)return;
    const leafRaw=keyPath.split(".").pop();
    const leaf=leafRaw.replace(/([a-z0-9])([A-Z])/g,"$1_$2").toLowerCase();
@@ -237,11 +237,12 @@ function analyze(input,options){
    if(ENERGY_KEY_RE.test(leaf)&&typeof value==="number"){counts.energy++;numericValues.push({path:keyPath,value,kind:"energy-candidate"});}
    if(FUEL_KEY_RE.test(leaf)){counts.fuel++;if(typeof value==="number")numericValues.push({path:keyPath,value,kind:"fuel-candidate"});}
    if(CONDITION_KEY_RE.test(leaf))counts.conditions++;
-   if(PROCESS_FIELD_RE.test(leaf)&&fieldsFound.length<200)addUnique(fieldsFound,keyPath,200);
+   if(PROCESS_FIELD_RE.test(leaf)){if(fieldsFound.length<200)addUnique(fieldsFound,keyPath,200);else fieldPathsTruncated=true;}
    if(typeof value==="string"){collectIds(value,keyPath,resourceIds,new Set(),0);return;}
    if(typeof value!=="object")return;
-   if(Array.isArray(value)){for(let j=0;j<value.length&&j<300;j++)walk(value[j],keyPath+"["+j+"]",depth+1);return;}
-   for(const k of Object.keys(value).slice(0,300))walk(value[k],keyPath?keyPath+"."+k:k,depth+1);
+   if(Array.isArray(value)){if(value.length>300)walkTruncated=true;for(let j=0;j<value.length&&j<300;j++)walk(value[j],keyPath+"["+j+"]",depth+1);return;}
+   const keys=Object.keys(value);if(keys.length>300)walkTruncated=true;
+   for(const k of keys.slice(0,300))walk(value[k],keyPath?keyPath+"."+k:k,depth+1);
   }
   for(const k of Object.keys(data).slice(0,300))walk(data[k],k,0);
   const vanillaType=VANILLA_RECIPE_TYPE_RE.test(type||"");
@@ -266,7 +267,7 @@ function analyze(input,options){
   report.totals.energyRequirementCandidates+=counts.energy;
   report.totals.fuelRequirementCandidates+=counts.fuel;
   report.totals.conditionCandidates+=counts.conditions;
-  if(recipeDetails.length<limit)recipeDetails.push({sourcePath:path,recipeId:id,type,classification:machineCandidate?"machine-processing-candidate":customType?"custom-recipe":"general-recipe",machineCandidate,counts,fieldPaths:fieldsFound.slice(0,100),numericCandidates:numericValues.slice(0,100),resourceIdentifiers:resourceIds.slice(0,100),analysisNodes:nodes,truncated:nodes>4000});
+  if(recipeDetails.length<limit)recipeDetails.push({sourcePath:path,recipeId:id,type,classification:machineCandidate?"machine-processing-candidate":customType?"custom-recipe":"general-recipe",machineCandidate,counts,fieldPaths:fieldsFound.slice(0,100),numericCandidates:numericValues.slice(0,100),resourceIdentifiers:resourceIds.slice(0,100),analysisNodes:Math.min(nodes,4000),truncated:walkTruncated||fieldPathsTruncated});
  }
  for(const recipe of recipes)inspectRecipe(recipe);
  report.recipeClasses=recipeClasses;report.machineClasses=machineClasses;report.serializerClasses=serializers;report.recipeTypes=types;report.recipes=recipeDetails;report.operations=operations;report.fields=fields;
