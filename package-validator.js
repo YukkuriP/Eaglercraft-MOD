@@ -180,6 +180,7 @@
    (Number(machineProcessAnalysis.totals&&machineProcessAnalysis.totals.machineRecipeCandidates)||0)+
    (Number(machineProcessAnalysis.totals&&machineProcessAnalysis.totals.customRecipeDefinitions)||0)+
    (Number(machineProcessAnalysis.totals&&machineProcessAnalysis.totals.recipeJsonReadErrors)||0)+
+   (Number(machineProcessAnalysis.totals&&machineProcessAnalysis.totals.recipeJsonInvalid)||0)+
    (Number(machineProcessAnalysis.totals&&machineProcessAnalysis.totals.operationsObserved)||0)+
    (Number(machineProcessAnalysis.totals&&machineProcessAnalysis.totals.fieldsObserved)||0):0;
   if(machineProcessPending>0)warnings.push(machineProcessPending+" recipe, processing-state, duration, fuel, energy, condition or byproduct candidates remain unmapped; machine processing must be implemented and tested.");
