@@ -180,7 +180,7 @@ function buildLua(providerKeys){
  "-- Returned values are provider assertions, not proof of Java BlockEntity access.",
  ""
  ];
- return lines.join("\\n");
+ return lines.join("\n");
 }
 function buildProviderTemplateLua(){
  return [
@@ -211,7 +211,7 @@ function buildProviderTemplateLua(){
  "-- The receiving probe validates metadata and primitive types only.",
  "-- A provider can still return incorrect values; this template does not prove their origin.",
  ""
- ].join("\\n");
+ ].join("\n");
 }
 function convert(input,options){
  input=input&&typeof input==="object"?input:{};
