@@ -10,7 +10,7 @@ test("browser application inline JavaScript parses",()=>{
  for(const match of scripts){if(match[1].trim())assert.doesNotThrow(()=>new vm.Script(match[1]));}
 });
 test("browser application loads every migration engine module",()=>{
- for(const file of ["converter.js","resource-converter.js","definition-converter.js","generic-mod-analyzer.js","migration-pipeline.js","package-validator.js","machine-gui-state-bridge.js","machine-gui-live-binding.js","machine-state-provider-sdk.js","machine-state-event-producer.js","machine-state-source-analysis.js","machine-state-getter-semantics.js"])
+ for(const file of ["converter.js","resource-converter.js","definition-converter.js","generic-mod-analyzer.js","migration-pipeline.js","package-validator.js","machine-gui-state-bridge.js","machine-gui-live-binding.js","machine-state-provider-sdk.js","machine-state-event-producer.js","machine-state-source-analysis.js","machine-state-getter-semantics.js","machine-state-write-trace.js"])
   assert.ok(html.includes('<script src="'+file+'"></script>'),"missing "+file);
 });
 
@@ -78,4 +78,14 @@ test("Phase 26 analyzes getter bodies and exports the static semantics plan",()=
  assert.ok(html.includes('out.file("diagnostics/machine-state-getter-semantics-plan.json"'));
  assert.ok(html.includes("javaMethodsExecuted:false"));
  assert.ok(html.includes("sourceRuntimeValuesRecovered:false"));
+});
+
+test("Phase 27 traces machine field write sites and exports the update-path plan",()=>{
+ assert.ok(html.includes("machine-state-write-trace.js"));
+ assert.ok(html.includes("Jar2ZeusMachineStateWriteTrace.analyze"));
+ assert.ok(html.includes("machineStateWriteTraceFileCount:1"));
+ assert.ok(html.includes('addPackageFile("machine-state-write-trace-plan.json"'));
+ assert.ok(html.includes('out.file("diagnostics/machine-state-write-trace-plan.json"'));
+ assert.ok(html.includes("assignmentValuesRecovered:false"));
+ assert.ok(html.includes("updateTimingRecovered:false"));
 });

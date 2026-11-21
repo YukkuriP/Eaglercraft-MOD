@@ -145,7 +145,7 @@ function packageInput() {
   const packageFiles = [
     "metadata.json", "main.lua", "machine-gui-state-bridge-plan.json",
     "machine-gui-live-binding-plan.json", "machine-state-provider-sdk-plan.json",
-    "machine-state-event-producer-plan.json", "machine-state-source-analysis-plan.json", "machine-state-getter-semantics-plan.json"
+    "machine-state-event-producer-plan.json", "machine-state-source-analysis-plan.json", "machine-state-getter-semantics-plan.json", "machine-state-write-trace-plan.json"
   ].map(path => ({ path, size: 0 }));
   return {
     metadata: { id: "sample_mod", name: "Sample Mod", version: "1.0.0", main: "main.lua", api: 1, minecraft: ["26.3"], permissions: [] },
@@ -232,6 +232,17 @@ function packageInput() {
       liveValuesConnected: false, arbitraryJavaBlockEntityAccess: false
     },
     machineStateGetterSemanticsFileCount: 1,
+    machineStateWriteTrace: {
+      schema: "jar2zeus.machine-state-write-trace.v1",
+      fieldSummaries: [{ fieldName: "progress", writerMethodCount: 1 }],
+      writerMethods: [{ methodName: "setProgress", javaMethodExecuted: false }],
+      roleSummary: [{ role: "setter-or-update", writerMethodCount: 1 }],
+      totals: { fieldCandidatesSeen: 1, writerMethodsObserved: 1, writerMethodsReported: 1 },
+      javaMethodsExecuted: false, assignmentValuesRecovered: false, updateTimingRecovered: false,
+      sourceRuntimeValuesRecovered: false, sourceReaderCallbacksGenerated: 0,
+      eventPublicationsWired: 0, liveValuesConnected: false, arbitraryJavaBlockEntityAccess: false
+    },
+    machineStateWriteTraceFileCount: 1,
     reimplementation: { schema: "jar2zeus.reimplementation.v1", methodsPending: 0, methodsSkipped: 0, utilityMethodsTranslated: 0 },
     recipeReport: {}, definitionReport: {}, configReport: {}
   };
@@ -304,4 +315,31 @@ test("validator flags a missing getter-semantics plan when Phase 25 candidates e
   assert.equal(result.valid, true);
   assert.equal(result.conversionComplete, false);
   assert.ok(result.warnings.some(text => text.includes("getter-semantics plan is missing")));
+});
+
+test("validator accepts static write-trace evidence but keeps the package incomplete", () => {
+  const result = validator.validate(packageInput());
+  assert.equal(result.valid, true);
+  assert.equal(result.conversionComplete, false);
+  assert.ok(result.warnings.some(text => text.includes("field/write-path evidence entries remain static only")));
+});
+
+test("validator rejects claims that write tracing executed Java or recovered assignment/update values", () => {
+  const input = packageInput();
+  input.machineStateWriteTrace.assignmentValuesRecovered = true;
+  const result = validator.validate(input);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some(text => text.includes("write-trace report incorrectly claims")));
+});
+
+test("validator flags a missing Phase 27 report when Phase 26 getter analysis exists", () => {
+  const input = packageInput();
+  input.machineStateWriteTrace = {};
+  input.machineStateWriteTraceFileCount = 0;
+  input.packageFiles = input.packageFiles.filter(file => file.path !== "machine-state-write-trace-plan.json");
+  input.packageLimits.files = input.packageFiles.length;
+  const result = validator.validate(input);
+  assert.equal(result.valid, true);
+  assert.equal(result.conversionComplete, false);
+  assert.ok(result.warnings.some(text => text.includes("write-trace plan is missing")));
 });
