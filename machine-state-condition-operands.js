@@ -143,7 +143,7 @@ function simulate(instructions,block,targetPc,method,instructionBudget){
    const m=x.member||{};if(!m||m.kind!=="field"||!safe(m.owner)||!safe(m.name)){unsupported="unsafe-or-invalid-field-reference";break;}
    const recv=n==="getfield"?pop(1,x.pc)[0]:null;
    const desc=m.descriptor||"";
-   push(origin("field-read",{pc:x.pc,opcode:n,owner:norm(m.owner),name:clean(m.name,100),descriptor:desc,fieldStatic:n==="getstatic",receiver:recv?publicOrigin(recv,0):null,category:valueType(desc)}));continue;
+   push(origin("field-read",{pc:x.pc,opcode:n,owner:clean(norm(m.owner),180),name:clean(m.name,100),descriptor:clean(desc,180),fieldStatic:n==="getstatic",receiver:recv?publicOrigin(recv,0):null,category:valueType(desc)}));continue;
   }
   if(n==="putfield"||n==="putstatic"){pop(n==="putfield"?2:1,x.pc);continue;}
   if(INVOKE.has(n)){
@@ -153,7 +153,7 @@ function simulate(instructions,block,targetPc,method,instructionBudget){
    const owner=mm.owner?norm(mm.owner):"<dynamic>",name=mm.name||x.dynamic&&x.dynamic.name||"invokedynamic";
    if(!safe(name)||owner!=="<dynamic>"&&!safe(owner)){unsupported="unsafe-or-invalid-method-reference";break;}
    if(parsed.result.kind!=="void"){
-    push(origin("method-result",{pc:x.pc,methodOwner:owner,methodName:clean(name,100),methodDescriptor:desc,receiver:receiver?publicOrigin(receiver,0):null,arguments:args.map(v=>publicOrigin(v,0)),descriptor:parsed.result.descriptor,category:parsed.result.category}));
+    push(origin("method-result",{pc:x.pc,methodOwner:clean(owner,180),methodName:clean(name,100),methodDescriptor:clean(desc,180),receiver:receiver?publicOrigin(receiver,0):null,arguments:args.map(v=>publicOrigin(v,0)),descriptor:parsed.result.descriptor,category:parsed.result.category}));
    }
    continue;
   }
@@ -168,13 +168,13 @@ function simulate(instructions,block,targetPc,method,instructionBudget){
   if(COMPARES.has(n)){
    const operands=pop(2,x.pc);push(origin("comparison-result",{pc:x.pc,operator:n,operands:operands.map(v=>publicOrigin(v,0)),descriptor:"I",category:1}));continue;
   }
-  if(n==="new"){push(origin("new-object",{pc:x.pc,descriptor:x.className||null,category:1}));continue;}
+  if(n==="new"){push(origin("new-object",{pc:x.pc,descriptor:clean(x.className||"",180)||null,category:1}));continue;}
   if(n==="newarray"||n==="anewarray"){const length=pop(1,x.pc)[0];push(origin("new-array",{pc:x.pc,arrayType:n==="newarray"?"primitive":"reference",length:publicOrigin(length,0),category:1}));continue;}
-  if(n==="multianewarray"){const dims=pop(Number(x.dimensions)||0,x.pc);push(origin("new-array",{pc:x.pc,arrayType:"multi",dimensions:dims.length,descriptor:x.className||null,category:1}));continue;}
+  if(n==="multianewarray"){const dims=pop(Number(x.dimensions)||0,x.pc);push(origin("new-array",{pc:x.pc,arrayType:"multi",dimensions:dims.length,descriptor:clean(x.className||"",180)||null,category:1}));continue;}
   if(/^(?:iaload|laload|faload|daload|aaload|baload|caload|saload)$/.test(n)){const a=pop(2,x.pc);push(origin("array-element",{pc:x.pc,operands:a.map(v=>publicOrigin(v,0)),descriptor:n[0]==="l"?"J":n[0]==="d"?"D":n[0]==="f"?"F":n[0]==="a"?"Ljava/lang/Object;":"I",category:n[0]==="l"||n[0]==="d"?2:1}));continue;}
   if(/^(?:iastore|lastore|fastore|dastore|aastore|bastore|castore|sastore)$/.test(n)){pop(3,x.pc);continue;}
   if(n==="arraylength"){const a=pop(1,x.pc)[0];push(origin("calculated-value",{pc:x.pc,operator:"arraylength",operands:[publicOrigin(a,0)],descriptor:"I",category:1}));continue;}
-  if(n==="checkcast"){const a=pop(1,x.pc)[0];push(origin("cast-value",{pc:x.pc,receiver:publicOrigin(a,0),descriptor:x.className||null,category:1}));continue;}
+  if(n==="checkcast"){const a=pop(1,x.pc)[0];push(origin("cast-value",{pc:x.pc,receiver:publicOrigin(a,0),descriptor:clean(x.className||"",180)||null,category:1}));continue;}
   if(n==="instanceof"){const a=pop(1,x.pc)[0];push(origin("instanceof-result",{pc:x.pc,receiver:publicOrigin(a,0),descriptor:"Z",category:1}));continue;}
   if(n==="monitorenter"||n==="monitorexit"||n==="athrow"){pop(1,x.pc);continue;}
   if(n==="return")continue;
