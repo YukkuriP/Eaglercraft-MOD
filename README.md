@@ -127,6 +127,14 @@ The result is exported as `machine-state-source-analysis-plan.json` and `diagnos
 
 **Important boundary:** this is a source-review worksheet, not an execution bridge. A getter name or `GETFIELD` instruction does not prove that the method returns the raw value; it may scale units, clamp values, calculate a derived result or have side effects. Java methods are not callable from Zeus Lua, so the analyzer generates no reader callbacks, tick hooks or event publications. A developer working in the source MOD must review the actual method logic and connect a genuine source-owned value to the Phase 24 publisher. No live machine values are claimed to have been recovered.
 
+## Machine-state getter body semantics (Phase 26)
+
+`machine-state-getter-semantics.js` examines the decoded instruction body of each Phase 25 no-argument getter candidate. It summarizes field reads and writes, numeric constants, arithmetic and conversion operations, method calls, conditional branches, monitor/throw instructions and return opcodes. For a narrow, straight-line subset, it builds a bounded symbolic expression such as a direct field read or a field value multiplied by a numeric constant.
+
+The analyzer distinguishes direct field returns, calculated field returns, constant/static-field returns, conditional or loop-dependent methods, helper-call-dependent methods, state-mutating getters, decode errors and unresolved bytecode. Unverified methods are explicitly marked low confidence. Branches, loops, helper calls, unsupported opcodes and complex stack shapes are reported as unresolved/dependencies rather than simulated.
+
+The plan is exported as `machine-state-getter-semantics-plan.json` and `diagnostics/machine-state-getter-semantics-plan.json`. It is static evidence only: expressions do not establish units, rounding, overflow, clamping, update timing or server authority. No Java method is executed, no runtime value is recovered, and no source callback, Lua bridge or event publication is generated. A source-MOD developer must verify the original logic and implement the actual data reader independently.
+
 ## JVMバイトコード構造検証
 
 `bytecode-verifier.js` はデコード済みメソッドについて、命令バイト範囲の連続性、命令オフセットの重複・順序、分岐先とswitch分岐先の命令境界、例外テーブルの範囲、ローカル変数スロット、引数のlong/double 2スロットを含む `max_locals` 収容、戻り命令とメソッド戻り値descriptorの整合性を検査します。基本ブロック、通常分岐・switch分岐・例外辺、ループ候補、到達不能ブロックも構築します。
