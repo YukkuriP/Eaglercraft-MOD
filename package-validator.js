@@ -169,7 +169,21 @@
    (Number(transportNetworks.totals&&transportNetworks.totals.apiReferences)||0):0;
   if(transportNetworksPending>0)warnings.push(transportNetworksPending+" item/fluid/energy transport, routing or network details remain unmapped; version-specific adapters and topology/transfer tests are required.");
   if(transportNetworksReportMissing)warnings.push("Transport network analysis is missing; item/fluid/energy transfer behavior has not been reviewed.");
-  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing||minecraftInternalApiPending>0||minecraftInternalApiReportMissing||blockStatePending>0||blockStateReportMissing||itemInventoryPending>0||itemInventoryReportMissing||blockEntityMachineStatePending>0||blockEntityMachineStateReportMissing||machinePowerSystemsPending>0||machinePowerSystemsReportMissing||transportNetworksPending>0||transportNetworksReportMissing;
+  const machineProcessAnalysis=input.machineProcessAnalysis||{};
+  const machineProcessFileCount=Number(input.machineProcessFileCount)||0;
+  const machineProcessReportMissing=(hasJavaClasses||machineProcessFileCount>0)&&machineProcessAnalysis.schema!=="jar2zeus.machine-process-analysis.v1";
+  const machineProcessPending=machineProcessAnalysis.schema==="jar2zeus.machine-process-analysis.v1"?
+   (Number(machineProcessAnalysis.totals&&machineProcessAnalysis.totals.recipeRelatedClasses)||0)+
+   (Number(machineProcessAnalysis.totals&&machineProcessAnalysis.totals.machineProcessorClasses)||0)+
+   (Number(machineProcessAnalysis.totals&&machineProcessAnalysis.totals.recipeSerializerClasses)||0)+
+   (Number(machineProcessAnalysis.totals&&machineProcessAnalysis.totals.recipeTypeClasses)||0)+
+   (Number(machineProcessAnalysis.totals&&machineProcessAnalysis.totals.machineRecipeCandidates)||0)+
+   (Number(machineProcessAnalysis.totals&&machineProcessAnalysis.totals.customRecipeDefinitions)||0)+
+   (Number(machineProcessAnalysis.totals&&machineProcessAnalysis.totals.operationsObserved)||0)+
+   (Number(machineProcessAnalysis.totals&&machineProcessAnalysis.totals.fieldsObserved)||0):0;
+  if(machineProcessPending>0)warnings.push(machineProcessPending+" recipe, processing-state, duration, fuel, energy, condition or byproduct candidates remain unmapped; machine processing must be implemented and tested.");
+  if(machineProcessReportMissing)warnings.push("Machine process analysis is missing; recipe serializers and production state have not been reviewed.");
+  const incompleteJava=(reimplementation.methodsPending||0)>0||(reimplementation.methodsSkipped||0)>0||configNotWired||typeLayerIncomplete||lifecyclePending>0||eventLifecycle.schema!=="jar2zeus.java-event-lifecycle.v1"||forgeApiPending>0||forgeApiReportMissing||fabricApiPending>0||fabricApiReportMissing||minecraftInternalApiPending>0||minecraftInternalApiReportMissing||blockStatePending>0||blockStateReportMissing||itemInventoryPending>0||itemInventoryReportMissing||blockEntityMachineStatePending>0||blockEntityMachineStateReportMissing||machinePowerSystemsPending>0||machinePowerSystemsReportMissing||transportNetworksPending>0||transportNetworksReportMissing||machineProcessPending>0||machineProcessReportMissing;
   const skippedResources=(Array.isArray(recipeReport.skipped)?recipeReport.skipped.length:0)+
    (Array.isArray(recipeReport.excluded)?recipeReport.excluded.length:0)+
    (Array.isArray(definitionReport.skipped)?definitionReport.skipped.length:0)+
