@@ -143,6 +143,14 @@ The role labels distinguish constructor initialization, setter/update methods, p
 
 The plan is exported as `machine-state-write-trace-plan.json` and `diagnostics/machine-state-write-trace-plan.json`. A `PUTFIELD` instruction proves a static write site only; the analyzer does not reconstruct the value on the operand stack, calculate the assignment expression, execute methods, or recover update timing. No tick hooks, callbacks, Java bridge, event publication or live machine values are generated. A source-MOD developer must verify the real update path and connect a supported source-owned value to the explicit Phase 24 publisher.
 
+## Machine-state update condition context (Phase 28)
+
+`machine-state-update-conditions.js` inspects a bounded window of decoded JVM instructions immediately before each Phase 27 telemetry-field write. It records nearby comparison opcodes, branch offsets and targets, field reads, and helper calls, together with their bytecode positions relative to the write. The report is intended to help a developer navigate the original source when reviewing a machine's update conditions.
+
+**Important boundary:** proximity is not proof of control dependence. The analyzer does not establish that a branch gates a write, pair comparison operands, reconstruct operand-stack provenance, evaluate conditions, or prove runtime call order/tick timing. Branch targets are listed as offsets only; full dominance, exception-edge, virtual-dispatch and interprocedural control-flow analysis are not performed. It executes no Java and generates no callbacks, event publications, Java bridge or live telemetry connection.
+
+The plan is exported as `machine-state-update-conditions-plan.json` and `diagnostics/machine-state-update-conditions-plan.json`. All findings remain static review evidence and require confirmation against the original source implementation.
+
 ## JVMバイトコード構造検証
 
 `bytecode-verifier.js` はデコード済みメソッドについて、命令バイト範囲の連続性、命令オフセットの重複・順序、分岐先とswitch分岐先の命令境界、例外テーブルの範囲、ローカル変数スロット、引数のlong/double 2スロットを含む `max_locals` 収容、戻り命令とメソッド戻り値descriptorの整合性を検査します。基本ブロック、通常分岐・switch分岐・例外辺、ループ候補、到達不能ブロックも構築します。
