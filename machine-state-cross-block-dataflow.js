@@ -172,7 +172,7 @@ function simulateBlock(instructions,block,startState,method,instructionBudget,br
   fail("unsupported-opcode:"+n);break;
  }
  if(reason)return {state:{stack:[],locals:new Map(),valid:false,reason},instructionCount:count,reason};
- return {state,instructionCount,reason:null};
+ return {state,instructionCount:count,reason:null};
 }
 function unknownExceptionState(){return {stack:[origin("unknown-exception",{category:1,reason:"exception-handler-entry"})],locals:new Map(),valid:true,reason:null};}
 function analyze(input,options){
