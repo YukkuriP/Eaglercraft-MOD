@@ -5,7 +5,7 @@
 (function(root){
 "use strict";
 const BLOCKED=/(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i;
-const MAX_METHODS=300,MAX_CALLS=1200,MAX_SUMMARIES=400,MAX_INSTRUCTIONS=20000,MAX_STACK=128,MAX_DEPTH=8,MAX_NODES=64;
+const MAX_METHODS=300,MAX_CALLS=1200,MAX_SUMMARIES=400,MAX_INSTRUCTIONS=20000,MAX_TOTAL_INSTRUCTIONS=50000,MAX_STACK=128,MAX_DEPTH=8,MAX_NODES=64;
 const LOAD=/^(?:[ilfda]load)(?:_[0-3])?$/;
 const STORE=/^(?:[ilfda]store)(?:_[0-3])?$/;
 const BINARY=new Set(["iadd","ladd","fadd","dadd","isub","lsub","fsub","dsub","imul","lmul","fmul","dmul","idiv","ldiv","fdiv","ddiv","irem","lrem","frem","drem","ishl","lshl","ishr","lshr","iushr","lushr","iand","land","ior","lor","ixor","lxor"]);
@@ -119,7 +119,7 @@ function summarizeMethod(method){
   if(n==="nop")continue;
   if(n==="getstatic"||n==="getfield"){
    const mm=x.member||{},type=typeof mm.descriptor==="string"?parseType(mm.descriptor,0,false):null;
-   if(mm.kind!=="field"||!safe(norm(mm.owner))||!safe(mm.name)||!type||type.next!==mm.descriptor.length){fail("helper-field-reference-invalid");break;}
+   if(mm.kind!=="field"||!safe(norm(mm.owner))||!safe(mm.name)||!safe(mm.descriptor)||!type||type.next!==mm.descriptor.length){fail("helper-field-reference-invalid");break;}
    const receiver=n==="getfield"?pop(1,x.pc):null;
    push(origin("field-read",{pc:x.pc,opcode:n,owner:norm(mm.owner),name:mm.name,descriptor:mm.descriptor,fieldStatic:n==="getstatic",receiver:receiver,category:type.category}));continue;
   }
@@ -136,8 +136,9 @@ function summarizeMethod(method){
   }
   if(COMPARES.has(n)){const cat=expectedCategory(n),right=pop(cat,x.pc),left=pop(cat,x.pc);push(origin("comparison-result",{pc:x.pc,operator:n,operands:[left,right],descriptor:"I",category:1}));continue;}
   if(n==="checkcast"||n==="instanceof"){
+   if(!safe(String(x.className||""))){fail("helper-cast-type-unsafe-or-missing");break;}
    const value=pop(1,x.pc);
-   if(n==="checkcast")push(origin("cast-value",{pc:x.pc,receiver:value,descriptor:String(x.className||""),category:1}));
+   if(n==="checkcast")push(origin("cast-value",{pc:x.pc,receiver:value,descriptor:String(x.className),category:1}));
    else push(origin("instanceof-result",{pc:x.pc,receiver:value,descriptor:"Z",category:1}));
    continue;
   }
@@ -146,7 +147,9 @@ function summarizeMethod(method){
   if(n==="swap"){const a=pop(1,x.pc),b=pop(1,x.pc);push(a);push(b);continue;}
   if(/^(?:ireturn|lreturn|freturn|dreturn|areturn)$/.test(n)){
    const cat=n==="lreturn"||n==="dreturn"?2:1;
-   if(parsed.result.category!==cat){fail("helper-return-category-mismatch");break;}
+   const returnKind=parsed.result.kind;
+   const opcodeMatches=(n==="ireturn"&&"ZBCSI".includes(returnKind))||(n==="lreturn"&&returnKind==="J")||(n==="freturn"&&returnKind==="F")||(n==="dreturn"&&returnKind==="D")||(n==="areturn"&&returnKind==="reference");
+   if(!opcodeMatches){fail("helper-return-type-mismatch");break;}
    result=pop(cat,x.pc);returnPc=x.pc;
    if(stack.length!==0){fail("helper-return-stack-not-empty");break;}
    if(i!==instructions.length-1){fail("helper-has-instructions-after-return");break;}
@@ -199,6 +202,11 @@ function analyze(input,options){
   const member=ins.member||{};
   if(member.kind!=="method"||norm(member.owner)!==owner||member.name!==name||member.descriptor!==desc)return unresolved("callsite-reference-mismatch");
   if(owner!==norm(callerClass.className))return unresolved("helper-owner-not-caller-class");
+  const targetDescriptor=parseMethod(desc),callArgs=arr(node.arguments);
+  if(!targetDescriptor||callArgs.length!==targetDescriptor.args.length)return unresolved("helper-argument-count-mismatch");
+  for(let i=0;i<callArgs.length;i++)if(callArgs[i]&&callArgs[i].category!=null&&callArgs[i].category!==targetDescriptor.args[i].category)return unresolved("helper-argument-category-mismatch");
+  if(ins.name==="invokestatic"&&node.receiver)return unresolved("static-helper-has-unexpected-receiver");
+  if(ins.name==="invokespecial"&&!node.receiver)return unresolved("private-helper-receiver-missing");
   const targetClass=classMap.get(owner);if(!targetClass)return unresolved("helper-class-not-in-jar");
   const target=findMethod(targetClass,name,desc);if(!target)return unresolved("helper-method-not-found");
   const flags=Number(target.accessFlags)||0;
@@ -210,7 +218,9 @@ function analyze(input,options){
   if(!summary){
    if(summaryCount>=summaryLimit){totals.detailsTruncated=true;return unresolved("helper-summary-limit-exceeded");}
    summaryCount++;
-   summary=summarizeMethod(target);summaryCache.set(key,summary);
+   summary=summarizeMethod(target);
+   if(summary.ok&&totals.helperInstructionsAnalyzed+summary.instructionCount>MAX_TOTAL_INSTRUCTIONS)summary={ok:false,reason:"aggregate-helper-instruction-budget-exceeded"};
+   summaryCache.set(key,summary);
    if(summary.ok){totals.helperSummariesResolved++;totals.helperInstructionsAnalyzed+=summary.instructionCount;}
    else totals.helperSummariesRejected++;
    summaryRows.set(key,{methodOwner:owner,methodName:name,methodDescriptor:desc,status:summary.ok?"resolved":"rejected",reason:summary.reason||null,expression:summary.ok?summary.expression:null,instructionsAnalyzed:summary.instructionCount||0});
