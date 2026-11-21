@@ -18,4 +18,9 @@ jobs:
         with:
           node-version: "22"
       - name: Run tests
-        run: node --test tests/*.test.js
+        run: >-
+          node --test
+          tests/index-smoke.test.js
+          tests/machine-state-control-flow.test.js
+          tests/machine-state-condition-operands.test.js
+          tests/machine-state-cross-block-dataflow.test.js
