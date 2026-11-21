@@ -63,7 +63,7 @@ test("exports a callable helper but creates no automatic source or tick callback
   assert.equal(result.report.sourceRuntimeValuesRecovered, false);
   assert.equal(result.report.arbitraryJavaBlockEntityAccess, false);
   assert.doesNotMatch(result.lua, /timer\.every|timer\.after|on\("tick"|on\('tick'/);
-  assert.doesNotMatch(result.lua, /BlockEntity|NBT/);
+  assert.doesNotMatch(result.lua, /world\.block|nbt\.read|java\.getField/i);
 });
 
 test("validates coordinates, block IDs, scalar keys, data types and numeric bounds", () => {
