@@ -18,6 +18,7 @@
    - `class-object-analyzer.js`
    - `java-type-compat.js`
    - `generic-mod-analyzer.js`
+   - `forge-api-compat.js`
    - `fabric-api-compat.js`
    - `minecraft-internal-api-compat.js`
    - `block-state-conversion.js`
@@ -41,8 +42,6 @@
    - `machine-state-cross-block-dataflow.js`
    - `machine-state-interprocedural-summaries.js`
    - `java-event-lifecycle.js`
-   - `forge-api-compat.js`
-   - `fabric-api-compat.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
    - `migration-pipeline.js`
