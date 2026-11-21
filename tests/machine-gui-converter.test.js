@@ -54,15 +54,15 @@ test("filters blocked source class names and resource paths", () => {
   const result = converter.convert({
     schema: "jar2zeus.machine-gui-interaction.v1",
     totals: { screenClasses: 1 },
-    screens: [{ className: "sample/restricted/RestrictedScreen", sourcePath: "sample/restricted/RestrictedScreen.class" }],
+    screens: [{ className: "sample/weapon/WeaponScreen", sourcePath: "sample/weapon/WeaponScreen.class" }],
     widgets: [{ className: "sample/machine/PowerButton", sourcePath: "sample/machine/PowerButton.class" }],
-    resources: [{ sourcePath: "assets/restricted/textures/gui/restricted.png", kind: "gui-texture" }],
+    resources: [{ sourcePath: "assets/weapon/textures/gui/weapon.png", kind: "gui-texture" }],
     guiDefinitions: []
   }, { targetVersion: "26.3" });
   assert.equal(result.report.screens.length, 0);
   assert.equal(result.report.assets.length, 0);
-  assert.ok(!result.luaScaffold.includes("RestrictedScreen"));
-  assert.ok(!result.luaScaffold.includes("restricted.png"));
+  assert.ok(!result.luaScaffold.includes("WeaponScreen"));
+  assert.ok(!result.luaScaffold.includes("weapon.png"));
 });
 
 test("bounds controls and GUI texture assets", () => {
