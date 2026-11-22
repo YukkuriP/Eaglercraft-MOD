@@ -3,6 +3,7 @@
  */
 (function(root){
  "use strict";
+ const BLOCKED=/(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i;
  const SAFE_ID=/^[a-z0-9_]{1,48}$/;
  function lua(v){
   if(v===null||v===undefined)return "nil";
