@@ -5,7 +5,6 @@
 (function (root) {
   "use strict";
 
-  const BLOCKED_FEATURE = /(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i;
   const LOADER_MARKERS = [
     ["Fabric", /net\/fabricmc\/|fabric\.mod\.json/i],
     ["Forge", /net\/minecraftforge\/|META-INF\/mods\.toml/i],
@@ -102,7 +101,7 @@
       migrationAssessment: { resourcePort: "partial", javaLogicPort: "requires a manual rewrite or a compatible runtime", overall: "analysis-only until feature adapters and in-game tests pass" },
       nestedJars: [], libraries: [], classes: { count: 0, invalid: 0, names: [], references: {}, frameworkReferences: [] },
       resources: { assets: 0, data: 0, textures: 0, models: 0, entityGeometries: 0, animations: 0, blockstates: 0, recipes: 0, tags: 0, lang: 0, sounds: 0, shaders: 0, configs: 0, other: 0 },
-      featureReview: { restrictedPathCount: 0, restrictedPaths: [] },
+      featureReview: { restrictedPathCount: 0, restrictedPaths: [], policy: "filename-gate-only" },
       unsupportedIndicators: [], warnings: []
     };
     const seen = new Set();
@@ -116,10 +115,6 @@
       if (!safePath(path)) { report.archive.unsafePaths.push(path); continue; }
       if (seen.has(path)) report.archive.duplicatePaths.push(path);
       seen.add(path);
-      if (BLOCKED_FEATURE.test(path)) {
-        report.featureReview.restrictedPathCount++;
-        if (report.featureReview.restrictedPaths.length < 100) report.featureReview.restrictedPaths.push(path);
-      }
       const lower = path.toLowerCase();
       if (lower.startsWith("assets/")) report.resources.assets++;
       else if (lower.startsWith("data/")) report.resources.data++;

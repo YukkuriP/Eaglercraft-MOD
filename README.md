@@ -69,6 +69,12 @@ JSZipをCDNから読み込むため初回利用時にインターネット接続
 
 検査結果は `archive-preflight-report.json` と `diagnostics/archive-preflight-report.json` に保存されます。検査はZIPの整合性と安全性を確認するもので、MODのJava処理が移植できることや、ゲーム内で動くことを保証するものではありません。
 
+## Remade（再実装）対象範囲
+
+- **対象外:** JARファイル名に `weapon` / `gun` / `firearm` / `rifle` / `pistol` / `cannon` / `artillery` / `ammo` / `projectile` / `sword` / `bow` / `crossbow` / `trident` / `musket` などの武器識別語が含まれるMOD。該当時は解析開始前に停止します。
+- **対象:** それ以外のJARに含まれる汎用API・リソース・クラスは、パス名やクラス名に武器関連語が含まれるという理由だけでは除外しません。
+- **注意:** これはファイル名による受付制限です。ファイル名を変更した場合の判定を保証するものではありません。変換可否は個々のAPI対応状況・実装・検証結果で決まります。
+
 ## 変換パイプライン
 
 - **JAR解析:** Fabric / Forge / NeoForge / Quiltのメタデータ、依存関係、Mixin、Access Transformer、Jar-in-Jar等を検出します。
@@ -326,7 +332,7 @@ ZeusのLuaランタイムは公式資料に記載されたLua 5.4を前提にし
 
 Minecraft本体の内部APIはバージョン・マッピング・難読化でクラス名やdescriptorが変わります。Mixin、Access Transformer／Widener、reflection、invokedynamic、実行時状態、クライアント／サーバー差は完全には復元できません。したがって、API参照や呼び出しが残るJava MODはパッケージ検証で `conversionComplete=false` になります。対象のクラス名・メソッド名が一致しただけで互換性を保証しません。
 
-制限対象の武器関連クラス・参照は解析対象から除外し、それ以外の建築・装飾・農業・収納・工業・ワールド生成などのAPI参照を調べます。詳細配列は各5,000件、APIクラス一覧は1,000件までで、切り詰めても観測総数を保持します。
+武器関連のクラス名・参照もAPIインベントリから一律に除外せず、Minecraft本体API参照を機能分類ごとに記録します。これにより、武器MODにも使われる汎用APIを他のMODの移植候補として調べられます。ただし、このインベントリは静的解析であり、武器専用機能を再実装するものではありません。詳細配列は各5,000件、APIクラス一覧は1,000件までで、切り詰めても観測総数を保持します。
 
 出力は `minecraft-internal-api-compatibility.json` と `diagnostics/minecraft-internal-api-compatibility.json` です。完全移植やゲーム内動作を保証する機能ではありません。
 

@@ -112,6 +112,10 @@ $("analyze").onclick=async function(){
   if(!window.Jar2ZeusArchive)throw Error("ZIP事前検査モジュールを読み込めません。");
   jarFile=$("jar").files[0];
   if(!jarFile)throw Error("変換するMODのJARを選択してください。");
+  // Reject weapon-oriented JARs by filename only; do not filter shared APIs/resources by internal names.
+  var normalizedJarName=jarFile.name.toLowerCase().replace(/\\/g,"/");
+  var weaponNameToken=/(?:^|[^a-z0-9])(?:weapon|weapons|gun|guns|firearm|firearms|rifle|rifles|pistol|pistols|cannon|cannons|artillery|munition|munitions|ammo|ammunition|projectile|projectiles|sword|swords|bow|bows|crossbow|crossbows|trident|tridents|musket|muskets)(?:$|[^a-z0-9])/i;
+  if(weaponNameToken.test(normalizedJarName.replace(/[^a-z0-9]+/g,"_")))throw Error("武器MODはRemadeの対象外です。JARファイル名に weapon / gun などの識別語が含まれているため、解析を停止しました。");
   targetGameVersion=$("targetVersion").value;
   if(targetGameVersion!=="26.2"&&targetGameVersion!=="26.3")throw Error("Zeusの対象バージョンを選択してください。");
   var archiveLimits=window.Jar2ZeusArchive.defaults;
@@ -127,6 +131,7 @@ $("analyze").onclick=async function(){
    jarReport={archive_preflight:archivePreflightReport,conversion:{status:"stopped-before-extraction",reason:"ZIP preflight validation failed"}};
    $("out").textContent=JSON.stringify(jarReport,null,2);
    $("warning").textContent="ZIP事前検査で停止しました。エラー内容を確認してください。";
+   if(window.parent!==window)window.parent.postMessage({type:"JAR2ZEUS_ANALYSIS_READY",ok:false,message:"ZIP事前検査で停止しました。エラー内容を確認してください。"},"*");
    archiveBuffer=null;
    return;
   }
@@ -163,14 +168,14 @@ $("analyze").onclick=async function(){
    if(/\.class$/i.test(gn)){
     ge.classInfo=window.Jar2ZeusBytecode.parse(await go.async("uint8array"));
     if(ge.classInfo.valid)javaClassRecords.push(ge.classInfo);
-   }else if(/^data\/[a-z0-9_.-]+\/(?:recipe|recipes)\/.+\.json$/i.test(gn)&&!/(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i.test(gn)){
+   }else if(/^data\/[a-z0-9_.-]+\/(?:recipe|recipes)\/.+\.json$/i.test(gn) ){
     ge.recipeJson=true;
     if(ge.size>2*1024*1024||recipeJsonBytesRead+ge.size>64*1024*1024){
      ge.recipeReadError=true;ge.recipeReadErrorReason=ge.size>2*1024*1024?"single recipe JSON exceeds 2 MiB analysis cap":"aggregate recipe JSON exceeds 64 MiB analysis cap";
     }else{
      try{ge.content=await go.async("string");recipeJsonBytesRead+=ge.size}catch(err){ge.recipeReadError=true;ge.recipeReadErrorReason="recipe JSON could not be read";}
     }
-   }else if(/^(?:assets|data)\/[a-z0-9_.-]+\/(?:gui|guis|screen|screens|menu|menus|container|containers)\/.+\.json$/i.test(gn)&&!/(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i.test(gn)){
+   }else if(/^(?:assets|data)\/[a-z0-9_.-]+\/(?:gui|guis|screen|screens|menu|menus|container|containers)\/.+\.json$/i.test(gn)){
     ge.guiJson=true;
     if(ge.size>512*1024||guiJsonBytesRead+ge.size>16*1024*1024){
      ge.guiJsonReadError=true;ge.guiJsonReadErrorReason=ge.size>512*1024?"single GUI JSON exceeds 512 KiB inspection cap":"aggregate GUI JSON exceeds 16 MiB inspection cap";
@@ -282,7 +287,11 @@ $("analyze").onclick=async function(){
    $("warning").textContent+=" 機械getter候補 "+machineStateSourceAnalysis.totals.getterCandidatesReported+" 件（静的候補のみ・Java実行なし）。";
   $("warning").textContent+=" 機械状態の書き込み経路候補 "+machineStateWriteTrace.totals.writerMethodsReported+" メソッド／"+machineStateWriteTrace.totals.writeInstructionsObserved+" 書き込み命令（静的根拠のみ）。";
   $("build").disabled=false;
- }catch(e){alert("解析失敗: "+e.message)}
+  if(window.parent!==window)window.parent.postMessage({type:"JAR2ZEUS_ANALYSIS_READY",ok:true,targetVersion:targetGameVersion},"*");
+ }catch(e){
+  if(window.parent!==window)window.parent.postMessage({type:"JAR2ZEUS_ERROR",stage:"analysis",message:String(e&&e.message||e)},"*");
+  else alert("解析失敗: "+e.message);
+ }
 };
 $("build").onclick=async function(){
  try{
@@ -310,14 +319,13 @@ $("build").onclick=async function(){
  }
  if(!addPackageFile("metadata.json",JSON.stringify(meta,null,2),true))throw Error("metadata.jsonを作成できません");
  if(!addPackageFile("archive-preflight-report.json",JSON.stringify(archivePreflightReport,null,2),true))throw Error("archive-preflight-report.jsonを作成できません");
- var restricted=/cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident/i;
  var recipeEntries=[],resourceEntries=[];
- for(var n in jarZip.files){var obj=jarZip.files[n];if(!obj.dir&&/^data\/[a-z0-9_.-]+\/recipes?\/.+\.json$/i.test(n)&&!restricted.test(n)){try{recipeEntries.push({path:n,content:await obj.async("string")})}catch(err){}}}
+ for(var n in jarZip.files){var obj=jarZip.files[n];if(!obj.dir&&/^data\/[a-z0-9_.-]+\/recipes?\/.+\.json$/i.test(n)){try{recipeEntries.push({path:n,content:await obj.async("string")})}catch(err){}}}
  var copied=0;
  for(var n in jarZip.files){
   var obj=jarZip.files[n];
   var isConfigPath=/^(?:config|defaultconfigs)\//i.test(n);
-  if(obj.dir||!(n.startsWith("assets/")||n.startsWith("data/")||isConfigPath)||!window.Jar2ZeusGenericAnalyzer.safePath(n)||restricted.test(n)||(/^data\/[^/]+\/recipes?\//i.test(n)))continue;
+  if(obj.dir||!(n.startsWith("assets/")||n.startsWith("data/")||isConfigPath)||!window.Jar2ZeusGenericAnalyzer.safePath(n)||(/^data\/[^/]+\/recipes?\//i.test(n)))continue;
   if(isConfigPath){
    try{resourceEntries.push({path:n,content:await obj.async("string")})}
    catch(err){recordPackageSkip(n,"configuration file could not be read");}
@@ -430,7 +438,7 @@ $("build").onclick=async function(){
   var textureData=await sourceFile.async("uint8array");
   if(addPackageFile(ti.target,textureData,true)){successfulMappings.push(ti);availableTextures.push(ti.source)}
  }
- addPackageFile("conversion-policy.json",JSON.stringify({policy:"Restricted weapon-related functionality is not ported. Unrelated supported resources are processed individually.",sourceResourceFilesCopied:copied,omittedFiles:packageSkipped},null,2),true);
+ addPackageFile("conversion-policy.json",JSON.stringify({policy:"Weapon-oriented JARs are rejected by filename before analysis. Shared APIs and resources are not filtered by weapon-related path or symbol names.",sourceResourceFilesCopied:copied,omittedFiles:packageSkipped},null,2),true);
  addPackageFile("report.json",JSON.stringify(jarReport,null,2),true);
  addPackageFile("validation-report.json","{}",true);
  var validation,validationStable=false;
@@ -524,8 +532,12 @@ $("build").onclick=async function(){
  var blob=await out.generateAsync({type:"blob",compression:"DEFLATE"});
  installableModBlob=modBlob;installableModFileName=id+"-zeus-mod.zip";
  $("downloadInstallable").disabled=false;
+ if(window.parent!==window)window.parent.postMessage({type:"JAR2ZEUS_PACKAGE_READY",blob:modBlob,fileName:installableModFileName,targetVersion:targetVersion},"*");
  $("installHint").textContent="生成・構造検証済みです。ゲームのタイトル画面で Mods → Import mod → ZIPを選択するか、ZIPをゲーム画面へドラッグしてください。";
- var a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download=id+"-migration.zip";a.click();setTimeout(function(){URL.revokeObjectURL(url)},1500);
- }catch(e){alert("出力失敗: "+e.message)}
+ if(window.parent===window){var a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download=id+"-migration.zip";a.click();setTimeout(function(){URL.revokeObjectURL(url)},1500);}
+ }catch(e){
+  if(window.parent!==window)window.parent.postMessage({type:"JAR2ZEUS_ERROR",stage:"build",message:String(e&&e.message||e)},"*");
+  else alert("出力失敗: "+e.message);
+ }
 };
 </script></body></html>
