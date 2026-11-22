@@ -42,5 +42,11 @@ test("browser entry point exposes the current JAR and Zeus version inputs", () =
   assert.match(html, /value="26\.3"/);
   assert.match(html, /id="analyze"/);
   assert.match(html, /id="build"/);
+  assert.match(html, /id="downloadInstallable"/);
+  assert.match(html, /id="downloadInstallable" disabled/);
+  assert.match(html, /installableModBlob=modBlob/);
+  assert.match(html, /installableModFileName=id\+"-zeus-mod\.zip"/);
+  assert.match(html, /a\.download=installableModFileName/);
+  assert.match(html, /metadata\.json と main\.lua がZIP直下/);
   assert.match(html, /jszip@3\.10\.1/);
 });
