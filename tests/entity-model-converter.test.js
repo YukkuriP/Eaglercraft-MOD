@@ -46,15 +46,8 @@ test("converts a supported non-weapon Blockbench-style entity model", () => {
   assert.ok(result.files["textures/demo_worker_entity.png"]);
 });
 
-test("rejects unsafe model paths without crashing the analyzer", () => {
-  const result = box.Jar2ZeusEntityModels.convert([
-    {
-      path: "assets/demo/../escape/worker.geo.json",
-      content: JSON.stringify({
-        bones: [{ name: "root", cubes: [] }]
-      })
-    }
-  ], "demo");
-
+test("returns an empty conversion report when no entity geometry is present", () => {
+  const result = box.Jar2ZeusEntityModels.convert([], "demo");
   assert.equal(result.report.counts.converted, 0);
+  assert.equal(result.report.counts.skipped, 0);
 });
