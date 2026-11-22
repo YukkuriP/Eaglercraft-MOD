@@ -108,8 +108,8 @@ function analyze(input,options){
  const totalCallLimit=Math.min(MAX_TOTAL_CALLS,Number.isInteger(options.totalCallLimit)&&options.totalCallLimit>0?options.totalCallLimit:MAX_TOTAL_CALLS);
  const summaryLimit=Math.min(MAX_SUMMARIES,Number.isInteger(options.summaryLimit)&&options.summaryLimit>0?options.summaryLimit:MAX_SUMMARIES);
  const cache=new Map(),summaryRows=new Map(),callRows=[],methodRows=[];
- const totals={methodsSeen:0,methodsAnalyzed:0,branchesSeen:0,topLevelCallsSeen:0,topLevelCallsResolved:0,topLevelCallsUnresolved:0,nestedCallsSeen:0,nestedCallsResolved:0,nestedCallsUnresolved:0,recursiveCyclesDetected:0,depthLimitHits:0,helperMethodsResolved:0,helperMethodsRejected:0,helperInstructionsAnalyzed:0,detailsTruncated:false};
- let callCount=0,summaryCount=0;
+ const totals={methodsSeen:0,methodsAnalyzed:0,branchesSeen:0,topLevelCallsSeen:0,topLevelCallsResolved:0,topLevelCallsUnresolved:0,nestedCallsSeen:0,nestedCallsResolved:0,nestedCallsUnresolved:0,recursiveCyclesDetected:0,depthLimitHits:0,helperMethodsResolved:0,helperMethodsRejected:0,helperInstructionsAnalyzed:0,helperInstructionsBudgeted:0,detailsTruncated:false};
+ let callCount=0,summaryCount=0,instructionBudgetReserved=0;
  function recordCall(row,level){
   callRows.push(row);
   if(level===0){if(row.status==="resolved")totals.topLevelCallsResolved++;else totals.topLevelCallsUnresolved++;}
@@ -119,17 +119,23 @@ function analyze(input,options){
   const name=String(method&&method.name||""),desc=String(method&&method.descriptor||""),key=owner+"."+name+desc;
   if(active.has(key)){totals.recursiveCyclesDetected++;return {ok:false,reason:"recursive-helper-cycle"};}
   if(depth>MAX_NESTED_DEPTH){totals.depthLimitHits++;return {ok:false,reason:"nested-helper-depth-limit-exceeded"};}
-  if(cache.has(key))return cache.get(key);
+  if(cache.has(key)){
+   const cached=cache.get(key);
+   if(cached.ok&&depth+(cached.maxNestedDepth||0)>MAX_NESTED_DEPTH){totals.depthLimitHits++;return {ok:false,reason:"nested-helper-depth-limit-exceeded"};}
+   return cached;
+  }
   if(summaryCount>=summaryLimit){totals.detailsTruncated=true;return {ok:false,reason:"helper-summary-limit-exceeded"};}
+  const instructionCount=arr(method&&method.code&&method.code.instructions).filter(x=>x&&Number.isInteger(x.pc)).length;
+  if(instructionCount>MAX_METHOD_INSTRUCTIONS){totals.detailsTruncated=true;return {ok:false,reason:"helper-instruction-limit-exceeded"};}
+  if(instructionBudgetReserved+instructionCount>MAX_TOTAL_INSTRUCTIONS){totals.detailsTruncated=true;return {ok:false,reason:"aggregate-helper-instruction-budget-exceeded"};}
+  instructionBudgetReserved+=instructionCount;totals.helperInstructionsBudgeted+=instructionCount;
   summaryCount++;
   const result=summarizeBody(owner,method,depth,active);
-  if(result.ok){
-   if(totals.helperInstructionsAnalyzed+result.instructionCount>MAX_TOTAL_INSTRUCTIONS){totals.detailsTruncated=true;result.ok=false;result.reason="aggregate-helper-instruction-budget-exceeded";}
-   else{totals.helperInstructionsAnalyzed+=result.instructionCount;totals.helperMethodsResolved++;}
-  }
-  if(!result.ok)totals.helperMethodsRejected++;
-  cache.set(key,result);
-  summaryRows.set(key,{methodOwner:owner,methodName:name,methodDescriptor:desc,status:result.ok?"resolved":"rejected",reason:result.reason||null,expression:result.ok?result.expression:null,instructionsAnalyzed:result.instructionCount||0,nestedCalls:result.nestedCalls||0,maxNestedDepth:result.maxNestedDepth||0});
+  totals.helperInstructionsAnalyzed+=Number(result.instructionCount)||0;
+  if(result.ok)totals.helperMethodsResolved++;
+  else totals.helperMethodsRejected++;
+  if(result.reason!=="nested-helper-depth-limit-exceeded")cache.set(key,result);
+  summaryRows.set(key,{methodOwner:owner,methodName:name,methodDescriptor:desc,status:result.ok?"resolved":"rejected",reason:result.reason||null,expression:result.ok?result.expression:null,instructionsAnalyzed:result.instructionCount||0,instructionsBudgeted:instructionCount,nestedCalls:result.nestedCalls||0,maxNestedDepth:result.maxNestedDepth||0});
   return result;
  }
  function resolveNestedCall(x,owner,callerClass,callerMethod,stack,depth,active){
@@ -166,7 +172,7 @@ function analyze(input,options){
   const nestedCalls=1+(summary.nestedCalls||0);
   totals.nestedCallsResolved++;
   callRows.push(Object.assign({},rowBase,{status:"resolved",nestedCalls:summary.nestedCalls||0}));
-  return {ok:true,value:origin("nested-helper-result",{pc:x.pc,methodOwner:targetOwner,methodName:targetName,methodDescriptor:targetDesc,methodOpcode:n,callSitePc:x.pc,descriptor:targetDescriptor.result.descriptor,category:targetDescriptor.result.category,expression:expression,nestedDepth:depth+1,nestedCallsResolved:summary.nestedCalls||0}),nestedCalls:nestedCalls,maxNestedDepth:Math.max(depth+1,summary.maxNestedDepth||0)};
+  return {ok:true,value:origin("nested-helper-result",{pc:x.pc,methodOwner:targetOwner,methodName:targetName,methodDescriptor:targetDesc,methodOpcode:n,callSitePc:x.pc,descriptor:targetDescriptor.result.descriptor,category:targetDescriptor.result.category,expression:expression,nestedDepth:depth+1,nestedCallsResolved:summary.nestedCalls||0}),nestedCalls:nestedCalls,maxNestedDepth:1+(summary.maxNestedDepth||0)};
  }
  function summarizeBody(owner,method,depth,active){
   const code=method&&method.code,verification=code&&code.verification,cf=verification&&verification.controlFlow;
@@ -178,7 +184,7 @@ function analyze(input,options){
   const instructions=arr(code.instructions).filter(x=>x&&Number.isInteger(x.pc)).slice().sort((a,b)=>a.pc-b.pc);
   if(!instructions.length||instructions.length>MAX_METHOD_INSTRUCTIONS)return {ok:false,reason:"helper-instruction-limit-or-empty"};
   const stack=[],locals=seedLocals(method,parsed);
-  let result=null,returnPc=null,reason=null,nestedCalls=0,maxNestedDepth=depth;
+  let result=null,returnPc=null,reason=null,nestedCalls=0,maxNestedDepth=0;
   const nextActive=new Set(active);nextActive.add(owner+"."+String(method.name||"")+String(method.descriptor||""));
   function fail(r){reason=r;}
   function push(v){if(stack.length>=MAX_STACK){fail("helper-stack-limit-exceeded");return;}stack.push(compact(v,0));}
@@ -235,7 +241,7 @@ function analyze(input,options){
    if(n==="invokestatic"||n==="invokespecial"||n==="invokevirtual"||n==="invokeinterface"||n==="invokedynamic"){
     const nested=resolveNestedCall(x,owner,classMap.get(owner),method,stack,depth,nextActive);
     if(!nested.ok){fail(nested.reason||"nested-helper-unresolved");break;}
-    push(nested.value);nestedCalls+=nested.nestedCalls||1;maxNestedDepth=Math.max(maxNestedDepth,nested.maxNestedDepth||depth+1);continue;
+    push(nested.value);nestedCalls+=nested.nestedCalls||1;maxNestedDepth=Math.max(maxNestedDepth,nested.maxNestedDepth||1);continue;
    }
    if(n==="pop"){const v=pop(null,x.pc);if(v.category!==1)fail("helper-invalid-pop-category");continue;}
    if(n==="dup"){const v=pop(1,x.pc);push(v);push(v);continue;}
