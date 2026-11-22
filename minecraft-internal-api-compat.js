@@ -23,7 +23,7 @@ const AREAS=[
 ];
 function normalize(v){return typeof v==="string"?v.replace(/\./g,"/").replace(/^L|;$/g,""):"";}
 function categoryFor(owner){for(const [name,re] of AREAS)if(re.test(owner))return name;return "otherMinecraftApi";}
-function descriptorOwners(d){const out=[];if(typeof d!=="string")return out;for(const m of d.matchAll(/L([^;]+);/g)){const n=normalize(m[1]);if(n.startsWith(PREFIX)&&!BLOCKED.test(n))out.push(n);}return out;}
+function descriptorOwners(d){const out=[];if(typeof d!=="string")return out;for(const m of d.matchAll(/L([^;]+);/g)){const n=normalize(m[1]);if(n.startsWith(PREFIX))out.push(n);}return out;}
 function operationFor(owner,name,descriptor,kind){
 if(kind==="field"){
  if(owner==="net/minecraft/world/item/Items"||owner==="net/minecraft/world/level/block/Blocks")return{id:"vanilla_content_registry_reference",confidence:"high",reason:"Exact vanilla content holder field reference"};
@@ -52,12 +52,12 @@ totals:{classesSeen:classes.length,classesAnalyzed:0,restrictedClassesSkipped:0,
 categories:{},apiClasses:[],invocations:[],fieldAccesses:[],classReferences:[],
 limitations:["Minecraft internal API references are inventoried, not translated into Zeus API calls.","Minecraft names and descriptors vary by version, mappings and obfuscation; exact owner/name matches remain candidates.","Mixin/access transformer/reflection/runtime behavior and invokedynamic targets are not reconstructed.","Descriptors do not reveal generic semantics, runtime values, side restrictions or callback behavior.","No candidate is auto-converted; explicit target API implementation and runtime validation are required."]};
 const apiCounts=new Map(),classSeen=new Set(),emitted=new Set(),cats=Object.create(null),invocations=[],fields=[],refs=[];let observed=0;
-function record(raw,source){const owner=normalize(raw);if(!owner.startsWith(PREFIX)||BLOCKED.test(owner))return null;const category=categoryFor(owner);apiCounts.set(owner,(apiCounts.get(owner)||0)+1);if(!cats[category])cats[category]={classReferences:0,invocations:0,fieldAccesses:0};if(source)classSeen.add(source);return{owner,category};}
+function record(raw,source){const owner=normalize(raw);if(!owner.startsWith(PREFIX))return null;const category=categoryFor(owner);apiCounts.set(owner,(apiCounts.get(owner)||0)+1);if(!cats[category])cats[category]={classReferences:0,invocations:0,fieldAccesses:0};if(source)classSeen.add(source);return{owner,category};}
 function push(target,row){observed++;if(target.length<limit)target.push(row);}
 for(const item of classes){
 const info=item&&item.classInfo?item.classInfo:item;if(!info||info.valid!==true||typeof info.className!=="string")continue;
 const sourceClass=normalize(info.className),sourcePath=item&&typeof item.path==="string"?item.path:sourceClass+".class";
-if(BLOCKED.test(sourcePath)||BLOCKED.test(sourceClass)){report.totals.restrictedClassesSkipped++;continue;}
+
 report.totals.classesAnalyzed++;
 const local=new Set([].concat(info.references||[],info.superName||[],info.interfaces||[]).filter(Boolean));
 for(const f of info.fields||[])for(const o of descriptorOwners(f&&f.descriptor))local.add(o);
@@ -73,7 +73,7 @@ const hit=record(f.owner,sourceClass);if(!hit)continue;cats[hit.category].fieldA
 const op=operationFor(hit.owner,f.name,f.descriptor,"field");if(hit.category==="otherMinecraftApi")report.totals.unknownCategorySites++;else report.totals.knownCategorySites++;if(op)report.totals.candidateOperationSites++;
 push(fields,{sourcePath,sourceClass,sourceMethod:method.name||null,sourceDescriptor:method.descriptor||null,pc:Number.isInteger(f.pc)?f.pc:null,owner:hit.owner,name:f.name||null,descriptor:f.descriptor||null,category:hit.category,operationCandidate:op?op.id:null,confidence:op?op.confidence:"high",evidence:op?op.reason:"Exact net.minecraft namespace field reference in parsed bytecode",portStatus:"unmapped",autoConverted:false});local.add(hit.owner);
 }}
-for(const raw of local){const owner=normalize(raw);if(!owner.startsWith(PREFIX)||BLOCKED.test(owner))continue;const key=sourceClass+"|"+owner;if(emitted.has(key))continue;emitted.add(key);const category=categoryFor(owner);classSeen.add(sourceClass);if(!apiCounts.has(owner))apiCounts.set(owner,1);if(!cats[category])cats[category]={classReferences:0,invocations:0,fieldAccesses:0};cats[category].classReferences++;report.totals.classReferenceSites++;
+for(const raw of local){const owner=normalize(raw);if(!owner.startsWith(PREFIX))continue;const key=sourceClass+"|"+owner;if(emitted.has(key))continue;emitted.add(key);const category=categoryFor(owner);classSeen.add(sourceClass);if(!apiCounts.has(owner))apiCounts.set(owner,1);if(!cats[category])cats[category]={classReferences:0,invocations:0,fieldAccesses:0};cats[category].classReferences++;report.totals.classReferenceSites++;
 push(refs,{sourcePath,sourceClass,apiClass:owner,category,confidence:"medium",evidence:"Minecraft class appears in parsed class references, descriptors or bytecode member owners",usageResolved:false,portStatus:"unverified",autoConverted:false});
 }}
 report.invocations=invocations;report.fieldAccesses=fields;report.classReferences=refs;report.categories=cats;
