@@ -2,7 +2,7 @@ name: Node test suite
 
 on:
   push:
-    branches: [main, phase-31-cross-block-dataflow, phase-32-interprocedural-helper-summaries, phase-33-nested-helper-summaries, phase-34-direct-client-import, phase-35-integrated-game-import]
+    branches: [main, phase-31-cross-block-dataflow, phase-32-interprocedural-helper-summaries, phase-33-nested-helper-summaries, phase-34-direct-client-import, phase-35-integrated-game-import, phase-36-safe-converter-stability]
   pull_request:
     branches: [main]
 
@@ -22,6 +22,8 @@ jobs:
           node --test
           tests/index-smoke.test.js
           tests/generic-mod-analyzer.test.js
+          tests/resource-converter.test.js
+          tests/entity-model-converter.test.js
           tests/machine-state-control-flow.test.js
           tests/machine-state-condition-operands.test.js
           tests/machine-state-cross-block-dataflow.test.js
