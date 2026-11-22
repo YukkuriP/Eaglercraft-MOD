@@ -37,14 +37,14 @@ test("detects loader metadata, mixins, resources and nested jars",()=>{
  assert.ok(r.entrypoints.some(x=>x.value==="demo.Main"));
 });
 
-test("rejects unsafe archive paths and records restricted feature paths for review",()=>{
+test("rejects unsafe archive paths without filtering weapon-named resource paths",()=>{
  const r=A.analyze([
   {path:"../escape.class",size:1},
   {path:"assets/demo/models/item/rifle.json",size:2},
   {path:"assets/demo/models/item/stone.json",size:3}
  ]);
  assert.deepEqual(Array.from(r.archive.unsafePaths),["../escape.class"]);
- assert.equal(r.featureReview.restrictedPathCount,1);
+ assert.equal(r.featureReview.restrictedPathCount,0);
  assert.equal(r.resources.models,2);
 });
 
