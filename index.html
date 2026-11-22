@@ -168,7 +168,7 @@ $("analyze").onclick=async function(){
    if(/\.class$/i.test(gn)){
     ge.classInfo=window.Jar2ZeusBytecode.parse(await go.async("uint8array"));
     if(ge.classInfo.valid)javaClassRecords.push(ge.classInfo);
-   }else if(/^data\/[a-z0-9_.-]+\/(?:recipe|recipes)\/.+\.json$/i.test(gn)&&!/(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i.test(gn)){
+   }else if(/^data\/[a-z0-9_.-]+\/(?:recipe|recipes)\/.+\.json$/i.test(gn)&&true){
     ge.recipeJson=true;
     if(ge.size>2*1024*1024||recipeJsonBytesRead+ge.size>64*1024*1024){
      ge.recipeReadError=true;ge.recipeReadErrorReason=ge.size>2*1024*1024?"single recipe JSON exceeds 2 MiB analysis cap":"aggregate recipe JSON exceeds 64 MiB analysis cap";
