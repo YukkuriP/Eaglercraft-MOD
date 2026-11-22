@@ -280,6 +280,7 @@ function analyze(input,options){
   const targetDescriptor=parseMethod(desc);
   if(!targetDescriptor||targetDescriptor.result.category===0)return reject("helper-descriptor-invalid-or-void");
   if(node.descriptor&&node.descriptor!==targetDescriptor.result.descriptor)return reject("helper-return-descriptor-mismatch");
+  if(node.category!=null&&node.category!==targetDescriptor.result.category)return reject("helper-return-category-mismatch");
   const args=arr(node.arguments);
   if(args.length!==targetDescriptor.args.length)return reject("helper-argument-count-mismatch");
   for(let i=0;i<args.length;i++)if(!args[i]||args[i].category!=null&&args[i].category!==targetDescriptor.args[i].category)return reject("helper-argument-category-mismatch");
@@ -303,7 +304,12 @@ function analyze(input,options){
  }
  function walkOrigin(node,callerClass,callerMethod,depth){
   if(depth>MAX_EXPR_DEPTH||!node||typeof node!=="object")return node;
-  if(node.kind==="method-result")return resolveTopCall(node,callerClass,callerMethod,new Set());
+  if(node.kind==="method-result"){
+   const prepared=compact(node,0);
+   if(Array.isArray(prepared.arguments))prepared.arguments=prepared.arguments.map(v=>walkOrigin(v,callerClass,callerMethod,depth+1));
+   if(prepared.receiver)prepared.receiver=walkOrigin(prepared.receiver,callerClass,callerMethod,depth+1);
+   return resolveTopCall(prepared,callerClass,callerMethod,new Set());
+  }
   const out=compact(node,0);
   if(node.receiver)out.receiver=walkOrigin(node.receiver,callerClass,callerMethod,depth+1);
   if(node.expression)out.expression=walkOrigin(node.expression,callerClass,callerMethod,depth+1);
