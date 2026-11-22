@@ -2,7 +2,7 @@ name: Node test suite
 
 on:
   push:
-    branches: [main, phase-31-cross-block-dataflow, phase-32-interprocedural-helper-summaries, phase-33-nested-helper-summaries]
+    branches: [main, phase-31-cross-block-dataflow, phase-32-interprocedural-helper-summaries, phase-33-nested-helper-summaries, phase-34-direct-client-import]
   pull_request:
     branches: [main]
 
