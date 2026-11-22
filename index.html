@@ -62,7 +62,15 @@
 </section>
 <section class="card"><h2>② 解析結果</h2><pre id="out">JARとZeusの対象バージョンを選択してください。</pre>
 <p class="warn" id="warning">まだ解析されていません。</p>
-<button id="build" disabled>Zeus MOD ZIP＋再実装レポートを出力</button>
+<div class="grid">
+<div class="step"><b>ゲームへ直接インポートするMOD</b>
+<p class="muted">metadata.json と main.lua がZIP直下にある、Eaglercraft Zeus用の単体MOD ZIPです。生成後、ここから別に保存できます。</p>
+<button id="downloadInstallable" disabled>ゲーム用MOD ZIPをダウンロード</button>
+<p class="muted" id="installHint">先に下のボタンで変換・検証を実行してください。</p></div>
+<div class="step"><b>解析・診断レポート一式</b>
+<p class="muted">変換パッケージと詳細な解析レポート、診断資料をまとめたZIPです。</p>
+<button id="build" disabled>変換と診断パッケージを生成</button></div>
+</div>
 </section>
 <section class="card"><h2>このツールが行うこと</h2>
 <ul><li>Fabric / Forge / NeoForge / Quilt、依存関係、Javaクラス参照、Mixin、Access Transformer、Jar-in-Jarを横断解析</li><li>モデル・テクスチャ・音声・シェーダー・レシピ・タグ・設定などのリソースを分類</li><li>単純なJSON/TOML/properties設定をZeus設定画面へ移行し、秘密情報らしいキーを除外</li><li>Javaクラス参照からブロック、描画、ネットワーク、ワールド生成、GUIなどの機能群を棚卸し</li><li>機械状態を判定する条件式から、同一クラス内の限定された補助メソッドの戻り値由来も静的解析</li><li>Fabric / Forge / NeoForgeのイベント登録候補・初期化候補・タイマーを静的解析し、Zeusイベント候補と未対応理由を出力</li><li>Javaクラスの定数プール・メソッド・バイトコード・API呼び出しを解析</li><li>エネルギー・蓄電・発電・Create系回転動力／StressネットワークのAPI候補とフィールドを解析</li><li>アイテム・液体・エネルギー輸送API、接続ノード、タンク、転送操作の候補を分類して診断レポートへ出力</li><li>加工レシピ、機械の進捗・加工時間・燃料・電力・副産物・稼働条件の候補を解析</li>
@@ -72,11 +80,15 @@
 <p class="muted">JARの解析と変換はブラウザ内で処理し、サーバーへ送信しません。ZIP作成時のみJSZipを読み込みます。</p>
 </main>
 <script>
+var installableModBlob=null,installableModFileName=null;
 var jarZip=null,jarReport=null,jarFile=null,targetGameVersion="26.3",javaClassRecords=[],archivePreflightReport=null,machineGuiStateBridge=null,machineGuiLiveBinding=null,machineStateProviderSdk=null,machineStateEventProducer=null,machineStateSourceAnalysis=null,machineStateGetterSemantics=null,machineStateWriteTrace=null,machineStateUpdateConditions=null,machineStateControlFlow=null,machineStateConditionOperands=null,machineStateCrossBlockDataflow=null,machineStateInterproceduralSummaries=null,machineStateNestedHelperSummaries=null;
 function $(id){return document.getElementById(id)}
 function slug(s){return (s||"imported_mod").toLowerCase().replace(/[^a-z0-9_.-]/g,"_").replace(/^\.+/,"").slice(0,55).replace(/_+$/,"")||"imported_mod"}
 function unique(a){return Array.from(new Set(a))}
 function invalidateAnalysis(){
+ installableModBlob=null;installableModFileName=null;
+ $("downloadInstallable").disabled=true;
+ $("installHint").textContent="ファイルまたは対象バージョンが変更されました。再生成してください。";
  jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;machineStateEventProducer=null;machineStateSourceAnalysis=null;machineStateGetterSemantics=null;machineStateWriteTrace=null,machineStateUpdateConditions=null,machineStateControlFlow=null,machineStateConditionOperands=null,machineStateCrossBlockDataflow=null,machineStateInterproceduralSummaries=null,machineStateNestedHelperSummaries=null;
  $("build").disabled=true;
  $("out").textContent="ファイルまたは対象バージョンが変更されました。もう一度解析してください。";
@@ -84,8 +96,17 @@ function invalidateAnalysis(){
 }
 $("jar").onchange=invalidateAnalysis;
 $("targetVersion").onchange=invalidateAnalysis;
+$("downloadInstallable").onclick=function(){
+ if(!installableModBlob||!installableModFileName)return;
+ var url=URL.createObjectURL(installableModBlob),a=document.createElement("a");
+ a.href=url;a.download=installableModFileName;a.click();
+ setTimeout(function(){URL.revokeObjectURL(url)},1500);
+};
 $("analyze").onclick=async function(){
  try{
+  installableModBlob=null;installableModFileName=null;
+  $("downloadInstallable").disabled=true;
+  $("installHint").textContent="解析・変換が完了するまでお待ちください。";
   jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;machineStateEventProducer=null;machineStateSourceAnalysis=null;machineStateGetterSemantics=null;machineStateWriteTrace=null,machineStateUpdateConditions=null,machineStateControlFlow=null,machineStateConditionOperands=null,machineStateCrossBlockDataflow=null,machineStateInterproceduralSummaries=null,machineStateNestedHelperSummaries=null;$("build").disabled=true;
   if(!window.JSZip)throw Error("JSZipを読み込めません。インターネット接続を確認してください。");
   if(!window.Jar2ZeusArchive)throw Error("ZIP事前検査モジュールを読み込めません。");
@@ -500,7 +521,11 @@ $("build").onclick=async function(){
   var providerZipBlob=await providerZip.generateAsync({type:"uint8array",compression:"DEFLATE"});
   out.file(machineStateProviderSdk.report.packageFileName,providerZipBlob);
  out.file("README.txt","Jar2Zeus output\n\nIMPORT THIS FILE: "+id+"-zeus-mod.zip\n\nStandalone Zeus MOD ZIP for Eaglercraft "+targetVersion+". The uploaded JAR is analyzed locally in this browser; no game HTML is required.\n\nThe Java reimplementation engine translates a conservative subset of primitive static helper methods, including branches, switches, loops, void returns and verified calls to other static helpers in the same JAR. Recursive helper calls have a depth limit of 128. Java object state, exception handlers, external API calls and game lifecycle wiring are not automatically migrated. Remaining Java/loader behavior is listed in reimplementation-report.json and reimplementation-plan.json for feature-specific Zeus adapters. Resource converters handle supported recipes, block/item definitions and preserve compatible model JSON and textures. This output is a partial port unless its remaining tasks are completed and the exact target game is tested.\n\nThe generated main.lua includes preflight guards for documented Zeus APIs. The bundled runtime probe checks API presence only and does not prove gameplay behavior. See diagnostics/report.json, diagnostics/bytecode-analysis.json, diagnostics/config-report.json, diagnostics/class-object-model.json, diagnostics/java-type-compatibility.json, diagnostics/reimplementation-report.json, diagnostics/java-call-graph.json, diagnostics/java-event-lifecycle.json, diagnostics/reimplementation-plan.json, diagnostics/entity-model-report.json, diagnostics/api-validation.json and validation-report.json.\n\nA separate companion provider template is included as "+machineStateProviderSdk.report.packageFileName+". Edit its main.lua to register a genuine supported reader or event source before expecting live values; it is intentionally empty by default. The generated main.lua also exports mod.export.publish_machine_state as an explicit Phase 24 sender helper. It validates caller-supplied scalar values and emits the matching event only when called; no state reader, tick hook or automatic publishing is wired.\n\nThe diagnostics include machine-state-source-analysis-plan.json, a static map from Java machine field candidates to possible no-argument getter methods. It does not execute or invoke Java methods and does not connect live values.\n\nThe machine-state-getter-semantics-plan.json report classifies getter bytecode bodies as direct field returns, arithmetic calculations, conditional logic, helper dependencies, or observed writes. Unresolved bytecode is not guessed. It does not execute Java or recover live state.\\n\\nThe machine-state-write-trace-plan.json report maps telemetry fields to decoded PUTFIELD/PUTSTATIC write sites and exact local call relationships. Tick, processing, persistence, and synchronization roles are method-name or call-name candidates only; assigned values and runtime update timing are not reconstructed.\n\nThe machine-state-update-conditions-plan.json report lists bounded nearby comparisons, branches, field reads and helper calls before each known write. These are position-only clues: it does not prove that a branch gates the write, recover comparison operands, or establish runtime order.\n\nThe machine-state-control-flow-plan.json report uses the structural verifier CFG to calculate dominator and postdominator relations around writes. Any candidate is limited to that CFG model and includes conservative exception edges; it does not establish runtime branch outcomes or execute Java.\n\nThe machine-condition-operands-plan.json report traces static operand origins for selected branch candidates using a bounded straight-line JVM stack subset inside each basic block. It can identify local slots, parameters, field reads, constants, calculations, and symbolic method results. Incoming stack values and cross-block merges remain unknown; unsupported stack operations stop that path. It does not recover runtime values or branch outcomes.\n\nPackage files: "+packageFiles.length+"\nUnpacked package size: "+packageBytes+" bytes\nZeus limits: 4096 files / 64 MiB\nOmitted package files: "+packageSkipped.length+"\nExtracted source resources: "+copied+"\n");
- var blob=await out.generateAsync({type:"blob",compression:"DEFLATE"});var a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download=id+"-migration.zip";a.click();setTimeout(function(){URL.revokeObjectURL(url)},1500);
+ var blob=await out.generateAsync({type:"blob",compression:"DEFLATE"});
+ installableModBlob=modBlob;installableModFileName=id+"-zeus-mod.zip";
+ $("downloadInstallable").disabled=false;
+ $("installHint").textContent="生成・構造検証済みです。ゲームのタイトル画面で Mods → Import mod → ZIPを選択するか、ZIPをゲーム画面へドラッグしてください。";
+ var a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download=id+"-migration.zip";a.click();setTimeout(function(){URL.revokeObjectURL(url)},1500);
  }catch(e){alert("出力失敗: "+e.message)}
 };
 </script></body></html>
