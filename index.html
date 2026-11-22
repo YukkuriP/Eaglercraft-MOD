@@ -43,6 +43,7 @@
 <script src="machine-state-condition-operands.js"></script>
 <script src="machine-state-cross-block-dataflow.js"></script>
 <script src="machine-state-interprocedural-summaries.js"></script>
+<script src="machine-state-nested-helper-summaries.js"></script>
 <script src="java-reimplementation-engine.js"></script>
 <script src="migration-pipeline.js"></script>
 <script src="zeus-api-contract.js"></script>
@@ -71,12 +72,12 @@
 <p class="muted">JARの解析と変換はブラウザ内で処理し、サーバーへ送信しません。ZIP作成時のみJSZipを読み込みます。</p>
 </main>
 <script>
-var jarZip=null,jarReport=null,jarFile=null,targetGameVersion="26.3",javaClassRecords=[],archivePreflightReport=null,machineGuiStateBridge=null,machineGuiLiveBinding=null,machineStateProviderSdk=null,machineStateEventProducer=null,machineStateSourceAnalysis=null,machineStateGetterSemantics=null,machineStateWriteTrace=null,machineStateUpdateConditions=null,machineStateControlFlow=null,machineStateConditionOperands=null,machineStateCrossBlockDataflow=null,machineStateInterproceduralSummaries=null;
+var jarZip=null,jarReport=null,jarFile=null,targetGameVersion="26.3",javaClassRecords=[],archivePreflightReport=null,machineGuiStateBridge=null,machineGuiLiveBinding=null,machineStateProviderSdk=null,machineStateEventProducer=null,machineStateSourceAnalysis=null,machineStateGetterSemantics=null,machineStateWriteTrace=null,machineStateUpdateConditions=null,machineStateControlFlow=null,machineStateConditionOperands=null,machineStateCrossBlockDataflow=null,machineStateInterproceduralSummaries=null,machineStateNestedHelperSummaries=null;
 function $(id){return document.getElementById(id)}
 function slug(s){return (s||"imported_mod").toLowerCase().replace(/[^a-z0-9_.-]/g,"_").replace(/^\.+/,"").slice(0,55).replace(/_+$/,"")||"imported_mod"}
 function unique(a){return Array.from(new Set(a))}
 function invalidateAnalysis(){
- jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;machineStateEventProducer=null;machineStateSourceAnalysis=null;machineStateGetterSemantics=null;machineStateWriteTrace=null,machineStateUpdateConditions=null,machineStateControlFlow=null,machineStateConditionOperands=null,machineStateCrossBlockDataflow=null,machineStateInterproceduralSummaries=null;
+ jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;machineStateEventProducer=null;machineStateSourceAnalysis=null;machineStateGetterSemantics=null;machineStateWriteTrace=null,machineStateUpdateConditions=null,machineStateControlFlow=null,machineStateConditionOperands=null,machineStateCrossBlockDataflow=null,machineStateInterproceduralSummaries=null,machineStateNestedHelperSummaries=null;
  $("build").disabled=true;
  $("out").textContent="ファイルまたは対象バージョンが変更されました。もう一度解析してください。";
  $("warning").textContent="再解析が必要です。";
@@ -85,7 +86,7 @@ $("jar").onchange=invalidateAnalysis;
 $("targetVersion").onchange=invalidateAnalysis;
 $("analyze").onclick=async function(){
  try{
-  jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;machineStateEventProducer=null;machineStateSourceAnalysis=null;machineStateGetterSemantics=null;machineStateWriteTrace=null,machineStateUpdateConditions=null,machineStateControlFlow=null,machineStateConditionOperands=null,machineStateCrossBlockDataflow=null,machineStateInterproceduralSummaries=null;$("build").disabled=true;
+  jarZip=null;jarReport=null;archivePreflightReport=null;javaClassRecords=[];machineGuiStateBridge=null;machineGuiLiveBinding=null;machineStateProviderSdk=null;machineStateEventProducer=null;machineStateSourceAnalysis=null;machineStateGetterSemantics=null;machineStateWriteTrace=null,machineStateUpdateConditions=null,machineStateControlFlow=null,machineStateConditionOperands=null,machineStateCrossBlockDataflow=null,machineStateInterproceduralSummaries=null,machineStateNestedHelperSummaries=null;$("build").disabled=true;
   if(!window.JSZip)throw Error("JSZipを読み込めません。インターネット接続を確認してください。");
   if(!window.Jar2ZeusArchive)throw Error("ZIP事前検査モジュールを読み込めません。");
   jarFile=$("jar").files[0];
@@ -191,10 +192,12 @@ $("analyze").onclick=async function(){
    machineStateConditionOperands=window.Jar2ZeusMachineConditionOperands.analyze({controlFlow:machineStateControlFlow,classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};})});
    machineStateCrossBlockDataflow=window.Jar2ZeusMachineStateCrossBlockDataflow.analyze({conditionOperands:machineStateConditionOperands,classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};})});
    machineStateInterproceduralSummaries=window.Jar2ZeusMachineStateInterproceduralSummaries.analyze({crossBlockDataflow:machineStateCrossBlockDataflow,classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};})});
+   machineStateNestedHelperSummaries=window.Jar2ZeusMachineStateNestedHelperSummaries.analyze({crossBlockDataflow:machineStateCrossBlockDataflow,classes:genericEntries.filter(function(entry){return !!entry.classInfo;}).map(function(entry){return {path:entry.path,classInfo:entry.classInfo};})});
    genericAnalysis.migrationAssessment.machineStateControlFlow={status:machineStateControlFlow.status,writerMethodsAnalyzed:machineStateControlFlow.totals.writerMethodsAnalyzed,writesAnalyzed:machineStateControlFlow.totals.writesAnalyzed,controlDependenceCandidates:machineStateControlFlow.totals.controlDependenceCandidates,controlDependenceRecovered:false,javaMethodsExecuted:false};
    genericAnalysis.migrationAssessment.machineStateConditionOperands={status:machineStateConditionOperands.status,branchesResolved:machineStateConditionOperands.totals.branchesResolved,branchesPartial:machineStateConditionOperands.totals.branchesPartial,operandOriginsReported:machineStateConditionOperands.totals.operandOriginsReported,comparisonOperandsRecovered:machineStateConditionOperands.comparisonOperandsRecovered,comparisonRuntimeValuesRecovered:false};
    genericAnalysis.migrationAssessment.machineStateCrossBlockDataflow={status:machineStateCrossBlockDataflow.status,branchesResolved:machineStateCrossBlockDataflow.totals.branchesResolved,branchesPartial:machineStateCrossBlockDataflow.totals.branchesPartial,blocksAnalyzed:machineStateCrossBlockDataflow.totals.blocksAnalyzed,dataFlowIterations:machineStateCrossBlockDataflow.totals.dataFlowIterations,crossBlockOriginsRecovered:machineStateCrossBlockDataflow.crossBlockOriginsRecovered,runtimeValuesRecovered:false};
    genericAnalysis.migrationAssessment.machineStateInterproceduralSummaries={status:machineStateInterproceduralSummaries.status,methodResultsSeen:machineStateInterproceduralSummaries.totals.methodResultsSeen,methodResultsResolved:machineStateInterproceduralSummaries.totals.methodResultsResolved,helperSummariesResolved:machineStateInterproceduralSummaries.totals.helperSummariesResolved,helperCallsInspected:machineStateInterproceduralSummaries.helperCallsInspected,runtimeValuesRecovered:false};
+   genericAnalysis.migrationAssessment.machineStateNestedHelperSummaries={status:machineStateNestedHelperSummaries.status,topLevelCallsResolved:machineStateNestedHelperSummaries.totals.topLevelCallsResolved,nestedCallsResolved:machineStateNestedHelperSummaries.totals.nestedCallsResolved,recursiveCyclesDetected:machineStateNestedHelperSummaries.totals.recursiveCyclesDetected,depthLimitHits:machineStateNestedHelperSummaries.totals.depthLimitHits,nestedHelperOriginsRecovered:machineStateNestedHelperSummaries.nestedHelperOriginsRecovered,runtimeValuesRecovered:false};
    genericAnalysis.migrationAssessment.machineStateProviderSdk={status:machineStateProviderSdk.report.status,providerId:machineStateProviderSdk.report.provider.id,suggestedMetricKeys:machineStateProviderSdk.report.totals.suggestedMetricKeys,readerRegistrationsGenerated:0,eventReaderRegistrationsGenerated:0,valuesConnected:false};
    genericAnalysis.migrationAssessment.machineStateEventProducer={status:machineStateEventProducer.report.status,providerId:machineStateEventProducer.report.provider.id,publisherHelperGenerated:true,sourceReaderCallbacksGenerated:0,eventPublicationsWired:0,automaticPublication:false,valuesConnected:false};
    genericAnalysis.migrationAssessment.machineStateSourceAnalysis={status:machineStateSourceAnalysis.status,machineClasses:machineStateSourceAnalysis.totals.machineClasses,fieldCandidates:machineStateSourceAnalysis.totals.fieldCandidatesReported,getterCandidates:machineStateSourceAnalysis.totals.getterCandidatesReported,verifiedGetterCandidates:machineStateSourceAnalysis.totals.structurallyVerifiedGetterCandidates,metricsWithoutGetterEvidence:machineStateSourceAnalysis.totals.metricsWithoutGetterEvidence,javaMethodsInvoked:false,sourceReaderCallbacksGenerated:0};
@@ -246,6 +249,7 @@ $("analyze").onclick=async function(){
    machine_state_condition_operands:machineStateConditionOperands,
    machine_state_cross_block_dataflow:machineStateCrossBlockDataflow,
    machine_state_interprocedural_summaries:machineStateInterproceduralSummaries,
+   machine_state_nested_helper_summaries:machineStateNestedHelperSummaries,
    generic_analysis:genericAnalysis,
    target_zeus:{game_version:targetGameVersion,api_version:1,documentation:"https://dev.eaglercraft.com/docs/modding/api",target_html_required:false},
    conversion:{metadata:"解析済み",resources:"変換候補を抽出",java_logic:"Java bytecodeからZeus向けの限定的な再実装を試行",html_integration:"不要（Zeus専用出力）"}
@@ -390,6 +394,7 @@ $("build").onclick=async function(){
   if(!addPackageFile("machine-condition-operands-plan.json",JSON.stringify(machineStateConditionOperands,null,2),true))throw Error("machine-condition-operands-plan.jsonをZIPへ追加できません");
   if(!addPackageFile("machine-state-cross-block-dataflow-plan.json",JSON.stringify(machineStateCrossBlockDataflow,null,2),true))throw Error("machine-state-cross-block-dataflow-plan.jsonをZIPへ追加できません");
   if(!addPackageFile("machine-state-interprocedural-summaries-plan.json",JSON.stringify(machineStateInterproceduralSummaries,null,2),true))throw Error("machine-state-interprocedural-summaries-plan.jsonをZIPへ追加できません");
+  if(!addPackageFile("machine-state-nested-helper-summaries-plan.json",JSON.stringify(machineStateNestedHelperSummaries,null,2),true))throw Error("machine-state-nested-helper-summaries-plan.jsonをZIPへ追加できません");
  addPackageFile("reimplementation-plan.json",JSON.stringify(javaReimplementation.plan,null,2),true);
  addPackageFile("generic-analysis.json",JSON.stringify(jarReport.generic_analysis,null,2),true);
  addPackageFile("conversion-assessment.json",JSON.stringify(jarReport.generic_analysis.migrationAssessment,null,2),true);
