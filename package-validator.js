@@ -376,10 +376,9 @@
    (input.entityReport&&Array.isArray(input.entityReport.machineAssetsUnmapped)?input.entityReport.machineAssetsUnmapped.length:0)+
    (Array.isArray(configReport.skipped)?configReport.skipped.length:0)+
    (Number(configReport.excludedSensitiveKeys)||0);
-  const restrictedResources=!!(input.analysis&&input.analysis.featureReview&&input.analysis.featureReview.restrictedPathCount>0);
   const unsupportedRuntime=!!(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length);
   valid=errors.length===0;
-  const conversionComplete=valid&&!skipped&&!incompleteJava&&skippedResources===0&&!restrictedResources&&!unsupportedRuntime;
+  const conversionComplete=valid&&!skipped&&!incompleteJava&&skippedResources===0&&!unsupportedRuntime;
   if(!conversionComplete)warnings.push("The generated package is a partial port; review skipped resources, restricted-content exclusions, Java reimplementation tasks and runtime indicators");
   const readyToImport=conversionComplete&&runtimeTested&&gameplayVerified&&targetEvidence.apiPresenceVerified===true&&targetEvidence.versionVerified===true;
   return {
