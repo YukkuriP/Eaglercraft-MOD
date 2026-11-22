@@ -2,7 +2,6 @@
 (function(root){
 "use strict";
 const PREFIX="net/minecraft/";
-const BLOCKED=/(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i;
 const LIMIT=5000;
 const AREAS=[
 ["blockEntitiesAndMachines",/^net\/minecraft\/world\/level\/block\/entity\//],
