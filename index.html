@@ -114,7 +114,7 @@ $("analyze").onclick=async function(){
   if(!jarFile)throw Error("変換するMODのJARを選択してください。");
   // Reject weapon-oriented JARs by filename only; do not filter shared APIs/resources by internal names.
   var normalizedJarName=jarFile.name.toLowerCase().replace(/\\/g,"/");
-  var weaponNameToken=/(?:^|[^a-z0-9])(?:weapon|weapons|gun|guns|firearm|firearms|rifle|rifles|pistol|pistols)(?:$|[^a-z0-9])/i;
+  var weaponNameToken=/(?:^|[^a-z0-9])(?:weapon|weapons|gun|guns|firearm|firearms|rifle|rifles|pistol|pistols|cannon|cannons|artillery|munition|munitions|ammo|ammunition|projectile|projectiles|sword|swords|bow|bows|crossbow|crossbows|trident|tridents|musket|muskets)(?:$|[^a-z0-9])/i;
   if(weaponNameToken.test(normalizedJarName.replace(/[^a-z0-9]+/g,"_")))throw Error("武器MODはRemadeの対象外です。JARファイル名に weapon / gun などの識別語が含まれているため、解析を停止しました。");
   targetGameVersion=$("targetVersion").value;
   if(targetGameVersion!=="26.2"&&targetGameVersion!=="26.3")throw Error("Zeusの対象バージョンを選択してください。");
