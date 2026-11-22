@@ -5,7 +5,6 @@
 (function (root) {
   "use strict";
 
-  const BLOCKED_FEATURE = /(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i;
   const FORGE_PREFIX = "net/minecraftforge/";
   const DEFAULT_DETAIL_LIMIT = 5000;
 
@@ -148,10 +147,6 @@
       if (!info || info.valid !== true || typeof info.className !== "string") continue;
       const sourceClass = normalizeName(info.className);
       const sourcePath = item && typeof item.path === "string" ? item.path : sourceClass + ".class";
-      if (BLOCKED_FEATURE.test(sourcePath) || BLOCKED_FEATURE.test(sourceClass)) {
-        report.totals.restrictedClassesSkipped++;
-        continue;
-      }
       report.totals.classesAnalyzed++;
 
       const localReferences = new Set([].concat(info.references || [], info.superName || [], info.interfaces || []).filter(Boolean));
