@@ -147,3 +147,25 @@ test("reports bounded symbolic-only analysis metadata",()=>{
  assert.equal(report.branchOutcomesRecovered,false);
  assert.ok(report.totals.helperInstructionsAnalyzed<=50000);
 });
+
+
+test("rechecks cached helper depth when the same helper is reached from a deeper call path",()=>{
+ const c=method("cachedChild","()I",0x0008,[ins("iconst_1",0),ins("ireturn",1)]);
+ const b=method("cachedParent","()I",0x0008,[ins("invokestatic",0,{member:call(owner,"cachedChild","()I")}),ins("ireturn",3)]);
+ const chain=[];
+ for(let i=0;i<6;i++){
+  const target=i===5?"cachedParent":"deep"+(i+1);
+  chain.push(method("deep"+i,"()I",0x0008,[ins("invokestatic",0,{member:call(owner,target,"()I")}),ins("ireturn",3)]));
+ }
+ const caller={name:"serverTick",descriptor:"()V",accessFlags:0,code:{instructions:[
+  ins("invokestatic",100,{member:call(owner,"cachedParent","()I")}),
+  ins("invokestatic",200,{member:call(owner,"deep0","()I")})
+ ]}};
+ const node=(pc,name)=>({kind:"method-result",pc,methodOwner:owner,methodName:name,methodDescriptor:"()I",descriptor:"I",category:1,arguments:[]});
+ const input={crossBlockDataflow:{schema:"jar2zeus.machine-state-cross-block-dataflow.v1",methods:[{sourceClass:owner,methodName:"serverTick",methodDescriptor:"()V",branches:[{operandOrigins:[node(100,"cachedParent"),node(200,"deep0")]}]}]},classes:[{classInfo:{valid:true,className:owner,methods:[caller,b,c,...chain]}}]};
+ const report=analyzer.analyze(input);
+ const values=report.methods[0].branches[0].operandOrigins;
+ assert.equal(values[0].resolutionStatus,"resolved");
+ assert.equal(values[1].resolutionStatus,"unresolved");
+ assert.equal(values[1].resolutionReason,"nested-helper-depth-limit-exceeded");
+});
