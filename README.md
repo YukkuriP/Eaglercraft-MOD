@@ -41,6 +41,7 @@
    - `machine-state-condition-operands.js`
    - `machine-state-cross-block-dataflow.js`
    - `machine-state-interprocedural-summaries.js`
+   - `machine-state-nested-helper-summaries.js`
    - `java-event-lifecycle.js`
    - `java-bytecode-analyzer.js`
    - `java-reimplementation-engine.js`
@@ -199,6 +200,16 @@ The callee must have valid structural bytecode verification, exactly one basic b
 Helpers containing branches, loops, multiple blocks, exception handlers, nested calls, state writes, object construction, array operations or unsupported instructions are left unresolved. Virtual/interface/dynamic dispatch, inherited helpers and calls whose implementation cannot be proven exact are also left unresolved. Method/call/summary/instruction/stack/origin limits cap the analysis.
 
 **Important boundary:** this is an interprocedural *static-origin summary*, not Java execution. A resolved expression does not provide a machine's live value, prove a runtime call path, predict a branch, recover final assignments or update timing, create source readers/callbacks, wire events, or connect GUI telemetry. The report is `machine-state-interprocedural-summaries-plan.json`; unresolved helper cases remain manual tasks.
+
+## Nested machine-state helper summaries (Phase 33)
+
+`machine-state-nested-helper-summaries.js` revisits the Phase 31 branch-operand origins and follows bounded helper-call trees. A helper may call another helper only when the invocation is exact and resolvable to the same uploaded class: `invokestatic`, or a same-class private instance helper through `invokespecial`. The analyzer validates each call-site member reference, method descriptor, access flags, argument count and JVM category widths before substituting parameter and receiver origins.
+
+Acyclic call chains are summarized recursively up to a fixed depth and call/summary/instruction limits. The resulting report keeps the nested call structure and static field/parameter/calculation origins. A nested helper can therefore reveal that a condition depends on a field read performed several helper calls away, without executing any Java method or evaluating the expression.
+
+Recursive cycles, excessive call depth, virtual/interface/dynamic dispatch, inherited or cross-class calls, branches, loops, exception handlers, writes, object/array operations and unsupported bytecode remain unresolved. A failure in a nested helper also prevents the containing helper from being reported as resolved.
+
+**Important boundary:** this is bounded static-origin tracing, not execution. It does not retrieve the actual machine value, calculate a runtime result, choose a branch, recover state assignments or update timing, generate Java readers/callbacks, wire events, or connect live GUI telemetry. The plan is exported as `machine-state-nested-helper-summaries-plan.json`; unresolved cases remain manual tasks.
 
 ## JVMバイトコード構造検証
 
