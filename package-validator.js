@@ -379,7 +379,7 @@
   const unsupportedRuntime=!!(input.analysis&&input.analysis.unsupportedIndicators&&input.analysis.unsupportedIndicators.length);
   valid=errors.length===0;
   const conversionComplete=valid&&!skipped&&!incompleteJava&&skippedResources===0&&!unsupportedRuntime;
-  if(!conversionComplete)warnings.push("The generated package is a partial port; review skipped resources, restricted-content exclusions, Java reimplementation tasks and runtime indicators");
+  if(!conversionComplete)warnings.push("The generated package is a partial port; review skipped resources, Java reimplementation tasks and runtime indicators");
   const readyToImport=conversionComplete&&runtimeTested&&gameplayVerified&&targetEvidence.apiPresenceVerified===true&&targetEvidence.versionVerified===true;
   return {
    valid,
