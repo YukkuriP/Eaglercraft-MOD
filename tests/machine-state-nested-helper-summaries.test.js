@@ -10,7 +10,7 @@ function method(name,descriptor,accessFlags,instructions,blocks){
  return {name:name,descriptor:descriptor,accessFlags:accessFlags,code:{instructions:instructions,exceptionTable:[],verification:{valid:true,structuralOnly:true,controlFlow:{basicBlocks:blocks||[{id:0,start:0,end:end}],edges:[]}}}};
 }
 function call(owner,name,descriptor){return {kind:"method",owner:owner,name:name,descriptor:descriptor};}
-function fixture({root,helpers,args=[],receiver=null,rootOpcode="invokestatic",className=owner,extraCallerInstructions=[]}){
+function fixture({root,helpers=[],args=[],receiver=null,rootOpcode="invokestatic",className=owner,extraCallerInstructions=[]}){
  const callerCall=ins(rootOpcode,100,{member:call(className,root.name,root.descriptor)});
  const caller={name:"serverTick",descriptor:"()V",accessFlags:0,code:{instructions:[...extraCallerInstructions,callerCall]}};
  const resultDescriptor=root.descriptor.slice(root.descriptor.indexOf(")")+1);
