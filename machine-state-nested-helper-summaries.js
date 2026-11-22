@@ -134,10 +134,12 @@ function analyze(input,options){
  }
  function resolveNestedCall(x,owner,callerClass,callerMethod,stack,depth,active){
   totals.nestedCallsSeen++;
-  if(callCount>=totalCallLimit){totals.detailsTruncated=true;return {ok:false,reason:"total-helper-call-limit-exceeded"};}
-  callCount++;
   const n=String(x.name||""),mm=x.member||{},targetOwner=norm(mm.owner),targetName=String(mm.name||""),targetDesc=String(mm.descriptor||"");
-  const reject=reason=>({ok:false,reason:reason});
+  const rowBase={callerClass:callerClass&&callerClass.className||owner,callerMethod:callerMethod&&callerMethod.name||null,callSitePc:Number.isInteger(x.pc)?x.pc:null,invocationOpcode:n,methodOwner:targetOwner,methodName:targetName,methodDescriptor:targetDesc,depth:depth+1};
+  const reject=reason=>{totals.nestedCallsUnresolved++;callRows.push(Object.assign({},rowBase,{status:"unresolved",reason:reason}));return {ok:false,reason:reason};};
+  if(callCount>=totalCallLimit){totals.detailsTruncated=true;return reject("total-helper-call-limit-exceeded");}
+  callCount++;
+  if(depth+1>MAX_NESTED_DEPTH){totals.depthLimitHits++;return reject("nested-helper-depth-limit-exceeded");}
   if(n!=="invokestatic"&&n!=="invokespecial")return reject("nested-invocation-dispatch-not-exact");
   if(mm.kind!=="method"||!safe(targetOwner)||!safe(targetName)||targetName==="<init>"||targetName==="<clinit>")return reject("nested-helper-reference-invalid");
   if(targetOwner!==owner)return reject("nested-helper-owner-not-same-class");
@@ -161,7 +163,10 @@ function analyze(input,options){
   if(!summary.ok)return reject(summary.reason||"nested-helper-summary-unavailable");
   const expression=substitute(summary.expression,args,receiver,0);
   if(expression.kind==="unknown-value"||expression.kind==="truncated-origin")return reject("nested-helper-substitution-unresolved");
-  return {ok:true,value:origin("nested-helper-result",{pc:x.pc,methodOwner:targetOwner,methodName:targetName,methodDescriptor:targetDesc,methodOpcode:n,callSitePc:x.pc,descriptor:targetDescriptor.result.descriptor,category:targetDescriptor.result.category,expression:expression,nestedDepth:depth+1,nestedCallsResolved:summary.nestedCalls||0}),nestedCalls:1+(summary.nestedCalls||0),maxNestedDepth:Math.max(depth+1,summary.maxNestedDepth||0)};
+  const nestedCalls=1+(summary.nestedCalls||0);
+  totals.nestedCallsResolved++;
+  callRows.push(Object.assign({},rowBase,{status:"resolved",nestedCalls:summary.nestedCalls||0}));
+  return {ok:true,value:origin("nested-helper-result",{pc:x.pc,methodOwner:targetOwner,methodName:targetName,methodDescriptor:targetDesc,methodOpcode:n,callSitePc:x.pc,descriptor:targetDescriptor.result.descriptor,category:targetDescriptor.result.category,expression:expression,nestedDepth:depth+1,nestedCallsResolved:summary.nestedCalls||0}),nestedCalls:nestedCalls,maxNestedDepth:Math.max(depth+1,summary.maxNestedDepth||0)};
  }
  function summarizeBody(owner,method,depth,active){
   const code=method&&method.code,verification=code&&code.verification,cf=verification&&verification.controlFlow;
