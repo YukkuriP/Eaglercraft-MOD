@@ -48,12 +48,18 @@
    - `migration-pipeline.js`
    - `zeus-api-contract.js`
    - `package-validator.js`
-2. ブラウザで `index.html` を開き、変換するJARを選択します。
+2. ブラウザで `index.html` を開き、変換するJARを選びます。
 3. 対象のZeusバージョン（26.2または26.3）を選び、「JARを解析して再実装を開始」を押します。
-4. 解析結果を確認し、「Zeus MOD ZIP＋再実装レポートを出力」を押します。
-5. 出力された外側ZIPを展開し、`<mod-id>-zeus-mod.zip` をEaglercraftのModsメニューからインポートします。
+4. 解析結果を確認し、「変換と診断パッケージを生成」を押します。
+5. ゲームに入れるファイルは、画面に追加された「ゲーム用MOD ZIPをダウンロード」から保存します。ファイル名は `<mod-id>-zeus-mod.zip` です。このZIPは展開せず、そのまま使います。
+6. Eaglercraft 26.2 / 26.3を開き、タイトル画面の **Mods → Import mod → Choose a .zip file** からZIPを選びます。ゲーム画面へZIPをドラッグ＆ドロップしてもインポートできます。インストール確認画面で内容と権限を確認してから追加してください。
+7. 最初に自動ダウンロードされる `<mod-id>-migration.zip` は解析レポート一式です。詳しい診断や未対応機能を確認するときに使います。こちらはゲームへインポートするファイルではありません。
 
 JSZipをCDNから読み込むため初回利用時にインターネット接続が必要です。JARの内容はブラウザ内で処理し、サーバーには送信しません。
+
+**現在の到達点:** JARはJar2Zeusの変換画面へアップロードし、変換済みのZeus MOD ZIPをEaglercraftへインポートします。元のForge/Fabric JARをゲームHTMLへ直接読み込んで実行する機能はまだありません。ゲーム内でJARの解析・変換まで行うには、変換エンジンをEaglercraftクライアント側へ統合する別工程が必要です。
+
+公式の読み込み方法: [Install and share](https://dev.eaglercraft.com/docs/modding/install-and-share) / [Packaging](https://dev.eaglercraft.com/docs/modding/packaging)。
 
 ## ZIP/JARの事前検査
 
