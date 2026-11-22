@@ -127,6 +127,7 @@ $("analyze").onclick=async function(){
    jarReport={archive_preflight:archivePreflightReport,conversion:{status:"stopped-before-extraction",reason:"ZIP preflight validation failed"}};
    $("out").textContent=JSON.stringify(jarReport,null,2);
    $("warning").textContent="ZIP事前検査で停止しました。エラー内容を確認してください。";
+   if(window.parent!==window)window.parent.postMessage({type:"JAR2ZEUS_ANALYSIS_READY",ok:false,message:"ZIP事前検査で停止しました。エラー内容を確認してください。"},"*");
    archiveBuffer=null;
    return;
   }
@@ -282,7 +283,11 @@ $("analyze").onclick=async function(){
    $("warning").textContent+=" 機械getter候補 "+machineStateSourceAnalysis.totals.getterCandidatesReported+" 件（静的候補のみ・Java実行なし）。";
   $("warning").textContent+=" 機械状態の書き込み経路候補 "+machineStateWriteTrace.totals.writerMethodsReported+" メソッド／"+machineStateWriteTrace.totals.writeInstructionsObserved+" 書き込み命令（静的根拠のみ）。";
   $("build").disabled=false;
- }catch(e){alert("解析失敗: "+e.message)}
+  if(window.parent!==window)window.parent.postMessage({type:"JAR2ZEUS_ANALYSIS_READY",ok:true,targetVersion:targetGameVersion},"*");
+ }catch(e){
+  if(window.parent!==window)window.parent.postMessage({type:"JAR2ZEUS_ERROR",stage:"analysis",message:String(e&&e.message||e)},"*");
+  else alert("解析失敗: "+e.message);
+ }
 };
 $("build").onclick=async function(){
  try{
@@ -524,8 +529,12 @@ $("build").onclick=async function(){
  var blob=await out.generateAsync({type:"blob",compression:"DEFLATE"});
  installableModBlob=modBlob;installableModFileName=id+"-zeus-mod.zip";
  $("downloadInstallable").disabled=false;
+ if(window.parent!==window)window.parent.postMessage({type:"JAR2ZEUS_PACKAGE_READY",blob:modBlob,fileName:installableModFileName,targetVersion:targetVersion},"*");
  $("installHint").textContent="生成・構造検証済みです。ゲームのタイトル画面で Mods → Import mod → ZIPを選択するか、ZIPをゲーム画面へドラッグしてください。";
- var a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download=id+"-migration.zip";a.click();setTimeout(function(){URL.revokeObjectURL(url)},1500);
- }catch(e){alert("出力失敗: "+e.message)}
+ if(window.parent===window){var a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download=id+"-migration.zip";a.click();setTimeout(function(){URL.revokeObjectURL(url)},1500);}
+ }catch(e){
+  if(window.parent!==window)window.parent.postMessage({type:"JAR2ZEUS_ERROR",stage:"build",message:String(e&&e.message||e)},"*");
+  else alert("出力失敗: "+e.message);
+ }
 };
 </script></body></html>
