@@ -42,7 +42,7 @@ test("converts a supported non-weapon Blockbench-style entity model", () => {
   ], "demo");
 
   assert.equal(result.report.counts.converted, 1);
-  assert.match(result.lua, /entities\\.register\\("worker"/);
+  assert.match(result.lua, /entities[.]register[(]"worker"/);
   assert.ok(result.files["textures/demo_worker_entity.png"]);
 });
 
