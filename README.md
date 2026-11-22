@@ -203,13 +203,13 @@ Helpers containing branches, loops, multiple blocks, exception handlers, nested 
 
 ## Nested machine-state helper summaries (Phase 33)
 
-\`machine-state-nested-helper-summaries.js\` revisits the Phase 31 branch-operand origins and follows bounded helper-call trees. A helper may call another helper only when the invocation is exact and resolvable to the same uploaded class: \`invokestatic\`, or a same-class private instance helper through \`invokespecial\`. The analyzer validates each call-site member reference, method descriptor, access flags, argument count and JVM category widths before substituting parameter and receiver origins.
+`machine-state-nested-helper-summaries.js` revisits the Phase 31 branch-operand origins and follows bounded helper-call trees. A helper may call another helper only when the invocation is exact and resolvable to the same uploaded class: `invokestatic`, or a same-class private instance helper through `invokespecial`. The analyzer validates each call-site member reference, method descriptor, access flags, argument count and JVM category widths before substituting parameter and receiver origins.
 
 Acyclic call chains are summarized recursively up to a fixed depth and call/summary/instruction limits. The resulting report keeps the nested call structure and static field/parameter/calculation origins. A nested helper can therefore reveal that a condition depends on a field read performed several helper calls away, without executing any Java method or evaluating the expression.
 
 Recursive cycles, excessive call depth, virtual/interface/dynamic dispatch, inherited or cross-class calls, branches, loops, exception handlers, writes, object/array operations and unsupported bytecode remain unresolved. A failure in a nested helper also prevents the containing helper from being reported as resolved.
 
-**Important boundary:** this is bounded static-origin tracing, not execution. It does not retrieve the actual machine value, calculate a runtime result, choose a branch, recover state assignments or update timing, generate Java readers/callbacks, wire events, or connect live GUI telemetry. The plan is exported as \`machine-state-nested-helper-summaries-plan.json\`; unresolved cases remain manual tasks.
+**Important boundary:** this is bounded static-origin tracing, not execution. It does not retrieve the actual machine value, calculate a runtime result, choose a branch, recover state assignments or update timing, generate Java readers/callbacks, wire events, or connect live GUI telemetry. The plan is exported as `machine-state-nested-helper-summaries-plan.json`; unresolved cases remain manual tasks.
 
 ## JVMバイトコード構造検証
 
