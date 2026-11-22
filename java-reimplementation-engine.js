@@ -295,8 +295,6 @@
   ].join("\n");
   return {params,lua:body,descriptor:m.descriptor,controlFlow:(c.branchTargets||[]).length>0,verification};
  }
- function isRestrictedClass(clazz){ return false; }
-
  function role(method){
   const s=(method.name+" "+(method.code&&method.code.invocations||[]).map(x=>(x.owner||"")+"."+x.name).join(" ")).toLowerCase();
   if(/recipe|crafting|smelt/.test(s))return "recipes";
