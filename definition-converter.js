@@ -1,7 +1,6 @@
 /* Converts vanilla-style blockstates/models into documented Zeus block/item registrations. */
 (function(root){
  "use strict";
- const BLOCKED=/(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i;
  const SAFE_ID=/^[a-z0-9_.-]+:[a-z0-9_./-]+$/;
  function q(s){return '"'+String(s).replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/[\r\n\t]/g,c=>c==="\n"?"\\n":c==="\r"?"\\r":"\\t")+'"'}
  function lua(v){if(typeof v==="string")return q(v);if(typeof v==="number"||typeof v==="boolean")return String(v);if(Array.isArray(v))return "{ "+v.map(lua).join(", ")+" }";if(v&&typeof v==="object")return "{ "+Object.keys(v).sort().map(k=>"["+q(k)+"] = "+lua(v[k])).join(", ")+" }";return "nil"}
