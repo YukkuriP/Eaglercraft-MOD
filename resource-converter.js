@@ -1,6 +1,7 @@
 /* Resource indexer for Jar2Zeus. Produces portable metadata; does not invent Zeus APIs. */
 (function(root){
   "use strict";
+  const BLOCKED=/(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i;
   const ID=/^[a-z0-9_.-]+:[a-z0-9_./-]+$/;
   function safePath(p){return typeof p==="string"&&!p.startsWith("/")&&!p.includes("\\")&&!p.split("/").some(x=>x===".."||x===".");}
   const PNG_SIGNATURE=[137,80,78,71,13,10,26,10];
