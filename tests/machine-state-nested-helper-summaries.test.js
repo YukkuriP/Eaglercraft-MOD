@@ -169,3 +169,14 @@ test("rechecks cached helper depth when the same helper is reached from a deeper
  assert.equal(values[1].resolutionStatus,"unresolved");
  assert.equal(values[1].resolutionReason,"nested-helper-depth-limit-exceeded");
 });
+
+
+test("enforces the aggregate helper-instruction budget before analysis",()=>{
+ const root=method("small","()I",0x0008,[ins("iconst_1",0),ins("ireturn",1)]);
+ const report=analyzer.analyze(fixture({root}),{totalInstructionLimit:1});
+ const value=valueOf(report);
+ assert.equal(value.resolutionStatus,"unresolved");
+ assert.equal(value.resolutionReason,"aggregate-helper-instruction-budget-exceeded");
+ assert.equal(report.totals.helperInstructionsBudgeted,0);
+ assert.equal(report.totals.detailsTruncated,true);
+});
