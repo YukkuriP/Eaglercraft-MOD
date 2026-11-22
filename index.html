@@ -168,14 +168,14 @@ $("analyze").onclick=async function(){
    if(/\.class$/i.test(gn)){
     ge.classInfo=window.Jar2ZeusBytecode.parse(await go.async("uint8array"));
     if(ge.classInfo.valid)javaClassRecords.push(ge.classInfo);
-   }else if(/^data\/[a-z0-9_.-]+\/(?:recipe|recipes)\/.+\.json$/i.test(gn)&&true){
+   }else if(/^data\/[a-z0-9_.-]+\/(?:recipe|recipes)\/.+\.json$/i.test(gn) ){
     ge.recipeJson=true;
     if(ge.size>2*1024*1024||recipeJsonBytesRead+ge.size>64*1024*1024){
      ge.recipeReadError=true;ge.recipeReadErrorReason=ge.size>2*1024*1024?"single recipe JSON exceeds 2 MiB analysis cap":"aggregate recipe JSON exceeds 64 MiB analysis cap";
     }else{
      try{ge.content=await go.async("string");recipeJsonBytesRead+=ge.size}catch(err){ge.recipeReadError=true;ge.recipeReadErrorReason="recipe JSON could not be read";}
     }
-   }else if(/^(?:assets|data)\/[a-z0-9_.-]+\/(?:gui|guis|screen|screens|menu|menus|container|containers)\/.+\.json$/i.test(gn)&&!/(?:cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident)/i.test(gn)){
+   }else if(/^(?:assets|data)\/[a-z0-9_.-]+\/(?:gui|guis|screen|screens|menu|menus|container|containers)\/.+\.json$/i.test(gn)){
     ge.guiJson=true;
     if(ge.size>512*1024||guiJsonBytesRead+ge.size>16*1024*1024){
      ge.guiJsonReadError=true;ge.guiJsonReadErrorReason=ge.size>512*1024?"single GUI JSON exceeds 512 KiB inspection cap":"aggregate GUI JSON exceeds 16 MiB inspection cap";
@@ -319,7 +319,6 @@ $("build").onclick=async function(){
  }
  if(!addPackageFile("metadata.json",JSON.stringify(meta,null,2),true))throw Error("metadata.jsonを作成できません");
  if(!addPackageFile("archive-preflight-report.json",JSON.stringify(archivePreflightReport,null,2),true))throw Error("archive-preflight-report.jsonを作成できません");
- var restricted=/cannon|artillery|projectile|munition|firearm|weapon|rifle|pistol|musket|sword|bow|crossbow|trident/i;
  var recipeEntries=[],resourceEntries=[];
  for(var n in jarZip.files){var obj=jarZip.files[n];if(!obj.dir&&/^data\/[a-z0-9_.-]+\/recipes?\/.+\.json$/i.test(n)){try{recipeEntries.push({path:n,content:await obj.async("string")})}catch(err){}}}
  var copied=0;
